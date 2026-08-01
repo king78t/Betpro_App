@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -50,6 +52,15 @@ fun UserDepositScreen(
     var amountText by remember { mutableStateOf("") }
     var senderAccount by remember { mutableStateOf(u.mobileNumber) }
     var referenceText by remember { mutableStateOf("") }
+    var screenshotUri by remember { mutableStateOf("") }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            screenshotUri = uri.toString()
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -323,10 +334,68 @@ fun UserDepositScreen(
                     )
                 )
 
+                // Screenshot Image Attachment Option
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { imagePickerLauncher.launch("image/*") },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (screenshotUri.isNotBlank()) BPGreenLight else Slate100
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (screenshotUri.isNotBlank()) BPGreenPrimary else Slate300
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = if (screenshotUri.isNotBlank()) Icons.Default.CheckCircle else Icons.Default.AddPhotoAlternate,
+                                contentDescription = "Screenshot",
+                                tint = if (screenshotUri.isNotBlank()) BPGreenPrimary else Slate700
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = if (screenshotUri.isNotBlank()) "Screenshot Attached" else "Upload Payment Screenshot (Optional)",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Slate900
+                                )
+                                Text(
+                                    text = if (screenshotUri.isNotBlank()) "Tap to replace screenshot proof" else "Tap to select image from gallery",
+                                    fontSize = 11.sp,
+                                    color = Slate500
+                                )
+                            }
+                        }
+                        if (screenshotUri.isNotBlank()) {
+                            IconButton(onClick = { screenshotUri = "" }) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Remove",
+                                    tint = Color.Red
+                                )
+                            }
+                        }
+                    }
+                }
+
                 Button(
                     onClick = {
                         val amt = amountText.toDoubleOrNull() ?: 0.0
-                        viewModel.submitDepositRequest(amt, referenceText.ifBlank { "TRX-${System.currentTimeMillis()}" })
+                        viewModel.submitDepositRequest(
+                            amount = amt,
+                            reference = referenceText.ifBlank { "TRX-${System.currentTimeMillis()}" },
+                            screenshotUri = screenshotUri
+                        )
                     },
                     modifier = Modifier
                         .fillMaxWidth()

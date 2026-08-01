@@ -102,6 +102,8 @@ fun AdminUsersCrmScreen(
         matchesSearch && matchesCurr && matchesStatus
     }
 
+    var showDrawer by remember { mutableStateOf(false) }
+
     if (selectedUserForCreds != null) {
         SetBetProCredsDialog(
             user = selectedUserForCreds!!,
@@ -112,23 +114,19 @@ fun AdminUsersCrmScreen(
         )
     }
 
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        topBar = {
-            AdminTopBar(
-                title = "ADMIN • USERS",
-                subtitle = "User Management CRM",
-                currentUser = currentUser,
-                onLogout = { viewModel.logout() }
-            )
-        },
-        bottomBar = {
-            AdminBottomNavBar(
-                currentScreen = ScreenType.ADMIN_USERS_CRM,
-                onNavigate = { viewModel.setScreen(it) }
-            )
-        }
-    ) { innerPadding ->
+    Box(modifier = modifier.fillMaxSize()) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            topBar = {
+                AdminTopBar(
+                    title = "ADMIN / USERS",
+                    subtitle = "User Management CRM",
+                    currentUser = currentUser,
+                    onOpenDrawer = { showDrawer = true },
+                    onLogout = { viewModel.logout() }
+                )
+            }
+        ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -231,6 +229,16 @@ fun AdminUsersCrmScreen(
                 }
             }
         }
+        }
+
+        AdminEnterpriseDrawer(
+            showDrawer = showDrawer,
+            onDismiss = { showDrawer = false },
+            currentScreen = ScreenType.ADMIN_USERS_CRM,
+            onNavigate = { viewModel.setScreen(it) },
+            currentUser = currentUser,
+            onLogout = { viewModel.logout() }
+        )
     }
 }
 
@@ -347,6 +355,7 @@ fun CrmUserCard(
                 }
             }
         }
+
     }
 }
 
@@ -439,6 +448,8 @@ fun AdminMasterAgentsScreen(
         masters.filter { m -> m.country.equals(currentUser?.country, true) || m.currency.equals(currentUser?.currency, true) }
     }
 
+    var showDrawer by remember { mutableStateOf(false) }
+
     if (showModal) {
         CreateMasterDialog(
             currentUser = currentUser,
@@ -449,23 +460,19 @@ fun AdminMasterAgentsScreen(
         )
     }
 
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        topBar = {
-            AdminTopBar(
-                title = "ADMIN • MASTERS",
-                subtitle = "Master Agents & Partners",
-                currentUser = currentUser,
-                onLogout = { viewModel.logout() }
-            )
-        },
-        bottomBar = {
-            AdminBottomNavBar(
-                currentScreen = ScreenType.ADMIN_MASTER_AGENTS,
-                onNavigate = { viewModel.setScreen(it) }
-            )
-        }
-    ) { innerPadding ->
+    Box(modifier = modifier.fillMaxSize()) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            topBar = {
+                AdminTopBar(
+                    title = "ADMIN / MASTERS",
+                    subtitle = "Master Agents & Partners",
+                    currentUser = currentUser,
+                    onOpenDrawer = { showDrawer = true },
+                    onLogout = { viewModel.logout() }
+                )
+            }
+        ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -528,6 +535,16 @@ fun AdminMasterAgentsScreen(
                 }
             }
         }
+        }
+
+        AdminEnterpriseDrawer(
+            showDrawer = showDrawer,
+            onDismiss = { showDrawer = false },
+            currentScreen = ScreenType.ADMIN_MASTER_AGENTS,
+            onNavigate = { viewModel.setScreen(it) },
+            currentUser = currentUser,
+            onLogout = { viewModel.logout() }
+        )
     }
 }
 
@@ -665,23 +682,21 @@ fun AdminTransactionsScreen(
         }
     }
 
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        topBar = {
-            AdminTopBar(
-                title = "ADMIN • TRANSACTIONS",
-                subtitle = "Pending Deposits & Withdrawals",
-                currentUser = currentUser,
-                onLogout = { viewModel.logout() }
-            )
-        },
-        bottomBar = {
-            AdminBottomNavBar(
-                currentScreen = ScreenType.ADMIN_TRANSACTIONS,
-                onNavigate = { viewModel.setScreen(it) }
-            )
-        }
-    ) { innerPadding ->
+    var showDrawer by remember { mutableStateOf(false) }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            topBar = {
+                AdminTopBar(
+                    title = "ADMIN / TRANSACTIONS",
+                    subtitle = "Pending Deposits & Withdrawals",
+                    currentUser = currentUser,
+                    onOpenDrawer = { showDrawer = true },
+                    onLogout = { viewModel.logout() }
+                )
+            }
+        ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -726,6 +741,16 @@ fun AdminTransactionsScreen(
                 }
             }
         }
+        }
+
+        AdminEnterpriseDrawer(
+            showDrawer = showDrawer,
+            onDismiss = { showDrawer = false },
+            currentScreen = ScreenType.ADMIN_TRANSACTIONS,
+            onNavigate = { viewModel.setScreen(it) },
+            currentUser = currentUser,
+            onLogout = { viewModel.logout() }
+        )
     }
 }
 
@@ -770,6 +795,14 @@ fun AdminTxCard(
                 Text(text = "User: ${tx.userName} (${tx.userEmail})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate700)
                 Text(text = "Gateway: ${tx.gatewayName} | Acc: ${tx.accountNumber}", fontSize = 11.sp, color = Slate500)
                 Text(text = "Ref/Screenshot: ${tx.referenceNumber}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = BPGreenDark)
+                if (tx.screenshotUri.isNotBlank()) {
+                    Text(
+                        text = "📎 Screenshot Proof Attached",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BPGreenPrimary
+                    )
+                }
             }
 
             if (tx.status == "Pending") {

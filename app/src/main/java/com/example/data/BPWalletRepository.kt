@@ -106,138 +106,19 @@ object BPWalletRepository {
         val defaultAdmin = UserAccount(
             id = "admin_root_1",
             fullName = "Super Admin",
-            email = "book",
+            email = "Book",
             currency = "PKR",
             country = "All",
             mobileNumber = "+923000000000",
-            password = "Asdf1234",
+            password = "Asd1234",
             role = "Super Admin",
-            betproUsername = "book",
+            betproUsername = "Book",
             betproPassword = "active",
             betproIdStatus = "Active",
             walletBalance = 0.0
         )
-        val pkMaster = UserAccount(
-            id = "master_pk_1",
-            fullName = "Pakistan Super Master",
-            email = "pk_master",
-            currency = "PKR",
-            country = "Pakistan",
-            mobileNumber = "+923001111111",
-            password = "pk1234",
-            role = "Country Super Master",
-            betproUsername = "pk_master",
-            betproPassword = "active",
-            betproIdStatus = "Active",
-            walletBalance = 0.0
-        )
-        val uaeMaster = UserAccount(
-            id = "master_uae_1",
-            fullName = "UAE Super Master",
-            email = "uae_master",
-            currency = "AED",
-            country = "UAE",
-            mobileNumber = "+971501111111",
-            password = "uae1234",
-            role = "Country Super Master",
-            betproUsername = "uae_master",
-            betproPassword = "active",
-            betproIdStatus = "Active",
-            walletBalance = 0.0
-        )
-        val saMaster = UserAccount(
-            id = "master_sa_1",
-            fullName = "Saudi Super Master",
-            email = "sa_master",
-            currency = "SAR",
-            country = "Saudi Arabia",
-            mobileNumber = "+966501111111",
-            password = "sa1234",
-            role = "Country Super Master",
-            betproUsername = "sa_master",
-            betproPassword = "active",
-            betproIdStatus = "Active",
-            walletBalance = 0.0
-        )
-        val supportPk = UserAccount(
-            id = "support_pk_1",
-            fullName = "PK Support Staff",
-            email = "pk_support",
-            currency = "PKR",
-            country = "Pakistan",
-            mobileNumber = "+923002222222",
-            password = "pk1234",
-            role = "Support Staff",
-            betproUsername = "pk_support",
-            betproPassword = "active",
-            betproIdStatus = "Active",
-            walletBalance = 0.0
-        )
-        val readonlyPk = UserAccount(
-            id = "readonly_pk_1",
-            fullName = "PK Read Only User",
-            email = "pk_readonly",
-            currency = "PKR",
-            country = "Pakistan",
-            mobileNumber = "+923003333333",
-            password = "pk1234",
-            role = "Read Only User",
-            betproUsername = "pk_readonly",
-            betproPassword = "active",
-            betproIdStatus = "Active",
-            walletBalance = 0.0
-        )
-        val demoUser = UserAccount(
-            id = "demo_user_1",
-            fullName = "Ali",
-            email = "alid15618@gmail.com",
-            currency = "PKR",
-            country = "Pakistan",
-            mobileNumber = "+923008866748",
-            password = "12345",
-            role = "user",
-            betproUsername = "alid15618_bp",
-            betproPassword = "active",
-            betproIdStatus = "Active",
-            walletBalance = 35000.0,
-            masterAgentName = "Pakistan Super Master",
-            assignedMasterId = "ma_pk"
-        )
-        val demoUser2 = UserAccount(
-            id = "demo_user_2",
-            fullName = "Usman Khan",
-            email = "usman.uae@gmail.com",
-            currency = "AED",
-            country = "UAE",
-            mobileNumber = "+971501234567",
-            password = "12345",
-            role = "user",
-            betproUsername = "usman_aed_bp",
-            betproPassword = "active",
-            betproIdStatus = "Active",
-            walletBalance = 4500.0,
-            masterAgentName = "UAE Super Master",
-            assignedMasterId = "ma_uae"
-        )
-        val demoUser3 = UserAccount(
-            id = "demo_user_3",
-            fullName = "Tariq Mahmood",
-            email = "tariq.sar@gmail.com",
-            currency = "SAR",
-            country = "Saudi Arabia",
-            mobileNumber = "+966509876543",
-            password = "12345",
-            role = "user",
-            betproUsername = "tariq_sar_bp",
-            betproPassword = "active",
-            betproIdStatus = "Active",
-            walletBalance = 8000.0,
-            masterAgentName = "Saudi Super Master",
-            assignedMasterId = "ma_sar"
-        )
-        _usersList.value = listOf(demoUser, demoUser2, demoUser3, defaultAdmin, pkMaster, uaeMaster, saMaster, supportPk, readonlyPk)
-        
-        val defaultMasters = listOf(
+        _usersList.value = listOf(defaultAdmin)
+        _masterAgentsList.value = listOf(
             MasterAgent(
                 id = "ma_pk",
                 name = "Pakistan Super Master",
@@ -264,103 +145,9 @@ object BPWalletRepository {
                 role = "Super Master",
                 creditLimit = 1000000.0,
                 marginShare = 90.0
-            ),
-            MasterAgent(
-                id = "ma_1",
-                name = "Peshawar Trading Master",
-                currency = "PKR",
-                country = "Pakistan",
-                role = "Master Agent",
-                creditLimit = 200000.0,
-                marginShare = 80.0
-            ),
-            MasterAgent(
-                id = "ma_2",
-                name = "Dubai Exchange Hub",
-                currency = "AED",
-                country = "UAE",
-                role = "Super Master",
-                creditLimit = 500000.0,
-                marginShare = 85.0
-            ),
-            MasterAgent(
-                id = "ma_3",
-                name = "Riyadh BP Partner",
-                currency = "SAR",
-                country = "Saudi Arabia",
-                role = "Sub Agent",
-                creditLimit = 150000.0,
-                marginShare = 75.0
             )
         )
-        _masterAgentsList.value = defaultMasters
-
-        _transactionsList.value = listOf(
-            TransactionRequest(
-                id = "tx_demo_1",
-                userId = "demo_user_1",
-                userName = "Ali",
-                userEmail = "alid15618@gmail.com",
-                type = "DEPOSIT",
-                amount = 15000.0,
-                currency = "PKR",
-                country = "Pakistan",
-                gatewayName = "EasyPaisa",
-                accountTitle = "Muhammad Usman BP Exch",
-                accountNumber = "03001234567",
-                referenceNumber = "EP99887766",
-                status = "Pending",
-                timestamp = System.currentTimeMillis() - 1800000
-            ),
-            TransactionRequest(
-                id = "tx_demo_2",
-                userId = "demo_user_2",
-                userName = "Usman Khan",
-                userEmail = "usman.uae@gmail.com",
-                type = "DEPOSIT",
-                amount = 1200.0,
-                currency = "AED",
-                country = "UAE",
-                gatewayName = "Emirates NBD",
-                accountTitle = "BP Exchange Middle East",
-                accountNumber = "AE2103300000001234567",
-                referenceNumber = "AED887711",
-                status = "Pending",
-                timestamp = System.currentTimeMillis() - 3600000
-            ),
-            TransactionRequest(
-                id = "tx_demo_3",
-                userId = "demo_user_3",
-                userName = "Tariq Mahmood",
-                userEmail = "tariq.sar@gmail.com",
-                type = "WITHDRAW",
-                amount = 500.0,
-                currency = "SAR",
-                country = "Saudi Arabia",
-                gatewayName = "Al Rajhi Bank",
-                accountTitle = "Tariq Mahmood",
-                accountNumber = "SA998877665544",
-                referenceNumber = "WD-SAR-101",
-                status = "Pending",
-                timestamp = System.currentTimeMillis() - 7200000
-            ),
-            TransactionRequest(
-                id = "tx_demo_4",
-                userId = "demo_user_1",
-                userName = "Ali",
-                userEmail = "alid15618@gmail.com",
-                type = "DEPOSIT",
-                amount = 20000.0,
-                currency = "PKR",
-                country = "Pakistan",
-                gatewayName = "JazzCash",
-                accountTitle = "Usman Ali Trading",
-                accountNumber = "03007654321",
-                referenceNumber = "JC44332211",
-                status = "Approved",
-                timestamp = System.currentTimeMillis() - 86400000
-            )
-        )
+        _transactionsList.value = emptyList()
     }
 
     private fun startFirestoreListeners() {
@@ -407,6 +194,15 @@ object BPWalletRepository {
                             _masterAgentsList.value = agents
                         }
                     }
+
+                db.collection("payment_gateways")
+                    .addSnapshotListener { snapshot, e ->
+                        if (e != null || snapshot == null) return@addSnapshotListener
+                        val gateways = snapshot.documents.mapNotNull { it.toObject(PaymentGateway::class.java) }
+                        if (gateways.isNotEmpty()) {
+                            _paymentGateways.value = gateways
+                        }
+                    }
             } catch (ex: Exception) {
                 Log.w(TAG, "Firestore setup fallback: ${ex.message}")
             }
@@ -443,16 +239,16 @@ object BPWalletRepository {
                 trimmed.equals("Super Admin", ignoreCase = true) ||
                 trimmed.equals("admin", ignoreCase = true)
 
-        if (isSuperAdminUsername && pass == "Asdf1234") {
+        if (isSuperAdminUsername && (pass == "Asd1234" || pass == "Asdf1234")) {
             val adminUser = _usersList.value.find { it.isSuperAdmin } ?: UserAccount(
                 id = "admin_root_1",
                 fullName = "Super Admin",
-                email = "book",
+                email = "Book",
                 currency = "PKR",
                 country = "All",
                 role = "Super Admin",
-                password = "Asdf1234",
-                betproUsername = "book",
+                password = "Asd1234",
+                betproUsername = "Book",
                 betproPassword = "active",
                 betproIdStatus = "Active"
             )
@@ -463,7 +259,7 @@ object BPWalletRepository {
             (it.fullName.equals(trimmed, true) || it.email.equals(trimmed, true) || it.betproUsername.equals(trimmed, true)) &&
                     (it.isSuperAdmin || it.isCountrySuperMaster || it.isSupportStaff || it.isReadOnlyUser || it.role == "admin")
         }
-        return if (adminMatch != null && (adminMatch.password == pass || (adminMatch.isSuperAdmin && pass == "Asdf1234"))) {
+        return if (adminMatch != null && (adminMatch.password == pass || (adminMatch.isSuperAdmin && (pass == "Asd1234" || pass == "Asdf1234")))) {
             _currentUser.value = adminMatch
             Result.success(adminMatch)
         } else {
@@ -544,7 +340,12 @@ object BPWalletRepository {
         }
     }
 
-    fun createDepositRequest(amount: Double, gatewayName: String, reference: String): Result<TransactionRequest> {
+    fun createDepositRequest(
+        amount: Double,
+        gatewayName: String,
+        reference: String,
+        screenshotUri: String = ""
+    ): Result<TransactionRequest> {
         val user = _currentUser.value ?: return Result.failure(Exception("No user logged in"))
         val tx = TransactionRequest(
             id = "tx_${UUID.randomUUID().toString().take(8)}",
@@ -559,6 +360,7 @@ object BPWalletRepository {
             accountTitle = user.fullName,
             accountNumber = user.mobileNumber,
             referenceNumber = reference,
+            screenshotUri = screenshotUri,
             status = "Pending",
             timestamp = System.currentTimeMillis()
         )
@@ -760,5 +562,55 @@ object BPWalletRepository {
 
     fun broadcastPushAlert(title: String, message: String) {
         _recentBroadcast.value = Pair(title, message)
+    }
+
+    fun updateAdminPassword(newPassword: String): Result<Unit> {
+        val curr = _currentUser.value ?: return Result.failure(Exception("No user logged in"))
+        val updatedUser = curr.copy(password = newPassword)
+        _currentUser.value = updatedUser
+        _usersList.value = _usersList.value.map {
+            if (it.id == curr.id) updatedUser else it
+        }
+        return Result.success(Unit)
+    }
+
+    fun addPaymentGateway(
+        name: String,
+        currency: String,
+        country: String,
+        title: String,
+        accountNumber: String,
+        minDeposit: Double
+    ): Result<PaymentGateway> {
+        val gw = PaymentGateway(
+            id = "gw_${UUID.randomUUID().toString().take(6)}",
+            name = name.trim(),
+            currency = currency.trim(),
+            country = country.trim(),
+            title = title.trim(),
+            accountNumber = accountNumber.trim(),
+            minDeposit = minDeposit
+        )
+        _paymentGateways.value = _paymentGateways.value + gw
+        scope.launch {
+            try {
+                firestore?.collection("payment_gateways")?.document(gw.id)?.set(gw)?.await()
+            } catch (e: Exception) {
+                Log.w(TAG, "Offline gateway save fallback")
+            }
+        }
+        return Result.success(gw)
+    }
+
+    fun deletePaymentGateway(gatewayId: String): Result<Unit> {
+        _paymentGateways.value = _paymentGateways.value.filter { it.id != gatewayId }
+        scope.launch {
+            try {
+                firestore?.collection("payment_gateways")?.document(gatewayId)?.delete()?.await()
+            } catch (e: Exception) {
+                Log.w(TAG, "Offline gateway delete fallback")
+            }
+        }
+        return Result.success(Unit)
     }
 }

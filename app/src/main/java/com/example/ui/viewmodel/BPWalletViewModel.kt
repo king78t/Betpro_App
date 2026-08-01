@@ -24,7 +24,9 @@ enum class ScreenType {
     ADMIN_DASHBOARD,
     ADMIN_USERS_CRM,
     ADMIN_MASTER_AGENTS,
-    ADMIN_TRANSACTIONS
+    ADMIN_TRANSACTIONS,
+    ADMIN_LIVE_CONTROL,
+    ADMIN_SETTINGS
 }
 
 class BPWalletViewModel : ViewModel() {
@@ -46,6 +48,14 @@ class BPWalletViewModel : ViewModel() {
     // Snackbar / Alert message
     private val _snackMessage = MutableStateFlow<String?>(null)
     val snackMessage: StateFlow<String?> = _snackMessage.asStateFlow()
+
+    // Shake animation trigger for failed login attempts / visual feedback
+    private val _errorShakeTrigger = MutableStateFlow(0)
+    val errorShakeTrigger: StateFlow<Int> = _errorShakeTrigger.asStateFlow()
+
+    fun triggerErrorShake() {
+        _errorShakeTrigger.value += 1
+    }
 
     // Deposit flow state
     private val _selectedDepositGateway = MutableStateFlow<PaymentGateway?>(null)
@@ -94,21 +104,33 @@ class BPWalletViewModel : ViewModel() {
     }
 
     fun loginUser(emailOrPhone: String, pass: String) {
+        if (emailOrPhone.isBlank() || pass.isBlank()) {
+            triggerErrorShake()
+            showSnack("Please enter email/phone and password")
+            return
+        }
         val result = BPWalletRepository.loginUser(emailOrPhone, pass)
         result.onSuccess { user ->
             showSnack("Welcome Back, ${user.fullName}!")
             setScreen(ScreenType.USER_HOME)
         }.onFailure { err ->
+            triggerErrorShake()
             showSnack(err.message ?: "Login failed")
         }
     }
 
     fun loginAdmin(username: String, pass: String) {
+        if (username.isBlank() || pass.isBlank()) {
+            triggerErrorShake()
+            showSnack("Please enter admin username and password")
+            return
+        }
         val result = BPWalletRepository.loginAdmin(username, pass)
         result.onSuccess { admin ->
             showSnack("Admin logged in successfully! Welcome ${admin.fullName}")
             setScreen(ScreenType.ADMIN_DASHBOARD)
         }.onFailure { err ->
+            triggerErrorShake()
             showSnack(err.message ?: "Admin login failed")
         }
     }
@@ -121,6 +143,7 @@ class BPWalletViewModel : ViewModel() {
         pass: String
     ) {
         if (fullName.isBlank() || email.isBlank() || mobileNumber.isBlank() || pass.isBlank()) {
+            triggerErrorShake()
             showSnack("Please fill in all required fields.")
             return
         }
@@ -130,6 +153,7 @@ class BPWalletViewModel : ViewModel() {
                 showSnack("Success! Account created in $currency with Mobile $mobileNumber")
                 setScreen(ScreenType.USER_HOME)
             }.onFailure { err ->
+                triggerErrorShake()
                 showSnack("Registration error: ${err.message}")
             }
         }
@@ -146,7 +170,7 @@ class BPWalletViewModel : ViewModel() {
         _selectedDepositGateway.value = gateway
     }
 
-    fun submitDepositRequest(amount: Double, reference: String) {
+    fun submitDepositRequest(amount: Double, reference: String, screenshotUri: String = "") {
         val gw = _selectedDepositGateway.value
         if (gw == null) {
             showSnack("Please select a payment gateway first")
@@ -156,7 +180,7 @@ class BPWalletViewModel : ViewModel() {
             showSnack("Minimum deposit for ${gw.name} is Rs ${gw.minDeposit.toInt()}")
             return
         }
-        val result = BPWalletRepository.createDepositRequest(amount, gw.name, reference)
+        val result = BPWalletRepository.createDepositRequest(amount, gw.name, reference, screenshotUri)
         result.onSuccess {
             showSnack("Deposit Request of Rs ${amount.toInt()} submitted! Awaiting Admin approval.")
             _selectedDepositGateway.value = null
@@ -201,6 +225,31 @@ class BPWalletViewModel : ViewModel() {
             showSnack("${tx.type} rejected.")
         }.onFailure { err ->
             showSnack(err.message ?: "Rejection failed.")
+        }
+    }
+
+    fun addPaymentGateway(
+        name: String,
+        currency: String,
+        country: String,
+        title: String,
+        accountNumber: String,
+        minDeposit: Double
+    ) {
+        val res = BPWalletRepository.addPaymentGateway(name, currency, country, title, accountNumber, minDeposit)
+        res.onSuccess {
+            showSnack("Payment Gateway added successfully!")
+        }.onFailure { err ->
+            showSnack(err.message ?: "Failed to add gateway")
+        }
+    }
+
+    fun deletePaymentGateway(gatewayId: String) {
+        val res = BPWalletRepository.deletePaymentGateway(gatewayId)
+        res.onSuccess {
+            showSnack("Payment Gateway removed.")
+        }.onFailure { err ->
+            showSnack(err.message ?: "Failed to remove gateway")
         }
     }
 
@@ -280,5 +329,18 @@ class BPWalletViewModel : ViewModel() {
     fun seedDemoDepositRequest() {
         BPWalletRepository.createDepositRequest(1500.0, "EasyPaisa", "EPX-99881122")
         showSnack("Demo Deposit request created!")
+    }
+
+    fun updateAdminPassword(newPassword: String) {
+        if (newPassword.isBlank() || newPassword.length < 4) {
+            showSnack("Password must be at least 4 characters")
+            return
+        }
+        val result = BPWalletRepository.updateAdminPassword(newPassword)
+        result.onSuccess {
+            showSnack("Admin / SuperAdmin password updated successfully!")
+        }.onFailure {
+            showSnack("Failed to update password: ${it.message}")
+        }
     }
 }

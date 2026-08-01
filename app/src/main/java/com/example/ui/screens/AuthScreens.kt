@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,8 +27,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import com.example.ui.components.BPTabSwitcher
 import com.example.ui.components.BPWalletLogo
 import com.example.ui.components.CurrencyCard
@@ -41,10 +44,23 @@ fun LoginScreen(
     modifier: Modifier = Modifier
 ) {
     val isUserTab by viewModel.isUserLoginTab.collectAsState()
+    val errorShakeTrigger by viewModel.errorShakeTrigger.collectAsState()
+    val shakeOffsetX = remember { Animatable(0f) }
+
+    LaunchedEffect(errorShakeTrigger) {
+        if (errorShakeTrigger > 0) {
+            for (i in 0..2) {
+                shakeOffsetX.animateTo(24f, animationSpec = tween(50, easing = LinearEasing))
+                shakeOffsetX.animateTo(-24f, animationSpec = tween(50, easing = LinearEasing))
+            }
+            shakeOffsetX.animateTo(0f, animationSpec = tween(50, easing = LinearEasing))
+        }
+    }
+
     var emailOrPhone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var adminUsername by remember { mutableStateOf("admin") }
-    var adminPassword by remember { mutableStateOf("admin") }
+    var adminUsername by remember { mutableStateOf("Book") }
+    var adminPassword by remember { mutableStateOf("") }
     var rememberMe by remember { mutableStateOf(true) }
     var passwordVisible by remember { mutableStateOf(false) }
 
@@ -120,6 +136,7 @@ fun LoginScreen(
         // Main Frosted Glass Card
         Card(
             modifier = Modifier
+                .offset { IntOffset(x = shakeOffsetX.value.roundToInt(), y = 0) }
                 .fillMaxWidth()
                 .widthIn(max = 440.dp)
                 .padding(horizontal = 16.dp, vertical = 24.dp)
@@ -186,7 +203,7 @@ fun LoginScreen(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = if (isUserTab) "Please sign in to continue" else "Enter admin credentials to continue",
+                    text = if (isUserTab) "Please login to continue" else "Enter admin credentials to continue",
                     fontSize = 15.sp,
                     color = Slate500
                 )
@@ -256,9 +273,9 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Green Sign In Button (same exact design style as image!)
+                    // Green Login Button (same exact design style as image!)
                     GlassLoginButton(
-                        text = "Sign In",
+                        text = "Login",
                         onClick = {
                             viewModel.loginUser(emailOrPhone, password)
                         }
@@ -348,7 +365,7 @@ fun LoginScreen(
 
                     // Exactly the SAME COLOR and STYLE green button as User Login page!
                     GlassLoginButton(
-                        text = "Admin Sign In",
+                        text = "Admin Login",
                         onClick = {
                             viewModel.loginAdmin(adminUsername, adminPassword)
                         }
@@ -496,6 +513,19 @@ fun RegisterScreen(
     viewModel: BPWalletViewModel,
     modifier: Modifier = Modifier
 ) {
+    val errorShakeTrigger by viewModel.errorShakeTrigger.collectAsState()
+    val shakeOffsetX = remember { Animatable(0f) }
+
+    LaunchedEffect(errorShakeTrigger) {
+        if (errorShakeTrigger > 0) {
+            for (i in 0..2) {
+                shakeOffsetX.animateTo(24f, animationSpec = tween(50, easing = LinearEasing))
+                shakeOffsetX.animateTo(-24f, animationSpec = tween(50, easing = LinearEasing))
+            }
+            shakeOffsetX.animateTo(0f, animationSpec = tween(50, easing = LinearEasing))
+        }
+    }
+
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var selectedCurrency by remember { mutableStateOf("PKR") }
@@ -513,6 +543,7 @@ fun RegisterScreen(
     ) {
         Card(
             modifier = Modifier
+                .offset { IntOffset(x = shakeOffsetX.value.roundToInt(), y = 0) }
                 .fillMaxWidth()
                 .widthIn(max = 460.dp)
                 .verticalScroll(rememberScrollState()),

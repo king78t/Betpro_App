@@ -81,9 +81,11 @@ fun BPWalletApp(
                 ScreenType.USER_HISTORY -> UserHistoryScreen(viewModel = viewModel)
                 ScreenType.USER_PROFILE -> UserProfileScreen(viewModel = viewModel)
                 ScreenType.ADMIN_DASHBOARD -> AdminDashboardScreen(viewModel = viewModel)
+                ScreenType.ADMIN_LIVE_CONTROL -> AdminLiveControlScreen(viewModel = viewModel)
                 ScreenType.ADMIN_USERS_CRM -> AdminUsersCrmScreen(viewModel = viewModel)
                 ScreenType.ADMIN_MASTER_AGENTS -> AdminMasterAgentsScreen(viewModel = viewModel)
                 ScreenType.ADMIN_TRANSACTIONS -> AdminTransactionsScreen(viewModel = viewModel)
+                ScreenType.ADMIN_SETTINGS -> AdminSettingsScreen(viewModel = viewModel)
             }
         }
     }

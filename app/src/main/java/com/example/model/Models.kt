@@ -1,17 +1,33 @@
 package com.example.model
 
 object CountryUtils {
-    val ALL_COUNTRIES = listOf("Pakistan", "UAE", "Saudi Arabia")
+    val ALL_COUNTRIES = listOf(
+        "Pakistan",
+        "India",
+        "Bangladesh",
+        "UAE",
+        "Saudi Arabia",
+        "United Kingdom",
+        "Global/Crypto"
+    )
     
     fun getCountryForCurrency(currency: String): String = when (currency.uppercase()) {
         "AED" -> "UAE"
         "SAR" -> "Saudi Arabia"
+        "INR" -> "India"
+        "BDT" -> "Bangladesh"
+        "GBP" -> "United Kingdom"
+        "USD", "USDT" -> "Global/Crypto"
         else -> "Pakistan"
     }
 
     fun getCurrencyForCountry(country: String): String = when (country) {
         "UAE" -> "AED"
         "Saudi Arabia" -> "SAR"
+        "India" -> "INR"
+        "Bangladesh" -> "BDT"
+        "United Kingdom" -> "GBP"
+        "Global/Crypto" -> "USDT"
         else -> "PKR"
     }
 }
@@ -38,6 +54,10 @@ data class UserAccount(
             "PKR" -> "Rs "
             "AED" -> "AED "
             "SAR" -> "SAR "
+            "INR" -> "₹ "
+            "BDT" -> "৳ "
+            "GBP" -> "£ "
+            "USDT", "USD" -> "$ "
             else -> "Rs "
         }
 
@@ -75,6 +95,7 @@ data class TransactionRequest(
     val accountTitle: String = "",
     val accountNumber: String = "",
     val referenceNumber: String = "",
+    val screenshotUri: String = "", // Optional screenshot URI or proof image
     val status: String = "Pending", // "Pending", "Approved", "Rejected"
     val timestamp: Long = System.currentTimeMillis()
 )

@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -42,18 +43,28 @@ fun BPLogoIcon(
         modifier = modifier
             .size(sizeDp.dp)
             .shadow(
-                elevation = 12.dp,
+                elevation = 14.dp,
                 shape = RoundedCornerShape(cornerRadius),
                 spotColor = Color(0xFF10B981),
-                ambientColor = Color(0xFF059669)
+                ambientColor = Color(0xFF047857)
             )
             .clip(RoundedCornerShape(cornerRadius))
+            .border(
+                width = 1.dp,
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.75f),
+                        Color.White.copy(alpha = 0.15f)
+                    )
+                ),
+                shape = RoundedCornerShape(cornerRadius)
+            )
             .background(
                 brush = Brush.linearGradient(
                     colors = listOf(
-                        Color(0xFF6EF3C2), // Bright mint green top-left
-                        Color(0xFF34DA9B), // Vibrant mint green middle
-                        Color(0xFF23C885)  // Rich mint green bottom-right
+                        Color(0xFF78F5C9), // Bright HD luminous mint top-left
+                        Color(0xFF42E4A8), // Vibrant emerald mint middle
+                        Color(0xFF15B874)  // Deep rich emerald bottom-right
                     )
                 )
             ),
@@ -63,40 +74,78 @@ fun BPLogoIcon(
             val w = size.width
             val h = size.height
 
+            // 1. HD Glass Specular Sheen (Top Gloss Highlight)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.35f),
+                        Color.White.copy(alpha = 0.0f)
+                    ),
+                    center = Offset(w * 0.3f, h * 0.2f),
+                    radius = w * 0.65f
+                ),
+                center = Offset(w * 0.3f, h * 0.2f),
+                radius = w * 0.65f
+            )
+
+            // 2. Mathematically refined sleek bold italic 'b' path matching HD logo
             val bPath = Path().apply {
                 fillType = PathFillType.EvenOdd
 
                 // Outer contour of bold sleek italic 'b'
-                moveTo(0.26f * w, 0.77f * h)
-                cubicTo(0.30f * w, 0.70f * h, 0.44f * w, 0.38f * h, 0.52f * w, 0.20f * h)
-                cubicTo(0.54f * w, 0.16f * h, 0.59f * w, 0.18f * h, 0.58f * w, 0.23f * h)
-                cubicTo(0.54f * w, 0.32f * h, 0.50f * w, 0.40f * h, 0.47f * w, 0.45f * h)
-                cubicTo(0.62f * w, 0.38f * h, 0.77f * w, 0.42f * h, 0.80f * w, 0.56f * h)
-                cubicTo(0.83f * w, 0.69f * h, 0.73f * w, 0.78f * h, 0.58f * w, 0.78f * h)
-                cubicTo(0.44f * w, 0.78f * h, 0.32f * w, 0.81f * h, 0.26f * w, 0.77f * h)
+                moveTo(0.25f * w, 0.77f * h)
+                cubicTo(0.29f * w, 0.70f * h, 0.44f * w, 0.38f * h, 0.52f * w, 0.20f * h)
+                cubicTo(0.54f * w, 0.16f * h, 0.60f * w, 0.18f * h, 0.58f * w, 0.24f * h)
+                cubicTo(0.54f * w, 0.33f * h, 0.50f * w, 0.41f * h, 0.47f * w, 0.46f * h)
+                cubicTo(0.63f * w, 0.38f * h, 0.79f * w, 0.42f * h, 0.82f * w, 0.57f * h)
+                cubicTo(0.85f * w, 0.70f * h, 0.74f * w, 0.80f * h, 0.58f * w, 0.80f * h)
+                cubicTo(0.44f * w, 0.80f * h, 0.31f * w, 0.82f * h, 0.25f * w, 0.77f * h)
                 close()
 
                 // Inner hole (counter) contour of 'b'
-                moveTo(0.58f * w, 0.47f * h)
-                cubicTo(0.68f * w, 0.47f * h, 0.71f * w, 0.60f * h, 0.61f * w, 0.67f * h)
-                cubicTo(0.53f * w, 0.72f * h, 0.45f * w, 0.66f * h, 0.46f * w, 0.57f * h)
-                cubicTo(0.47f * w, 0.50f * h, 0.51f * w, 0.47f * h, 0.58f * w, 0.47f * h)
+                moveTo(0.58f * w, 0.48f * h)
+                cubicTo(0.68f * w, 0.48f * h, 0.71f * w, 0.61f * h, 0.61f * w, 0.68f * h)
+                cubicTo(0.53f * w, 0.73f * h, 0.45f * w, 0.67f * h, 0.46f * w, 0.58f * h)
+                cubicTo(0.47f * w, 0.51f * h, 0.51f * w, 0.48f * h, 0.58f * w, 0.48f * h)
                 close()
             }
 
-            // Draw subtle shadow behind the 'b' (like in the image)
-            val shadowOffset = (sizeDp * 0.035f).dp.toPx()
-            translate(left = shadowOffset, top = shadowOffset * 1.5f) {
+            // 3. HD Multi-layer Drop Shadow for 3D depth
+            val shadowSoft = (sizeDp * 0.045f).dp.toPx()
+            translate(left = shadowSoft, top = shadowSoft * 1.4f) {
                 drawPath(
                     path = bPath,
-                    color = Color.Black.copy(alpha = 0.22f)
+                    color = Color.Black.copy(alpha = 0.18f)
+                )
+            }
+            val shadowSharp = (sizeDp * 0.022f).dp.toPx()
+            translate(left = shadowSharp, top = shadowSharp * 1.1f) {
+                drawPath(
+                    path = bPath,
+                    color = Color.Black.copy(alpha = 0.28f)
                 )
             }
 
-            // Draw solid rich black 'b'
+            // 4. Subtle 3D Rim Highlight on top-left edge of 'b'
+            translate(left = -1.dp.toPx(), top = -1.dp.toPx()) {
+                drawPath(
+                    path = bPath,
+                    color = Color.White.copy(alpha = 0.25f)
+                )
+            }
+
+            // 5. Solid rich graphite/anodized metallic dark gradient 'b'
             drawPath(
                 path = bPath,
-                color = Color(0xFF111827)
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        Color(0xFF20293A), // Polished dark slate top
+                        Color(0xFF0F172A), // Deep graphite middle
+                        Color(0xFF020617)  // Ultra black graphite bottom
+                    ),
+                    start = Offset(0f, 0f),
+                    end = Offset(w, h)
+                )
             )
         }
     }
