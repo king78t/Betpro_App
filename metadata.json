@@ -1,0 +1,6 @@
+{
+  "name": "BP Wallet",
+  "description": "Official Wallet & Deposit Service with BetPro Exchange integration, multi-currency support, and User/Admin CRM",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
