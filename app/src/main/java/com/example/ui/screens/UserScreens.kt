@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.example.model.PaymentGateway
 import com.example.model.TransactionRequest
 import com.example.model.UserAccount
+import com.example.ui.components.ShimmerDashboardSkeleton
 import com.example.ui.components.StatusBadge
 import com.example.ui.components.WhatsAppHelplineButton
 import com.example.ui.theme.*
@@ -45,6 +46,7 @@ fun UserHomeScreen(
     val allTxs by viewModel.allTransactions.collectAsState()
     val showBetProModal by viewModel.showBetProExchangeModal.collectAsState()
     val whatsappNumber by viewModel.whatsappHelplineNumber.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     val u = user ?: return
     val userTxs = allTxs.filter { it.userId == u.id }
@@ -73,14 +75,21 @@ fun UserHomeScreen(
             )
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+        if (isLoading) {
+            ShimmerDashboardSkeleton(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .padding(16.dp)
+            )
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
             // Cards Row: Total Deposit & Total Withdrawal
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -388,6 +397,7 @@ fun UserHomeScreen(
             )
 
             Spacer(modifier = Modifier.height(20.dp))
+            }
         }
     }
 }

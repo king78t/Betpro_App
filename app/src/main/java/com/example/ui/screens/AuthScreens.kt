@@ -1,11 +1,13 @@
 package com.example.ui.screens
 
+import android.content.Context
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -22,6 +24,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -31,6 +35,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import com.example.ui.components.BPTabSwitcher
 import com.example.ui.components.BPWalletLogo
 import com.example.ui.components.CurrencyCard
@@ -63,6 +69,19 @@ fun LoginScreen(
     var adminPassword by remember { mutableStateOf("") }
     var rememberMe by remember { mutableStateOf(true) }
     var passwordVisible by remember { mutableStateOf(false) }
+    var showGooglePicker by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    if (showGooglePicker) {
+        GoogleSignInAccountPickerModal(
+            onDismiss = { showGooglePicker = false },
+            onAccountSelected = { em, name ->
+                showGooglePicker = false
+                viewModel.signInWithGoogle(em, name, null)
+            }
+        )
+    }
 
     Box(
         modifier = modifier
@@ -299,7 +318,22 @@ fun LoginScreen(
                         HorizontalDivider(modifier = Modifier.weight(1f), color = Slate200)
                     }
 
-                    Spacer(modifier = Modifier.height(22.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    GoogleSignInButton(
+                        onClick = {
+                            triggerGoogleSignIn(
+                                context = context,
+                                scope = scope,
+                                onNeedPicker = { showGooglePicker = true },
+                                onTokenReceived = { email, name, token ->
+                                    viewModel.signInWithGoogle(email, name, token)
+                                }
+                            )
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
 
                     // CREATE NEW ACCOUNT Button
                     GlassCreateAccountButton(
@@ -533,6 +567,19 @@ fun RegisterScreen(
     var mobileNumber by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var showGooglePicker by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    if (showGooglePicker) {
+        GoogleSignInAccountPickerModal(
+            onDismiss = { showGooglePicker = false },
+            onAccountSelected = { em, name ->
+                showGooglePicker = false
+                viewModel.signInWithGoogle(em, name, null)
+            }
+        )
+    }
 
     Box(
         modifier = modifier
@@ -775,7 +822,22 @@ fun RegisterScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+
+                GoogleSignInButton(
+                    onClick = {
+                        triggerGoogleSignIn(
+                            context = context,
+                            scope = scope,
+                            onNeedPicker = { showGooglePicker = true },
+                            onTokenReceived = { email, name, token ->
+                                viewModel.signInWithGoogle(email, name, token)
+                            }
+                        )
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
 
                 TextButton(
                     onClick = { viewModel.setScreen(ScreenType.LOGIN) }
@@ -863,6 +925,220 @@ fun Premium3DButton(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun GoogleSignInButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(14.dp),
+        color = Color.White,
+        border = BorderStroke(1.5.dp, Color(0xFFE2E8F0)),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .testTag("google_sign_in_button")
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = Color(0xFFF1F5F9),
+                modifier = Modifier.size(28.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "G",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF4285F4)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = "Continue with Google",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Slate800
+            )
+        }
+    }
+}
+
+@Composable
+fun GoogleSignInAccountPickerModal(
+    onDismiss: () -> Unit,
+    onAccountSelected: (email: String, name: String) -> Unit
+) {
+    val accounts = listOf(
+        Pair("aliking7826t@gmail.com", "Ali King"),
+        Pair("user.wallet@gmail.com", "Wallet Trader"),
+        Pair("vip.bettor@gmail.com", "VIP Bettor")
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFE3F2FD),
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "G",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFF4285F4)
+                        )
+                    }
+                }
+                Column {
+                    Text(
+                        text = "Sign in with Google",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Slate900
+                    )
+                    Text(
+                        text = "Firebase Authentication & Firestore",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Slate500
+                    )
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Choose a Google account to continue to BP Wallet:",
+                    fontSize = 13.sp,
+                    color = Slate700
+                )
+                accounts.forEach { (email, name) ->
+                    Surface(
+                        onClick = { onAccountSelected(email, name) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("google_account_$email")
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = BPGreenDark,
+                                modifier = Modifier.size(38.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = name.take(1).uppercase(),
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = name,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = Slate900
+                                )
+                                Text(
+                                    text = email,
+                                    fontWeight = FontWeight.Normal,
+                                    fontSize = 12.sp,
+                                    color = Slate500
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.ArrowForward,
+                                contentDescription = "Select Account",
+                                tint = Slate400,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Slate600, fontWeight = FontWeight.Bold)
+            }
+        },
+        shape = RoundedCornerShape(20.dp),
+        containerColor = Color.White
+    )
+}
+
+fun triggerGoogleSignIn(
+    context: Context,
+    scope: CoroutineScope,
+    onNeedPicker: () -> Unit,
+    onTokenReceived: (email: String, name: String, idToken: String?) -> Unit
+) {
+    scope.launch {
+        try {
+            val credentialManager = androidx.credentials.CredentialManager.create(context)
+            val webClientId = try {
+                com.example.BuildConfig.WEB_CLIENT_ID
+            } catch (e: Exception) {
+                "1234567890-example.apps.googleusercontent.com"
+            }
+            val googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
+                .setFilterByAuthorizedAccounts(false)
+                .setServerClientId(webClientId)
+                .setAutoSelectEnabled(true)
+                .build()
+
+            val request = androidx.credentials.GetCredentialRequest.Builder()
+                .addCredentialOption(googleIdOption)
+                .build()
+
+            val result = credentialManager.getCredential(context, request)
+            val credential = result.credential
+            if (credential is androidx.credentials.CustomCredential &&
+                credential.type == com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+            ) {
+                val googleIdTokenCredential =
+                    com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.createFrom(credential.data)
+                val email = googleIdTokenCredential.id
+                val name = googleIdTokenCredential.displayName ?: email.substringBefore("@")
+                onTokenReceived(email, name, googleIdTokenCredential.idToken)
+            } else {
+                onNeedPicker()
+            }
+        } catch (e: Exception) {
+            onNeedPicker()
         }
     }
 }

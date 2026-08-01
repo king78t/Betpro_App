@@ -26,6 +26,7 @@ import com.example.model.MasterAgent
 import com.example.model.PaymentGateway
 import com.example.model.TransactionRequest
 import com.example.model.UserAccount
+import com.example.ui.components.ShimmerDashboardSkeleton
 import com.example.ui.components.StatusBadge
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.BPWalletViewModel
@@ -40,6 +41,7 @@ fun AdminDashboardScreen(
     val transactions by viewModel.allTransactions.collectAsState()
     val masters by viewModel.masterAgents.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     val normalUsers = users.filter { !it.isSuperAdmin && !it.isCountrySuperMaster && !it.isSupportStaff && !it.isReadOnlyUser && it.role != "admin" }
     val countryUsers = if (currentUser?.isSuperAdmin == true || currentUser == null) {
@@ -74,14 +76,17 @@ fun AdminDashboardScreen(
                 )
             }
         ) { innerPadding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
+            if (isLoading) {
+                ShimmerDashboardSkeleton(modifier = Modifier.padding(innerPadding))
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
                 // 1. USERS (Full width card)
                 AdminStatCard(
                     title = "USERS",
@@ -257,6 +262,7 @@ fun AdminDashboardScreen(
                     transactions = countryTxs,
                     onViewAll = { viewModel.setScreen(ScreenType.ADMIN_TRANSACTIONS) }
                 )
+            }
             }
         }
 

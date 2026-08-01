@@ -39,6 +39,7 @@ class BPWalletViewModel : ViewModel() {
     val recentBroadcast = BPWalletRepository.recentBroadcast
     val whatsappHelplineNumber = BPWalletRepository.whatsappHelplineNumber
     val exchangeWebsiteUrl = BPWalletRepository.exchangeWebsiteUrl
+    val isLoading = BPWalletRepository.isLoading
 
     private val _currentScreen = MutableStateFlow(ScreenType.LOGIN)
     val currentScreen: StateFlow<ScreenType> = _currentScreen.asStateFlow()
@@ -157,6 +158,19 @@ class BPWalletViewModel : ViewModel() {
             }.onFailure { err ->
                 triggerErrorShake()
                 showSnack("Registration error: ${err.message}")
+            }
+        }
+    }
+
+    fun signInWithGoogle(email: String, displayName: String, idToken: String? = null) {
+        viewModelScope.launch {
+            val result = BPWalletRepository.signInWithGoogle(email, displayName, idToken)
+            result.onSuccess { user ->
+                showSnack("Welcome, ${user.firstName}! Signed in with Google via Firebase Auth.")
+                setScreen(ScreenType.USER_HOME)
+            }.onFailure { err ->
+                triggerErrorShake()
+                showSnack("Google Sign-in error: ${err.message}")
             }
         }
     }

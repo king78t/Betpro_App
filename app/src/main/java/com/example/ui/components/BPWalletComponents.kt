@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -12,7 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -376,3 +377,81 @@ fun WhatsAppHelplineButton(
         )
     }
 }
+
+@Composable
+fun rememberShimmerBrush(): Brush {
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val translateAnim by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmer_translate"
+    )
+
+    val shimmerColors = listOf(
+        Color(0xFFE2E8F0),
+        Color(0xFFF1F5F9),
+        Color(0xFFE2E8F0)
+    )
+
+    return Brush.linearGradient(
+        colors = shimmerColors,
+        start = Offset.Zero,
+        end = Offset(x = translateAnim, y = translateAnim)
+    )
+}
+
+@Composable
+fun ShimmerDashboardSkeleton(modifier: Modifier = Modifier) {
+    val brush = rememberShimmerBrush()
+    Column(
+        modifier = modifier
+            .fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(130.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(brush)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(95.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(brush)
+            )
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(95.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(brush)
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(150.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(brush)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(110.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(brush)
+        )
+    }
+}
+

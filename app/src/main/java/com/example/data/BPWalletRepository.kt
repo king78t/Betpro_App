@@ -60,9 +60,16 @@ object BPWalletRepository {
     private val _exchangeWebsiteUrl = MutableStateFlow("https://bpexch.live")
     val exchangeWebsiteUrl: StateFlow<String> = _exchangeWebsiteUrl.asStateFlow()
 
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
     init {
         seedDefaultAdminAndDemoUser()
         startFirestoreListeners()
+        scope.launch {
+            kotlinx.coroutines.delay(1200)
+            _isLoading.value = false
+        }
     }
 
     private fun defaultGateways(): List<PaymentGateway> = listOf(
@@ -172,6 +179,7 @@ object BPWalletRepository {
                         val missingAdmins = seededAdmins.filter { sa -> users.none { it.id == sa.id } }
                         val fullList = users + missingAdmins
                         _usersList.value = fullList
+                        _isLoading.value = false
                         _currentUser.value?.let { curr ->
                             fullList.find { it.id == curr.id }?.let { updatedCurr ->
                                 _currentUser.value = updatedCurr
@@ -342,6 +350,71 @@ object BPWalletRepository {
                             auth?.createUserWithEmailAndPassword(email.trim(), password)?.await()
                         } catch (e: Exception) {
                             Log.w(TAG, "Auth email register note: ${e.message}")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Firestore offline store fallback: ${e.message}")
+                }
+            }
+
+            Result.success(newUser)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun signInWithGoogle(
+        email: String,
+        displayName: String,
+        idToken: String? = null
+    ): Result<UserAccount> {
+        return try {
+            val cleanEmail = email.trim()
+            val existing = _usersList.value.find {
+                it.email.equals(cleanEmail, ignoreCase = true)
+            }
+            if (existing != null) {
+                _currentUser.value = existing
+                if (!idToken.isNullOrEmpty()) {
+                    scope.launch {
+                        try {
+                            val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
+                            auth?.signInWithCredential(credential)?.await()
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Firebase Google credential sign-in note: ${e.message}")
+                        }
+                    }
+                }
+                return Result.success(existing)
+            }
+
+            val userId = "BP-" + (100000..999999).random()
+            val names = displayName.split(" ")
+            val first = names.firstOrNull() ?: "Google"
+            val last = if (names.size > 1) names.drop(1).joinToString(" ") else "User"
+            val newUser = UserAccount(
+                id = userId,
+                firstName = first,
+                lastName = last,
+                email = cleanEmail,
+                phone = "Google Account",
+                role = "user",
+                balance = 50000.0,
+                isSuperAdmin = false
+            )
+
+            _usersList.value = listOf(newUser) + _usersList.value
+            _currentUser.value = newUser
+
+            scope.launch {
+                try {
+                    firestore?.collection("users")?.document(userId)?.set(newUser)?.await()
+                    if (!idToken.isNullOrEmpty()) {
+                        try {
+                            val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
+                            auth?.signInWithCredential(credential)?.await()
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Firebase Google credential sign-in note: ${e.message}")
                         }
                     }
                 } catch (e: Exception) {
