@@ -87,6 +87,7 @@ object BPWalletRepository {
     init {
         seedDefaultAdminAndDemoUser()
         startFirestoreListeners()
+        startSupabaseCloudSync()
         scope.launch {
             kotlinx.coroutines.delay(1200)
             _isLoading.value = false
@@ -390,6 +391,74 @@ object BPWalletRepository {
         }
     }
 
+    private fun startSupabaseCloudSync() {
+        scope.launch {
+            try {
+                // 1. Load users from Supabase Cloud Database
+                val cloudUsers = SupabaseCloudManager.loadAllUsers()
+                if (cloudUsers.isNotEmpty()) {
+                    val seededAdmins = _usersList.value.filter { it.isSuperAdmin || it.isCountrySuperMaster || it.isSupportStaff || it.isReadOnlyUser || it.id.startsWith("demo_user") }
+                    val missingAdmins = seededAdmins.filter { sa -> cloudUsers.none { it.id == sa.id } }
+                    val fullList = cloudUsers + missingAdmins
+                    _usersList.value = fullList
+                    _currentUser.value?.let { curr ->
+                        fullList.find { it.id == curr.id }?.let { updatedCurr ->
+                            _currentUser.value = updatedCurr
+                        }
+                    }
+                } else {
+                    for (u in _usersList.value) {
+                        SupabaseCloudManager.syncUser(u)
+                    }
+                }
+
+                // 2. Load transactions from Supabase Cloud Database
+                val cloudTxs = SupabaseCloudManager.loadAllTransactions()
+                if (cloudTxs.isNotEmpty()) {
+                    val currentDemoTxs = _transactionsList.value.filter { it.id.startsWith("tx_demo") }
+                    val missingDemoTxs = currentDemoTxs.filter { dt -> cloudTxs.none { it.id == dt.id } }
+                    _transactionsList.value = cloudTxs + missingDemoTxs
+                }
+
+                // 3. Load payment gateways from Supabase Cloud Database
+                val cloudGateways = SupabaseCloudManager.loadAllGateways()
+                if (cloudGateways.isNotEmpty()) {
+                    _paymentGateways.value = cloudGateways
+                } else {
+                    for (gw in _paymentGateways.value) {
+                        SupabaseCloudManager.syncPaymentGateway(gw)
+                    }
+                }
+
+                // 4. Load master agents from Supabase Cloud Database
+                val cloudAgents = SupabaseCloudManager.loadAllMasterAgents()
+                if (cloudAgents.isNotEmpty()) {
+                    _masterAgentsList.value = cloudAgents
+                } else {
+                    for (ma in _masterAgentsList.value) {
+                        SupabaseCloudManager.syncMasterAgent(ma)
+                    }
+                }
+
+                // 5. Load withdrawal accounts from Supabase Cloud Database
+                val cloudAccounts = SupabaseCloudManager.loadAllWithdrawalAccounts()
+                if (cloudAccounts.isNotEmpty()) {
+                    _userWithdrawalAccounts.value = cloudAccounts
+                }
+
+                // 6. Load settings from Supabase Cloud Database
+                val helpNumber = SupabaseCloudManager.loadSetting("whatsapp_helpline", _whatsappHelplineNumber.value)
+                if (helpNumber.isNotEmpty()) _whatsappHelplineNumber.value = helpNumber
+                val exchUrl = SupabaseCloudManager.loadSetting("exchange_website", _exchangeWebsiteUrl.value)
+                if (exchUrl.isNotEmpty()) _exchangeWebsiteUrl.value = exchUrl
+
+                Log.i(TAG, "Supabase Cloud Database synchronization completed successfully")
+            } catch (e: Exception) {
+                Log.w(TAG, "Note: Supabase Cloud Database offline fallback: ${e.message}")
+            }
+        }
+    }
+
     fun loginUser(emailOrPhone: String, pass: String): Result<UserAccount> {
         val trimmed = emailOrPhone.trim()
         val match = _usersList.value.find {
@@ -503,6 +572,7 @@ object BPWalletRepository {
             // Try Firebase in background if online
             scope.launch {
                 try {
+                    SupabaseCloudManager.syncUser(newUser)
                     firestore?.collection("users")?.document(userId)?.set(newUser)?.await()
                     if (email.contains("@") && password.length >= 6) {
                         try {
@@ -562,6 +632,7 @@ object BPWalletRepository {
 
             scope.launch {
                 try {
+                    SupabaseCloudManager.syncUser(newUser)
                     firestore?.collection("users")?.document(userId)?.set(newUser)?.await()
                     if (!idToken.isNullOrEmpty()) {
                         try {
@@ -619,6 +690,7 @@ object BPWalletRepository {
 
         scope.launch {
             try {
+                SupabaseCloudManager.syncTransaction(tx)
                 firestore?.collection("transactions")?.document(tx.id)?.set(tx)?.await()
             } catch (e: Exception) {
                 Log.w(TAG, "Offline tx save fallback")
@@ -660,6 +732,7 @@ object BPWalletRepository {
 
         scope.launch {
             try {
+                SupabaseCloudManager.syncTransaction(tx)
                 firestore?.collection("transactions")?.document(tx.id)?.set(tx)?.await()
             } catch (e: Exception) {
                 Log.w(TAG, "Offline tx save fallback")
@@ -709,6 +782,8 @@ object BPWalletRepository {
 
         scope.launch {
             try {
+                SupabaseCloudManager.syncUser(updatedUser)
+                SupabaseCloudManager.syncTransaction(updatedTx)
                 firestore?.collection("users")?.document(u.id)?.set(updatedUser)?.await()
                 firestore?.collection("transactions")?.document(txId)?.set(updatedTx)?.await()
             } catch (e: Exception) {
@@ -752,6 +827,7 @@ object BPWalletRepository {
 
         scope.launch {
             try {
+                SupabaseCloudManager.syncTransaction(updatedTx)
                 firestore?.collection("transactions")?.document(txId)?.set(updatedTx)?.await()
             } catch (e: Exception) {
                 Log.w(TAG, "Firestore sync note: ${e.message}")
@@ -789,6 +865,7 @@ object BPWalletRepository {
 
         scope.launch {
             try {
+                SupabaseCloudManager.syncTransaction(updatedTx)
                 firestore?.collection("transactions")?.document(txId)?.set(updatedTx)?.await()
             } catch (e: Exception) {
                 Log.w(TAG, "Firestore sync note: ${e.message}")
@@ -819,6 +896,7 @@ object BPWalletRepository {
 
             scope.launch {
                 try {
+                    SupabaseCloudManager.syncUser(updatedUser)
                     firestore?.collection("users")?.document(userId)?.set(updatedUser)?.await()
                 } catch (e: Exception) {
                     Log.w(TAG, "Firestore sync note: ${e.message}")
@@ -850,6 +928,7 @@ object BPWalletRepository {
         _masterAgentsList.value = listOf(agent) + _masterAgentsList.value
         scope.launch {
             try {
+                SupabaseCloudManager.syncMasterAgent(agent)
                 firestore?.collection("master_agents")?.document(agent.id)?.set(agent)?.await()
             } catch (e: Exception) {
                 Log.w(TAG, "Offline master agent save note")
@@ -869,6 +948,7 @@ object BPWalletRepository {
         _usersList.value = _usersList.value.map {
             if (it.id == curr.id) updatedUser else it
         }
+        scope.launch { SupabaseCloudManager.syncUser(updatedUser) }
         return Result.success(Unit)
     }
 
@@ -879,6 +959,7 @@ object BPWalletRepository {
         _usersList.value = _usersList.value.map {
             if (it.id == curr.id) updatedUser else it
         }
+        scope.launch { SupabaseCloudManager.syncUser(updatedUser) }
         return Result.success(Unit)
     }
 
@@ -888,6 +969,7 @@ object BPWalletRepository {
         _whatsappHelplineNumber.value = clean
         scope.launch {
             try {
+                SupabaseCloudManager.syncSetting("whatsapp_helpline", clean)
                 firestore?.collection("settings")?.document("whatsapp_helpline")
                     ?.set(mapOf("number" to clean))?.await()
             } catch (e: Exception) {
@@ -903,6 +985,7 @@ object BPWalletRepository {
         _exchangeWebsiteUrl.value = clean
         scope.launch {
             try {
+                SupabaseCloudManager.syncSetting("exchange_website", clean)
                 firestore?.collection("settings")?.document("exchange_website")
                     ?.set(mapOf("url" to clean))?.await()
             } catch (e: Exception) {
@@ -932,6 +1015,7 @@ object BPWalletRepository {
         _userWithdrawalAccounts.value = _userWithdrawalAccounts.value + newAcc
         scope.launch {
             try {
+                SupabaseCloudManager.syncWithdrawalAccount(newAcc)
                 firestore?.collection("user_withdrawal_accounts")?.document(newAcc.id)?.set(newAcc)?.await()
             } catch (e: Exception) {
                 Log.w(TAG, "Offline withdrawal acc save fallback")
@@ -962,6 +1046,7 @@ object BPWalletRepository {
         _userWithdrawalAccounts.value = currentList
         scope.launch {
             try {
+                SupabaseCloudManager.syncWithdrawalAccount(updated)
                 firestore?.collection("user_withdrawal_accounts")?.document(id)?.set(updated)?.await()
             } catch (e: Exception) {
                 Log.w(TAG, "Offline withdrawal acc update fallback")
@@ -974,6 +1059,7 @@ object BPWalletRepository {
         _userWithdrawalAccounts.value = _userWithdrawalAccounts.value.filter { it.id != id }
         scope.launch {
             try {
+                SupabaseCloudManager.deleteWithdrawalAccountFromCloud(id)
                 firestore?.collection("user_withdrawal_accounts")?.document(id)?.delete()?.await()
             } catch (e: Exception) {
                 Log.w(TAG, "Offline withdrawal acc delete fallback")
@@ -1024,6 +1110,7 @@ object BPWalletRepository {
         _paymentGateways.value = updatedList
         scope.launch {
             try {
+                SupabaseCloudManager.syncPaymentGateway(newGw)
                 firestore?.collection("payment_gateways")?.document(newGw.id)?.set(newGw)?.await()
             } catch (e: Exception) {
                 Log.w(TAG, "Offline gateway add fallback")
@@ -1073,6 +1160,7 @@ object BPWalletRepository {
         _paymentGateways.value = sortedList
         scope.launch {
             try {
+                SupabaseCloudManager.syncPaymentGateway(updatedGw)
                 firestore?.collection("payment_gateways")?.document(id)?.set(updatedGw)?.await()
             } catch (e: Exception) {
                 Log.w(TAG, "Offline gateway update fallback")
@@ -1085,6 +1173,7 @@ object BPWalletRepository {
         _paymentGateways.value = _paymentGateways.value.filter { it.id != id }
         scope.launch {
             try {
+                SupabaseCloudManager.deletePaymentGatewayFromCloud(id)
                 firestore?.collection("payment_gateways")?.document(id)?.delete()?.await()
             } catch (e: Exception) {
                 Log.w(TAG, "Offline gateway delete fallback")
@@ -1102,6 +1191,7 @@ object BPWalletRepository {
         _paymentGateways.value = current
         scope.launch {
             try {
+                SupabaseCloudManager.syncPaymentGateway(updated)
                 firestore?.collection("payment_gateways")?.document(id)?.set(updated)?.await()
             } catch (e: Exception) {
                 Log.w(TAG, "Offline gateway toggle fallback")

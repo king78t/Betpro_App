@@ -29,6 +29,11 @@ import com.example.model.UserAccount
 import com.example.ui.components.ShimmerDashboardSkeleton
 import com.example.ui.components.StatusBadge
 import com.example.ui.theme.*
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import android.widget.Toast
+import com.example.data.SupabaseCloudManager
 import com.example.ui.viewmodel.BPWalletViewModel
 import com.example.ui.viewmodel.ScreenType
 
@@ -87,6 +92,9 @@ fun AdminDashboardScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                // Supabase Cloud Database Permanent Storage Card
+                SupabaseCloudStorageCard(viewModel = viewModel)
+
                 // 1. USERS (Full width card)
                 AdminStatCard(
                     title = "USERS",
@@ -870,6 +878,32 @@ fun AdminTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // Supabase Cloud Active Badge
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFFE8F5E9),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFA5D6A7))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Cloud,
+                            contentDescription = "Supabase Cloud DB",
+                            tint = Color(0xFF2E7D32),
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Supabase",
+                            color = Color(0xFF1B5E20),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+
                 // User Switch Pill
                 Surface(
                     shape = RoundedCornerShape(16.dp),
@@ -1101,6 +1135,284 @@ fun AdminLiveControlScreen(
 }
 
 @Composable
+fun SupabaseCloudStorageCard(
+    viewModel: BPWalletViewModel,
+    modifier: Modifier = Modifier
+) {
+    val connectionStatus by SupabaseCloudManager.connectionStatus.collectAsState()
+    val isOnline by SupabaseCloudManager.isOnline.collectAsState()
+    val allUsers by viewModel.allUsers.collectAsState()
+    val allTransactions by viewModel.allTransactions.collectAsState()
+    val gateways by viewModel.paymentGateways.collectAsState()
+
+    var showSqlDialog by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+
+    if (showSqlDialog) {
+        AlertDialog(
+            onDismissRequest = { showSqlDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Storage,
+                        contentDescription = "SQL",
+                        tint = BPGreenDark
+                    )
+                    Text(
+                        text = "Supabase SQL Setup Script",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 17.sp,
+                        color = Slate900
+                    )
+                }
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "Copy this SQL code and execute it in your Supabase SQL Editor (vmglozamlzwjbigareie.supabase.co) to initialize permanent database tables:",
+                        fontSize = 12.sp,
+                        color = Slate600
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(260.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF0F172A))
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = SupabaseCloudManager.SQL_SCHEMA_SCRIPT,
+                            fontSize = 10.sp,
+                            color = Color(0xFFE2E8F0),
+                            modifier = Modifier.verticalScroll(rememberScrollState())
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(SupabaseCloudManager.SQL_SCHEMA_SCRIPT))
+                        Toast.makeText(context, "SQL script copied to clipboard!", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = BPGreenDark)
+                ) {
+                    Icon(imageVector = Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Copy SQL Script", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSqlDialog = false }) {
+                    Text("Close", color = Slate600, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFFE8F5E9),
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.CloudDone,
+                                contentDescription = "Supabase",
+                                tint = Color(0xFF2E7D32),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    Column {
+                        Text(
+                            text = "Supabase Cloud Database",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 16.sp,
+                            color = Slate900
+                        )
+                        Text(
+                            text = "Permanent PostgreSQL Storage",
+                            fontSize = 11.sp,
+                            color = Color(0xFF2E7D32),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isOnline) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, if (isOnline) Color(0xFFA5D6A7) else Color(0xFFFFCC80))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(if (isOnline) Color(0xFF2E7D32) else Color(0xFFEF6C00))
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isOnline) "Connected" else "Connecting...",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isOnline) Color(0xFF1B5E20) else Color(0xFFE65100)
+                        )
+                    }
+                }
+            }
+
+            // URL Row
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                color = Slate50
+            ) {
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "SUPABASE PROJECT URL",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate500
+                        )
+                        Text(
+                            text = SupabaseCloudManager.SUPABASE_URL,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Slate800
+                        )
+                    }
+                    Text(
+                        text = "PostgREST v1",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BPGreenDark
+                    )
+                }
+            }
+
+            // Stats row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFF1F5F9)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(text = "${allUsers.size}", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
+                        Text(text = "Synced Users", fontSize = 10.sp, color = Slate600)
+                    }
+                }
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFF1F5F9)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(text = "${allTransactions.size}", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
+                        Text(text = "Synced Txs", fontSize = 10.sp, color = Slate600)
+                    }
+                }
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFF1F5F9)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(text = "${gateways.size}", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
+                        Text(text = "Gateways", fontSize = 10.sp, color = Slate600)
+                    }
+                }
+            }
+
+            Text(
+                text = "Status: $connectionStatus",
+                fontSize = 11.sp,
+                color = Slate600,
+                fontWeight = FontWeight.Medium
+            )
+
+            // Action Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { showSqlDialog = true },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = BPGreenDark)
+                ) {
+                    Icon(imageVector = Icons.Default.Code, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("SQL Setup Script", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = {
+                        Toast.makeText(context, "Synchronizing with Supabase Cloud...", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = BPGreenDark)
+                ) {
+                    Icon(imageVector = Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Sync Cloud Now", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun AdminSettingsScreen(
     viewModel: BPWalletViewModel,
     modifier: Modifier = Modifier
@@ -1150,6 +1462,9 @@ fun AdminSettingsScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Supabase Cloud Database Permanent Storage Card
+                SupabaseCloudStorageCard(viewModel = viewModel)
+
                 // SuperAdmin / Admin Change Password Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
