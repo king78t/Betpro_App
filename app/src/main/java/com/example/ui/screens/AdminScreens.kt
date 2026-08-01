@@ -1101,6 +1101,8 @@ fun AdminSettingsScreen(
 ) {
     val currentUser by viewModel.currentUser.collectAsState()
     val paymentGateways by viewModel.paymentGateways.collectAsState()
+    val whatsappHelplineNumber by viewModel.whatsappHelplineNumber.collectAsState()
+    var editedHelplineNumber by remember(whatsappHelplineNumber) { mutableStateOf(whatsappHelplineNumber) }
     var showDrawer by remember { mutableStateOf(false) }
 
     var newPassword by remember { mutableStateOf("") }
@@ -1247,6 +1249,74 @@ fun AdminSettingsScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Update Password",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+
+                // WhatsApp Helpline Configuration Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Phone,
+                                contentDescription = "WhatsApp Helpline",
+                                tint = BPGreenDark,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "WhatsApp Helpline Number",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 15.sp,
+                                    color = Slate900
+                                )
+                                Text(
+                                    text = "Set official support number for users & agents",
+                                    fontSize = 12.sp,
+                                    color = Slate500
+                                )
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = editedHelplineNumber,
+                            onValueChange = { editedHelplineNumber = it },
+                            label = { Text("WhatsApp Number (e.g. +923001234567)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+
+                        Button(
+                            onClick = {
+                                viewModel.updateWhatsAppHelpline(editedHelplineNumber)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Phone,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Save Helpline Number",
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )

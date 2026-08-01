@@ -44,6 +44,7 @@ fun UserHomeScreen(
     val user by viewModel.currentUser.collectAsState()
     val allTxs by viewModel.allTransactions.collectAsState()
     val showBetProModal by viewModel.showBetProExchangeModal.collectAsState()
+    val whatsappNumber by viewModel.whatsappHelplineNumber.collectAsState()
 
     val u = user ?: return
     val userTxs = allTxs.filter { it.userId == u.id }
@@ -382,7 +383,7 @@ fun UserHomeScreen(
             // WhatsApp Helpline Button
             WhatsAppHelplineButton(
                 onClick = {
-                    viewModel.showSnack("Connecting to Official BP Wallet WhatsApp Support @bptraders_pkr...")
+                    viewModel.showSnack("Connecting to Official BP Wallet WhatsApp Support at $whatsappNumber...")
                 }
             )
 

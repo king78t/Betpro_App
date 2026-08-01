@@ -37,6 +37,7 @@ class BPWalletViewModel : ViewModel() {
     val masterAgents = BPWalletRepository.masterAgentsList
     val paymentGateways = BPWalletRepository.paymentGateways
     val recentBroadcast = BPWalletRepository.recentBroadcast
+    val whatsappHelplineNumber = BPWalletRepository.whatsappHelplineNumber
 
     private val _currentScreen = MutableStateFlow(ScreenType.LOGIN)
     val currentScreen: StateFlow<ScreenType> = _currentScreen.asStateFlow()
@@ -341,6 +342,19 @@ class BPWalletViewModel : ViewModel() {
             showSnack("Admin / SuperAdmin password updated successfully!")
         }.onFailure {
             showSnack("Failed to update password: ${it.message}")
+        }
+    }
+
+    fun updateWhatsAppHelpline(number: String) {
+        if (number.isBlank()) {
+            showSnack("Please enter a valid WhatsApp Helpline Number")
+            return
+        }
+        val result = BPWalletRepository.updateWhatsAppHelpline(number)
+        result.onSuccess {
+            showSnack("WhatsApp Helpline updated to $it")
+        }.onFailure {
+            showSnack("Failed to update WhatsApp Helpline: ${it.message}")
         }
     }
 }

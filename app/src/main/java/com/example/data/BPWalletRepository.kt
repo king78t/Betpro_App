@@ -54,6 +54,9 @@ object BPWalletRepository {
     private val _recentBroadcast = MutableStateFlow<Pair<String, String>?>(null)
     val recentBroadcast: StateFlow<Pair<String, String>?> = _recentBroadcast.asStateFlow()
 
+    private val _whatsappHelplineNumber = MutableStateFlow("+923001234567")
+    val whatsappHelplineNumber: StateFlow<String> = _whatsappHelplineNumber.asStateFlow()
+
     init {
         seedDefaultAdminAndDemoUser()
         startFirestoreListeners()
@@ -201,6 +204,15 @@ object BPWalletRepository {
                         val gateways = snapshot.documents.mapNotNull { it.toObject(PaymentGateway::class.java) }
                         if (gateways.isNotEmpty()) {
                             _paymentGateways.value = gateways
+                        }
+                    }
+
+                db.collection("settings").document("whatsapp_helpline")
+                    .addSnapshotListener { snapshot, e ->
+                        if (e != null || snapshot == null) return@addSnapshotListener
+                        val number = snapshot.getString("number")
+                        if (!number.isNullOrBlank()) {
+                            _whatsappHelplineNumber.value = number
                         }
                     }
             } catch (ex: Exception) {
@@ -612,5 +624,20 @@ object BPWalletRepository {
             }
         }
         return Result.success(Unit)
+    }
+
+    fun updateWhatsAppHelpline(number: String): Result<String> {
+        val clean = number.trim()
+        if (clean.isBlank()) return Result.failure(Exception("Helpline number cannot be empty"))
+        _whatsappHelplineNumber.value = clean
+        scope.launch {
+            try {
+                firestore?.collection("settings")?.document("whatsapp_helpline")
+                    ?.set(mapOf("number" to clean))?.await()
+            } catch (e: Exception) {
+                Log.w(TAG, "Offline whatsapp helpline save fallback")
+            }
+        }
+        return Result.success(clean)
     }
 }
