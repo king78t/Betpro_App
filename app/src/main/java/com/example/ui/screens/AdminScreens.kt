@@ -1103,6 +1103,8 @@ fun AdminSettingsScreen(
     val paymentGateways by viewModel.paymentGateways.collectAsState()
     val whatsappHelplineNumber by viewModel.whatsappHelplineNumber.collectAsState()
     var editedHelplineNumber by remember(whatsappHelplineNumber) { mutableStateOf(whatsappHelplineNumber) }
+    val exchangeWebsiteUrl by viewModel.exchangeWebsiteUrl.collectAsState()
+    var editedExchangeUrl by remember(exchangeWebsiteUrl) { mutableStateOf(exchangeWebsiteUrl) }
     var showDrawer by remember { mutableStateOf(false) }
 
     var newPassword by remember { mutableStateOf("") }
@@ -1317,6 +1319,74 @@ fun AdminSettingsScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Save Helpline Number",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+
+                // Exchange Website URL Card (BP ID Link)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Exchange Website URL",
+                                tint = BPGreenDark,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "BP ID Exchange Link",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 15.sp,
+                                    color = Slate900
+                                )
+                                Text(
+                                    text = "Configure dynamic URL loaded inside user WebView",
+                                    fontSize = 12.sp,
+                                    color = Slate500
+                                )
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = editedExchangeUrl,
+                            onValueChange = { editedExchangeUrl = it },
+                            label = { Text("Exchange Website URL") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+
+                        Button(
+                            onClick = {
+                                viewModel.updateExchangeWebsiteUrl(editedExchangeUrl)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Save Exchange URL",
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )

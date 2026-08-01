@@ -57,6 +57,9 @@ object BPWalletRepository {
     private val _whatsappHelplineNumber = MutableStateFlow("+923001234567")
     val whatsappHelplineNumber: StateFlow<String> = _whatsappHelplineNumber.asStateFlow()
 
+    private val _exchangeWebsiteUrl = MutableStateFlow("https://bpexch.live")
+    val exchangeWebsiteUrl: StateFlow<String> = _exchangeWebsiteUrl.asStateFlow()
+
     init {
         seedDefaultAdminAndDemoUser()
         startFirestoreListeners()
@@ -213,6 +216,15 @@ object BPWalletRepository {
                         val number = snapshot.getString("number")
                         if (!number.isNullOrBlank()) {
                             _whatsappHelplineNumber.value = number
+                        }
+                    }
+
+                db.collection("settings").document("exchange_website")
+                    .addSnapshotListener { snapshot, e ->
+                        if (e != null || snapshot == null) return@addSnapshotListener
+                        val url = snapshot.getString("url")
+                        if (!url.isNullOrBlank()) {
+                            _exchangeWebsiteUrl.value = url
                         }
                     }
             } catch (ex: Exception) {
@@ -646,6 +658,21 @@ object BPWalletRepository {
                     ?.set(mapOf("number" to clean))?.await()
             } catch (e: Exception) {
                 Log.w(TAG, "Offline whatsapp helpline save fallback")
+            }
+        }
+        return Result.success(clean)
+    }
+
+    fun updateExchangeWebsiteUrl(url: String): Result<String> {
+        val clean = url.trim()
+        if (clean.isBlank()) return Result.failure(Exception("Exchange website URL cannot be empty"))
+        _exchangeWebsiteUrl.value = clean
+        scope.launch {
+            try {
+                firestore?.collection("settings")?.document("exchange_website")
+                    ?.set(mapOf("url" to clean))?.await()
+            } catch (e: Exception) {
+                Log.w(TAG, "Offline exchange website url save fallback")
             }
         }
         return Result.success(clean)

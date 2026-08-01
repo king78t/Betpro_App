@@ -38,6 +38,7 @@ class BPWalletViewModel : ViewModel() {
     val paymentGateways = BPWalletRepository.paymentGateways
     val recentBroadcast = BPWalletRepository.recentBroadcast
     val whatsappHelplineNumber = BPWalletRepository.whatsappHelplineNumber
+    val exchangeWebsiteUrl = BPWalletRepository.exchangeWebsiteUrl
 
     private val _currentScreen = MutableStateFlow(ScreenType.LOGIN)
     val currentScreen: StateFlow<ScreenType> = _currentScreen.asStateFlow()
@@ -368,6 +369,15 @@ class BPWalletViewModel : ViewModel() {
             showSnack("Your password was updated successfully!")
         }.onFailure {
             showSnack("Failed to update password: ${it.message}")
+        }
+    }
+
+    fun updateExchangeWebsiteUrl(url: String) {
+        val result = BPWalletRepository.updateExchangeWebsiteUrl(url)
+        result.onSuccess {
+            showSnack("Exchange URL updated to $it")
+        }.onFailure {
+            showSnack("Failed to update Exchange URL: ${it.message}")
         }
     }
 }
