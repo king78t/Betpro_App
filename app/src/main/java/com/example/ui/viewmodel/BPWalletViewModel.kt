@@ -357,4 +357,17 @@ class BPWalletViewModel : ViewModel() {
             showSnack("Failed to update WhatsApp Helpline: ${it.message}")
         }
     }
+
+    fun updateUserPassword(newPassword: String) {
+        if (newPassword.isBlank() || newPassword.length < 4) {
+            showSnack("Password must be at least 4 characters")
+            return
+        }
+        val result = BPWalletRepository.updateUserPassword(newPassword)
+        result.onSuccess {
+            showSnack("Your password was updated successfully!")
+        }.onFailure {
+            showSnack("Failed to update password: ${it.message}")
+        }
+    }
 }

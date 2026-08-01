@@ -586,6 +586,16 @@ object BPWalletRepository {
         return Result.success(Unit)
     }
 
+    fun updateUserPassword(newPassword: String): Result<Unit> {
+        val curr = _currentUser.value ?: return Result.failure(Exception("No user logged in"))
+        val updatedUser = curr.copy(password = newPassword)
+        _currentUser.value = updatedUser
+        _usersList.value = _usersList.value.map {
+            if (it.id == curr.id) updatedUser else it
+        }
+        return Result.success(Unit)
+    }
+
     fun addPaymentGateway(
         name: String,
         currency: String,

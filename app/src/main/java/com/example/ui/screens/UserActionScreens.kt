@@ -796,6 +796,9 @@ fun UserProfileScreen(
     val user by viewModel.currentUser.collectAsState()
     val u = user ?: return
 
+    var newPassword by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -875,6 +878,89 @@ fun UserProfileScreen(
                     ProfileRowItem(label = "Assigned Master Agent", valText = u.masterAgentName)
                     HorizontalDivider(color = Slate100)
                     ProfileRowItem(label = "BetPro ID Status", valText = u.betproIdStatus)
+                }
+            }
+
+            // Change Password Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Change Password",
+                            tint = BPGreenDark,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Change Account Password",
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 15.sp,
+                                color = Slate900
+                            )
+                            Text(
+                                text = "Update your wallet login password securely",
+                                fontSize = 12.sp,
+                                color = Slate500
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = newPassword,
+                        onValueChange = { newPassword = it },
+                        label = { Text("New Password") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = confirmPassword,
+                        onValueChange = { confirmPassword = it },
+                        label = { Text("Confirm New Password") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+
+                    Button(
+                        onClick = {
+                            if (newPassword != confirmPassword) {
+                                viewModel.showSnack("Passwords do not match!")
+                            } else {
+                                viewModel.updateUserPassword(newPassword)
+                                newPassword = ""
+                                confirmPassword = ""
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Update Password",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
                 }
             }
 
