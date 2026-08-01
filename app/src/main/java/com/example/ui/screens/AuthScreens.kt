@@ -537,7 +537,6 @@ fun RegisterScreen(
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var showGooglePicker by remember { mutableStateOf(false) }
-    val pendingRegistration by viewModel.pendingRegistration.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 

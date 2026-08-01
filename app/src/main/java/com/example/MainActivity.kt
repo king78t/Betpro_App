@@ -79,7 +79,7 @@ fun BPWalletApp(
                 .padding(innerPadding)
         ) {
             when (currentScreen) {
-                ScreenType.SPLASH -> SplashScreen(viewModel = viewModel)
+                ScreenType.SPLASH -> Unit // Handled exclusively by SplashActivity
                 ScreenType.LOGIN -> LoginScreen(viewModel = viewModel)
                 ScreenType.REGISTER -> RegisterScreen(viewModel = viewModel)
                 ScreenType.USER_HOME -> UserHomeScreen(viewModel = viewModel)

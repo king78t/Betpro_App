@@ -42,7 +42,16 @@ class BPWalletViewModel : ViewModel() {
     val exchangeWebsiteUrl = BPWalletRepository.exchangeWebsiteUrl
     val isLoading = BPWalletRepository.isLoading
 
-    private val _currentScreen = MutableStateFlow(ScreenType.SPLASH)
+    private fun getInitialScreen(): ScreenType {
+        val user = currentUser.value
+        return if (user != null) {
+            if (user.role == "ADMIN") ScreenType.ADMIN_DASHBOARD else ScreenType.USER_HOME
+        } else {
+            ScreenType.LOGIN
+        }
+    }
+
+    private val _currentScreen = MutableStateFlow(getInitialScreen())
     val currentScreen: StateFlow<ScreenType> = _currentScreen.asStateFlow()
 
     // Login tab mode: true = User, false = Admin
@@ -68,11 +77,6 @@ class BPWalletViewModel : ViewModel() {
     // Selected User for admin modal
     private val _selectedUserForCreds = MutableStateFlow<UserAccount?>(null)
     val selectedUserForCreds: StateFlow<UserAccount?> = _selectedUserForCreds.asStateFlow()
-
-    // OTP / Pending Registration verification state
-    private val _pendingRegistration = MutableStateFlow<com.example.model.PendingRegistrationData?>(null)
-    val pendingRegistration: StateFlow<com.example.model.PendingRegistrationData?> = _pendingRegistration.asStateFlow()
-
 
     // Selected user for balance edit modal
     private val _selectedUserForBalance = MutableStateFlow<UserAccount?>(null)
@@ -195,7 +199,6 @@ class BPWalletViewModel : ViewModel() {
                 password = pass
             )
             result.onSuccess { user ->
-                _pendingRegistration.value = null
                 showSnack("Account created successfully! Welcome to BP Wallet, ${user.fullName}.")
                 setScreen(ScreenType.USER_HOME)
             }.onFailure { err ->
@@ -204,15 +207,6 @@ class BPWalletViewModel : ViewModel() {
             }
         }
     }
-
-    fun verifyRegistrationOtp(enteredOtp: String) {}
-
-    fun resendRegistrationOtp() {}
-
-    fun cancelRegistrationOtp() {
-        _pendingRegistration.value = null
-    }
-
 
     fun signInWithGoogle(email: String, displayName: String, idToken: String? = null) {
         viewModelScope.launch {
@@ -238,19 +232,21 @@ class BPWalletViewModel : ViewModel() {
         _selectedDepositGateway.value = gateway
     }
 
-    fun submitDepositRequest(amount: Double, reference: String, screenshotUri: String = "") {
+    fun submitDepositRequest(amount: Double, reference: String = "PROOF_UPLOADED", screenshotUri: String = "") {
         val gw = _selectedDepositGateway.value
         if (gw == null) {
-            showSnack("Please select a payment gateway first")
+            showSnack("Please select a payment method first")
             return
         }
+        val curr = currentUser.value?.currency ?: gw.currency
         if (amount < gw.minDeposit) {
-            showSnack("Minimum deposit for ${gw.name} is Rs ${gw.minDeposit.toInt()}")
+            showSnack("Minimum deposit for ${gw.name} is $curr ${gw.minDeposit.toInt()}")
             return
         }
-        val result = BPWalletRepository.createDepositRequest(amount, gw.name, reference, screenshotUri)
+        val refToSave = if (reference.isBlank()) "PROOF_UPLOADED" else reference
+        val result = BPWalletRepository.createDepositRequest(amount, gw.name, refToSave, screenshotUri)
         result.onSuccess {
-            showSnack("Deposit Request of Rs ${amount.toInt()} submitted! Awaiting Admin approval.")
+            showSnack("Deposit Request of $curr ${amount.toInt()} submitted! Awaiting Admin approval.")
             _selectedDepositGateway.value = null
             setScreen(ScreenType.USER_HOME)
         }.onFailure { err ->
@@ -278,8 +274,8 @@ class BPWalletViewModel : ViewModel() {
     }
 
     // Admin Actions
-    fun approveTransaction(txId: String) {
-        val res = BPWalletRepository.approveTransaction(txId)
+    fun approveTransaction(txId: String, notes: String = "") {
+        val res = BPWalletRepository.approveTransaction(txId, notes)
         res.onSuccess { tx ->
             showSnack("${tx.type} approved successfully!")
         }.onFailure { err ->
@@ -287,8 +283,8 @@ class BPWalletViewModel : ViewModel() {
         }
     }
 
-    fun rejectTransaction(txId: String) {
-        val res = BPWalletRepository.rejectTransaction(txId)
+    fun rejectTransaction(txId: String, notes: String = "") {
+        val res = BPWalletRepository.rejectTransaction(txId, notes)
         res.onSuccess { tx ->
             showSnack("${tx.type} rejected.")
         }.onFailure { err ->
@@ -311,22 +307,69 @@ class BPWalletViewModel : ViewModel() {
         country: String,
         title: String,
         accountNumber: String,
-        minDeposit: Double
+        iban: String = "",
+        bankName: String = "",
+        instructions: String = "",
+        shortDescription: String = "",
+        logoUrl: String = "",
+        isEnabled: Boolean = true,
+        displayOrder: Int = 1,
+        minDeposit: Double = 500.0,
+        minWithdraw: Double = 1000.0
     ) {
-        val res = BPWalletRepository.addPaymentGateway(name, currency, country, title, accountNumber, minDeposit)
+        val res = BPWalletRepository.addPaymentGateway(
+            name, currency, country, title, accountNumber, iban, bankName, instructions, shortDescription, logoUrl, isEnabled, displayOrder, minDeposit, minWithdraw
+        )
         res.onSuccess {
-            showSnack("Payment Gateway added successfully!")
+            showSnack("Payment Method added successfully!")
         }.onFailure { err ->
-            showSnack(err.message ?: "Failed to add gateway")
+            showSnack(err.message ?: "Failed to add payment method")
+        }
+    }
+
+    fun updatePaymentGateway(
+        id: String,
+        name: String,
+        currency: String,
+        country: String,
+        title: String,
+        accountNumber: String,
+        iban: String = "",
+        bankName: String = "",
+        instructions: String = "",
+        shortDescription: String = "",
+        logoUrl: String = "",
+        isEnabled: Boolean = true,
+        displayOrder: Int = 1,
+        minDeposit: Double = 500.0,
+        minWithdraw: Double = 1000.0
+    ) {
+        val res = BPWalletRepository.updatePaymentGateway(
+            id, name, currency, country, title, accountNumber, iban, bankName, instructions, shortDescription, logoUrl, isEnabled, displayOrder, minDeposit, minWithdraw
+        )
+        res.onSuccess {
+            showSnack("Payment Method updated successfully!")
+        }.onFailure { err ->
+            showSnack(err.message ?: "Failed to update payment method")
+        }
+    }
+
+    fun togglePaymentGatewayStatus(id: String) {
+        val res = BPWalletRepository.togglePaymentGatewayStatus(id)
+        res.onSuccess { gw ->
+            val statusStr = if (gw.isEnabled) "Enabled" else "Disabled"
+            showSnack("${gw.name} is now $statusStr")
+        }.onFailure { err ->
+            showSnack(err.message ?: "Failed to toggle status")
         }
     }
 
     fun deletePaymentGateway(gatewayId: String) {
         val res = BPWalletRepository.deletePaymentGateway(gatewayId)
         res.onSuccess {
-            showSnack("Payment Gateway removed.")
+            showSnack("Payment Method removed.")
         }.onFailure { err ->
-            showSnack(err.message ?: "Failed to remove gateway")
+            showSnack(err.message ?: "Failed to remove payment method")
         }
     }
 

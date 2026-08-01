@@ -91,6 +91,7 @@ data class TransactionRequest(
     val accountNumber: String = "",
     val referenceNumber: String = "",
     val screenshotUri: String = "", // Optional screenshot URI or proof image
+    val adminNotes: String = "", // Admin notes upon approval/rejection
     val status: String = "Pending", // "Pending", "Approved", "Rejected"
     val timestamp: Long = System.currentTimeMillis()
 )
@@ -114,19 +115,17 @@ data class PaymentGateway(
     val country: String = "Pakistan",
     val title: String = "",
     val accountNumber: String = "",
+    val iban: String = "",
+    val bankName: String = "",
+    val instructions: String = "Please transfer the exact amount to the account details below and attach a screenshot of your payment receipt.",
+    val shortDescription: String = "Instant 24/7 Digital Transfer",
+    val logoUrl: String = "",
+    val isEnabled: Boolean = true,
+    val displayOrder: Int = 1,
     val minDeposit: Double = 500.0,
     val minWithdraw: Double = 1000.0
 )
 
-data class PendingRegistrationData(
-    val fullName: String,
-    val email: String,
-    val currency: String,
-    val mobileNumber: String,
-    val pass: String,
-    val otpCode: String,
-    val timestamp: Long = System.currentTimeMillis()
-)
 
 data class UserWithdrawalAccount(
     val id: String = java.util.UUID.randomUUID().toString(),

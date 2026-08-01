@@ -45,12 +45,15 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Reusable navigation controller for Splash Screen startup flow.
- * Respects authentication state without altering any auth logic.
+ * Reusable navigation controller for the BP Wallet Ultra-Premium Fintech Splash Screen startup flow.
+ * Respects authentication state without altering any auth logic:
+ * - Logged-in user -> Dashboard (USER_HOME or ADMIN_DASHBOARD)
+ * - Non-logged-in user -> Login Screen
  */
 object SplashNavigator {
-    fun navigate(viewModel: BPWalletViewModel) {
+    fun navigate(viewModel: BPWalletViewModel, onNavigate: () -> Unit = {}) {
         viewModel.onSplashCompleted()
+        onNavigate()
     }
 }
 
@@ -60,7 +63,8 @@ object SplashNavigator {
  */
 @Composable
 fun SplashScreen(
-    viewModel: BPWalletViewModel
+    viewModel: BPWalletViewModel,
+    onNavigate: () -> Unit = {}
 ) {
     val haptic = LocalHapticFeedback.current
 
@@ -107,7 +111,7 @@ fun SplashScreen(
 
         // Initiate subtle exit transition (fade out & slight scale down)
         isExiting = true
-        delay(300)
+        delay(350)
 
         // Haptic feedback upon completion & navigate
         try {
@@ -115,7 +119,7 @@ fun SplashScreen(
         } catch (e: Exception) {
             // Ignore if device lacks haptic support
         }
-        SplashNavigator.navigate(viewModel)
+        SplashNavigator.navigate(viewModel, onNavigate)
     }
 
     // Rotating trust messages timer every 500ms

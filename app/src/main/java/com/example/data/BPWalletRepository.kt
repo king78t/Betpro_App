@@ -94,45 +94,110 @@ object BPWalletRepository {
     }
 
     private fun defaultGateways(): List<PaymentGateway> = listOf(
+        // Pakistan - PKR
         PaymentGateway(
             id = "gw_ep_1",
             name = "EasyPaisa",
             currency = "PKR",
+            country = "Pakistan",
             title = "Muhammad Usman BP Exch",
             accountNumber = "03001234567",
+            bankName = "Telenor Microfinance Bank",
+            instructions = "Open EasyPaisa App -> Send Money to Mobile Account -> 03001234567. Please upload screenshot of the receipt after payment.",
+            shortDescription = "Instant 24/7 EasyPaisa Mobile Transfer",
+            isEnabled = true,
+            displayOrder = 1,
             minDeposit = 500.0
         ),
         PaymentGateway(
             id = "gw_jz_1",
             name = "JazzCash",
             currency = "PKR",
+            country = "Pakistan",
             title = "Usman Ali Trading",
             accountNumber = "03007654321",
+            bankName = "Mobilink Microfinance Bank",
+            instructions = "Open JazzCash App -> Send Money -> 03007654321. Attach screenshot of transaction receipt.",
+            shortDescription = "Instant JazzCash Mobile Account",
+            isEnabled = true,
+            displayOrder = 2,
             minDeposit = 500.0
         ),
         PaymentGateway(
             id = "gw_mz_1",
             name = "Meezan Bank",
             currency = "PKR",
+            country = "Pakistan",
             title = "BP Traders Private Ltd",
             accountNumber = "0102010123456789",
+            iban = "PK36MEZN0001020101234567",
+            bankName = "Meezan Bank Ltd",
+            instructions = "Transfer via IBFT or Raast to Meezan Bank. Ensure exact amount is sent and upload screenshot.",
+            shortDescription = "Meezan Islamic Banking Transfer",
+            isEnabled = true,
+            displayOrder = 3,
             minDeposit = 1000.0
         ),
+        // UAE - AED
         PaymentGateway(
             id = "gw_aed_1",
             name = "Emirates NBD",
             currency = "AED",
+            country = "UAE",
             title = "BP Exchange Middle East",
-            accountNumber = "AE2103300000001234567",
+            accountNumber = "10190023456701",
+            iban = "AE2103300000001234567",
+            bankName = "Emirates NBD Bank PJSC",
+            instructions = "Transfer AED via Emirates NBD Online or ATM Deposit. Upload receipt screenshot.",
+            shortDescription = "Emirates NBD Instant Bank Transfer",
+            isEnabled = true,
+            displayOrder = 1,
             minDeposit = 100.0
         ),
+        PaymentGateway(
+            id = "gw_aed_2",
+            name = "ADCB Bank",
+            currency = "AED",
+            country = "UAE",
+            title = "BP Wallet Trading LLC",
+            accountNumber = "0880011223344",
+            iban = "AE880120000000987654321",
+            bankName = "Abu Dhabi Commercial Bank",
+            instructions = "Transfer AED via ADCB mobile app or ATM cash deposit. Upload screenshot.",
+            shortDescription = "Abu Dhabi Commercial Bank Transfer",
+            isEnabled = true,
+            displayOrder = 2,
+            minDeposit = 100.0
+        ),
+        // Saudi Arabia - SAR
         PaymentGateway(
             id = "gw_sar_1",
             name = "Al Rajhi Bank",
             currency = "SAR",
+            country = "Saudi Arabia",
             title = "BP Wallet SA Trading",
-            accountNumber = "SA0380000000608010167519",
+            accountNumber = "204608010167519",
+            iban = "SA0380000000608010167519",
+            bankName = "Al Rajhi Bank",
+            instructions = "Transfer via Al Rajhi App or Sarie Instant Payment. Attach transfer receipt screenshot.",
+            shortDescription = "Al Rajhi Fast Pay Transfer",
+            isEnabled = true,
+            displayOrder = 1,
             minDeposit = 100.0
+        ),
+        PaymentGateway(
+            id = "gw_sar_2",
+            name = "STC Pay",
+            currency = "SAR",
+            country = "Saudi Arabia",
+            title = "BP Wallet SA Trading",
+            accountNumber = "0550123456",
+            bankName = "STC Pay Saudi Arabia",
+            instructions = "Send SAR via STC Pay to our merchant number. Take receipt screenshot.",
+            shortDescription = "STC Pay Digital Wallet",
+            isEnabled = true,
+            displayOrder = 2,
+            minDeposit = 50.0
         )
     )
 
@@ -383,64 +448,6 @@ object BPWalletRepository {
         }
     }
 
-    suspend fun requestRegistrationOtp(
-        fullName: String,
-        email: String,
-        currency: String,
-        mobileNumber: String,
-        password: String
-    ): Result<com.example.model.PendingRegistrationData> {
-        return try {
-            val trimmedEmail = email.trim().lowercase()
-            val cleanMobile = mobileNumber.replace(Regex("[^0-9+]"), "").trim()
-            val existingEmail = _usersList.value.find { it.email.trim().lowercase() == trimmedEmail }
-            if (existingEmail != null) {
-                return Result.failure(Exception("This Email address is already registered."))
-            }
-            val existingPhone = _usersList.value.find { it.mobileNumber.replace(Regex("[^0-9+]"), "").trim() == cleanMobile }
-            if (existingPhone != null) {
-                return Result.failure(Exception("This Mobile Number is already registered."))
-            }
-            val generatedOtp = ((100000..999999).random()).toString()
-            val pendingData = com.example.model.PendingRegistrationData(
-                fullName = fullName.trim(),
-                email = email.trim(),
-                currency = currency,
-                mobileNumber = mobileNumber.trim(),
-                pass = password,
-                otpCode = generatedOtp
-            )
-            Log.i(TAG, "OTP generated for ${email} / ${mobileNumber}: $generatedOtp")
-
-            // Real Production Email & SMS / WhatsApp Dispatch via Firebase & Backend Queue
-            try {
-                val emailPayload = mapOf(
-                    "to" to email.trim(),
-                    "message" to mapOf(
-                        "subject" to "BP Wallet - Security Verification Code",
-                        "text" to "Your 6-digit security verification code for BP Wallet is: $generatedOtp. Do not share this code with anyone.",
-                        "html" to "<h3>BP Wallet Security Verification</h3><p>Your 6-digit security verification code is: <b>$generatedOtp</b></p><p>Do not share this code with anyone.</p>"
-                    ),
-                    "recipientPhone" to mobileNumber.trim(),
-                    "otpCode" to generatedOtp,
-                    "channel" to "EMAIL_AND_SMS_WHATSAPP",
-                    "status" to "PENDING",
-                    "timestamp" to System.currentTimeMillis()
-                )
-                firestore?.collection("mail")?.add(emailPayload)
-                firestore?.collection("sms_queue")?.add(emailPayload)
-                firestore?.collection("whatsapp_queue")?.add(emailPayload)
-                Log.i(TAG, "Real OTP verification request dispatched to Firebase mail & SMS/WhatsApp delivery service.")
-            } catch (e: Exception) {
-                Log.w(TAG, "Note: Offline queueing fallback for OTP delivery: ${e.message}")
-            }
-
-            Result.success(pendingData)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
     suspend fun registerUser(
         fullName: String,
         email: String,
@@ -661,7 +668,7 @@ object BPWalletRepository {
         return Result.success(tx)
     }
 
-    fun approveTransaction(txId: String): Result<TransactionRequest> {
+    fun approveTransaction(txId: String, adminNotes: String = ""): Result<TransactionRequest> {
         val currentTxs = _transactionsList.value.toMutableList()
         val idx = currentTxs.indexOfFirst { it.id == txId }
         if (idx == -1) return Result.failure(Exception("Transaction not found."))
@@ -688,7 +695,7 @@ object BPWalletRepository {
             return Result.failure(Exception("User has insufficient balance for withdrawal (Rs/AED/SAR ${u.walletBalance})."))
         }
 
-        val updatedTx = tx.copy(status = "Approved")
+        val updatedTx = tx.copy(status = "Approved", adminNotes = adminNotes.trim())
         currentTxs[idx] = updatedTx
         _transactionsList.value = currentTxs
 
@@ -711,7 +718,7 @@ object BPWalletRepository {
         return Result.success(updatedTx)
     }
 
-    fun rejectTransaction(txId: String): Result<TransactionRequest> {
+    fun rejectTransaction(txId: String, adminNotes: String = ""): Result<TransactionRequest> {
         val currentTxs = _transactionsList.value.toMutableList()
         val idx = currentTxs.indexOfFirst { it.id == txId }
         if (idx == -1) return Result.failure(Exception("Transaction not found."))
@@ -739,7 +746,7 @@ object BPWalletRepository {
             }
         }
 
-        val updatedTx = tx.copy(status = "Rejected")
+        val updatedTx = tx.copy(status = "Rejected", adminNotes = adminNotes.trim())
         currentTxs[idx] = updatedTx
         _transactionsList.value = currentTxs
 
@@ -875,46 +882,6 @@ object BPWalletRepository {
         return Result.success(Unit)
     }
 
-    fun addPaymentGateway(
-        name: String,
-        currency: String,
-        country: String,
-        title: String,
-        accountNumber: String,
-        minDeposit: Double
-    ): Result<PaymentGateway> {
-        val gw = PaymentGateway(
-            id = "gw_${UUID.randomUUID().toString().take(6)}",
-            name = name.trim(),
-            currency = currency.trim(),
-            country = country.trim(),
-            title = title.trim(),
-            accountNumber = accountNumber.trim(),
-            minDeposit = minDeposit
-        )
-        _paymentGateways.value = _paymentGateways.value + gw
-        scope.launch {
-            try {
-                firestore?.collection("payment_gateways")?.document(gw.id)?.set(gw)?.await()
-            } catch (e: Exception) {
-                Log.w(TAG, "Offline gateway save fallback")
-            }
-        }
-        return Result.success(gw)
-    }
-
-    fun deletePaymentGateway(gatewayId: String): Result<Unit> {
-        _paymentGateways.value = _paymentGateways.value.filter { it.id != gatewayId }
-        scope.launch {
-            try {
-                firestore?.collection("payment_gateways")?.document(gatewayId)?.delete()?.await()
-            } catch (e: Exception) {
-                Log.w(TAG, "Offline gateway delete fallback")
-            }
-        }
-        return Result.success(Unit)
-    }
-
     fun updateWhatsAppHelpline(number: String): Result<String> {
         val clean = number.trim()
         if (clean.isBlank()) return Result.failure(Exception("Helpline number cannot be empty"))
@@ -1013,5 +980,133 @@ object BPWalletRepository {
             }
         }
         return Result.success(Unit)
+    }
+
+    // ====================================================
+    // SUPER ADMIN PAYMENT METHODS CONTROL PANEL
+    // ====================================================
+    fun addPaymentGateway(
+        name: String,
+        currency: String,
+        country: String,
+        title: String,
+        accountNumber: String,
+        iban: String = "",
+        bankName: String = "",
+        instructions: String = "",
+        shortDescription: String = "",
+        logoUrl: String = "",
+        isEnabled: Boolean = true,
+        displayOrder: Int = 1,
+        minDeposit: Double = 500.0,
+        minWithdraw: Double = 1000.0
+    ): Result<PaymentGateway> {
+        val current = _paymentGateways.value
+        val nextOrder = if (displayOrder > 0) displayOrder else (current.maxOfOrNull { it.displayOrder } ?: 0) + 1
+        val newGw = PaymentGateway(
+            id = "gw_${UUID.randomUUID().toString().take(8)}",
+            name = name.trim(),
+            currency = currency.trim(),
+            country = country.trim(),
+            title = title.trim(),
+            accountNumber = accountNumber.trim(),
+            iban = iban.trim(),
+            bankName = bankName.trim(),
+            instructions = instructions.ifBlank { "Please transfer the exact amount and upload your transaction screenshot." },
+            shortDescription = shortDescription.ifBlank { "Instant 24/7 Digital Transfer" },
+            logoUrl = logoUrl.trim(),
+            isEnabled = isEnabled,
+            displayOrder = nextOrder,
+            minDeposit = minDeposit,
+            minWithdraw = minWithdraw
+        )
+        val updatedList = (current + newGw).sortedBy { it.displayOrder }
+        _paymentGateways.value = updatedList
+        scope.launch {
+            try {
+                firestore?.collection("payment_gateways")?.document(newGw.id)?.set(newGw)?.await()
+            } catch (e: Exception) {
+                Log.w(TAG, "Offline gateway add fallback")
+            }
+        }
+        return Result.success(newGw)
+    }
+
+    fun updatePaymentGateway(
+        id: String,
+        name: String,
+        currency: String,
+        country: String,
+        title: String,
+        accountNumber: String,
+        iban: String = "",
+        bankName: String = "",
+        instructions: String = "",
+        shortDescription: String = "",
+        logoUrl: String = "",
+        isEnabled: Boolean = true,
+        displayOrder: Int = 1,
+        minDeposit: Double = 500.0,
+        minWithdraw: Double = 1000.0
+    ): Result<PaymentGateway> {
+        val current = _paymentGateways.value.toMutableList()
+        val idx = current.indexOfFirst { it.id == id }
+        if (idx == -1) return Result.failure(Exception("Payment method not found"))
+        val updatedGw = current[idx].copy(
+            name = name.trim(),
+            currency = currency.trim(),
+            country = country.trim(),
+            title = title.trim(),
+            accountNumber = accountNumber.trim(),
+            iban = iban.trim(),
+            bankName = bankName.trim(),
+            instructions = instructions.ifBlank { "Please transfer the exact amount and upload your transaction screenshot." },
+            shortDescription = shortDescription.ifBlank { "Instant 24/7 Digital Transfer" },
+            logoUrl = logoUrl.trim(),
+            isEnabled = isEnabled,
+            displayOrder = displayOrder,
+            minDeposit = minDeposit,
+            minWithdraw = minWithdraw
+        )
+        current[idx] = updatedGw
+        val sortedList = current.sortedBy { it.displayOrder }
+        _paymentGateways.value = sortedList
+        scope.launch {
+            try {
+                firestore?.collection("payment_gateways")?.document(id)?.set(updatedGw)?.await()
+            } catch (e: Exception) {
+                Log.w(TAG, "Offline gateway update fallback")
+            }
+        }
+        return Result.success(updatedGw)
+    }
+
+    fun deletePaymentGateway(id: String): Result<Unit> {
+        _paymentGateways.value = _paymentGateways.value.filter { it.id != id }
+        scope.launch {
+            try {
+                firestore?.collection("payment_gateways")?.document(id)?.delete()?.await()
+            } catch (e: Exception) {
+                Log.w(TAG, "Offline gateway delete fallback")
+            }
+        }
+        return Result.success(Unit)
+    }
+
+    fun togglePaymentGatewayStatus(id: String): Result<PaymentGateway> {
+        val current = _paymentGateways.value.toMutableList()
+        val idx = current.indexOfFirst { it.id == id }
+        if (idx == -1) return Result.failure(Exception("Payment method not found"))
+        val updated = current[idx].copy(isEnabled = !current[idx].isEnabled)
+        current[idx] = updated
+        _paymentGateways.value = current
+        scope.launch {
+            try {
+                firestore?.collection("payment_gateways")?.document(id)?.set(updated)?.await()
+            } catch (e: Exception) {
+                Log.w(TAG, "Offline gateway toggle fallback")
+            }
+        }
+        return Result.success(updated)
     }
 }
