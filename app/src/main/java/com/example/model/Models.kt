@@ -3,31 +3,25 @@ package com.example.model
 object CountryUtils {
     val ALL_COUNTRIES = listOf(
         "Pakistan",
-        "India",
-        "Bangladesh",
         "UAE",
-        "Saudi Arabia",
-        "United Kingdom",
-        "Global/Crypto"
+        "Saudi Arabia"
+    )
+
+    val SUPPORTED_CURRENCIES = listOf(
+        "PKR",
+        "AED",
+        "SAR"
     )
     
     fun getCountryForCurrency(currency: String): String = when (currency.uppercase()) {
         "AED" -> "UAE"
         "SAR" -> "Saudi Arabia"
-        "INR" -> "India"
-        "BDT" -> "Bangladesh"
-        "GBP" -> "United Kingdom"
-        "USD", "USDT" -> "Global/Crypto"
         else -> "Pakistan"
     }
 
     fun getCurrencyForCountry(country: String): String = when (country) {
         "UAE" -> "AED"
         "Saudi Arabia" -> "SAR"
-        "India" -> "INR"
-        "Bangladesh" -> "BDT"
-        "United Kingdom" -> "GBP"
-        "Global/Crypto" -> "USDT"
         else -> "PKR"
     }
 }
@@ -132,6 +126,16 @@ data class PendingRegistrationData(
     val pass: String,
     val otpCode: String,
     val timestamp: Long = System.currentTimeMillis()
+)
+
+data class UserWithdrawalAccount(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val userId: String = "",
+    val type: String = "EasyPaisa", // "EasyPaisa", "JazzCash", "Bank Account"
+    val title: String = "",
+    val accountNumber: String = "",
+    val iban: String = "",
+    val bankName: String = ""
 )
 
 

@@ -6,6 +6,7 @@ import com.example.model.MasterAgent
 import com.example.model.PaymentGateway
 import com.example.model.TransactionRequest
 import com.example.model.UserAccount
+import com.example.model.UserWithdrawalAccount
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
@@ -68,6 +69,9 @@ object BPWalletRepository {
     private val _paymentGateways = MutableStateFlow<List<PaymentGateway>>(defaultGateways())
     val paymentGateways: StateFlow<List<PaymentGateway>> = _paymentGateways.asStateFlow()
 
+    private val _userWithdrawalAccounts = MutableStateFlow<List<UserWithdrawalAccount>>(defaultWithdrawalAccounts())
+    val userWithdrawalAccounts: StateFlow<List<UserWithdrawalAccount>> = _userWithdrawalAccounts.asStateFlow()
+
     private val _recentBroadcast = MutableStateFlow<Pair<String, String>?>(null)
     val recentBroadcast: StateFlow<Pair<String, String>?> = _recentBroadcast.asStateFlow()
 
@@ -129,6 +133,32 @@ object BPWalletRepository {
             title = "BP Wallet SA Trading",
             accountNumber = "SA0380000000608010167519",
             minDeposit = 100.0
+        )
+    )
+
+    private fun defaultWithdrawalAccounts(): List<UserWithdrawalAccount> = listOf(
+        UserWithdrawalAccount(
+            id = "wa_ep_1",
+            userId = "",
+            type = "EasyPaisa",
+            title = "Usman Ali",
+            accountNumber = "03001234567"
+        ),
+        UserWithdrawalAccount(
+            id = "wa_jz_1",
+            userId = "",
+            type = "JazzCash",
+            title = "Usman Ali",
+            accountNumber = "03007654321"
+        ),
+        UserWithdrawalAccount(
+            id = "wa_bank_1",
+            userId = "",
+            type = "Bank Account",
+            title = "Usman Ali",
+            accountNumber = "0102010123456789",
+            iban = "PK36MEZN0001020101234567",
+            bankName = "Meezan Bank"
         )
     )
 
@@ -381,6 +411,30 @@ object BPWalletRepository {
                 otpCode = generatedOtp
             )
             Log.i(TAG, "OTP generated for ${email} / ${mobileNumber}: $generatedOtp")
+
+            // Real Production Email & SMS / WhatsApp Dispatch via Firebase & Backend Queue
+            try {
+                val emailPayload = mapOf(
+                    "to" to email.trim(),
+                    "message" to mapOf(
+                        "subject" to "BP Wallet - Security Verification Code",
+                        "text" to "Your 6-digit security verification code for BP Wallet is: $generatedOtp. Do not share this code with anyone.",
+                        "html" to "<h3>BP Wallet Security Verification</h3><p>Your 6-digit security verification code is: <b>$generatedOtp</b></p><p>Do not share this code with anyone.</p>"
+                    ),
+                    "recipientPhone" to mobileNumber.trim(),
+                    "otpCode" to generatedOtp,
+                    "channel" to "EMAIL_AND_SMS_WHATSAPP",
+                    "status" to "PENDING",
+                    "timestamp" to System.currentTimeMillis()
+                )
+                firestore?.collection("mail")?.add(emailPayload)
+                firestore?.collection("sms_queue")?.add(emailPayload)
+                firestore?.collection("whatsapp_queue")?.add(emailPayload)
+                Log.i(TAG, "Real OTP verification request dispatched to Firebase mail & SMS/WhatsApp delivery service.")
+            } catch (e: Exception) {
+                Log.w(TAG, "Note: Offline queueing fallback for OTP delivery: ${e.message}")
+            }
+
             Result.success(pendingData)
         } catch (e: Exception) {
             Result.failure(e)
@@ -889,5 +943,75 @@ object BPWalletRepository {
             }
         }
         return Result.success(clean)
+    }
+
+    fun addWithdrawalAccount(
+        type: String,
+        title: String,
+        accountNumber: String,
+        iban: String = "",
+        bankName: String = ""
+    ): Result<UserWithdrawalAccount> {
+        val currUser = _currentUser.value
+        val newAcc = UserWithdrawalAccount(
+            id = "wa_" + UUID.randomUUID().toString().take(8),
+            userId = currUser?.id ?: "",
+            type = type.trim(),
+            title = title.trim(),
+            accountNumber = accountNumber.trim(),
+            iban = iban.trim(),
+            bankName = bankName.trim()
+        )
+        _userWithdrawalAccounts.value = _userWithdrawalAccounts.value + newAcc
+        scope.launch {
+            try {
+                firestore?.collection("user_withdrawal_accounts")?.document(newAcc.id)?.set(newAcc)?.await()
+            } catch (e: Exception) {
+                Log.w(TAG, "Offline withdrawal acc save fallback")
+            }
+        }
+        return Result.success(newAcc)
+    }
+
+    fun updateWithdrawalAccount(
+        id: String,
+        type: String,
+        title: String,
+        accountNumber: String,
+        iban: String = "",
+        bankName: String = ""
+    ): Result<UserWithdrawalAccount> {
+        val currentList = _userWithdrawalAccounts.value.toMutableList()
+        val idx = currentList.indexOfFirst { it.id == id }
+        if (idx == -1) return Result.failure(Exception("Account not found"))
+        val updated = currentList[idx].copy(
+            type = type.trim(),
+            title = title.trim(),
+            accountNumber = accountNumber.trim(),
+            iban = iban.trim(),
+            bankName = bankName.trim()
+        )
+        currentList[idx] = updated
+        _userWithdrawalAccounts.value = currentList
+        scope.launch {
+            try {
+                firestore?.collection("user_withdrawal_accounts")?.document(id)?.set(updated)?.await()
+            } catch (e: Exception) {
+                Log.w(TAG, "Offline withdrawal acc update fallback")
+            }
+        }
+        return Result.success(updated)
+    }
+
+    fun deleteWithdrawalAccount(id: String): Result<Unit> {
+        _userWithdrawalAccounts.value = _userWithdrawalAccounts.value.filter { it.id != id }
+        scope.launch {
+            try {
+                firestore?.collection("user_withdrawal_accounts")?.document(id)?.delete()?.await()
+            } catch (e: Exception) {
+                Log.w(TAG, "Offline withdrawal acc delete fallback")
+            }
+        }
+        return Result.success(Unit)
     }
 }

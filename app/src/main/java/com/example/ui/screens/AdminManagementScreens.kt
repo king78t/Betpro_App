@@ -735,7 +735,8 @@ fun AdminTransactionsScreen(
                             tx = tx,
                             currentUser = currentUser,
                             onApprove = { viewModel.approveTransaction(tx.id) },
-                            onReject = { viewModel.rejectTransaction(tx.id) }
+                            onReject = { viewModel.rejectTransaction(tx.id) },
+                            onForward = { viewModel.forwardWithdrawalToSuperAdmin(tx.id) }
                         )
                     }
                 }
@@ -759,13 +760,11 @@ fun AdminTxCard(
     tx: TransactionRequest,
     currentUser: UserAccount? = null,
     onApprove: () -> Unit,
-    onReject: () -> Unit
+    onReject: () -> Unit,
+    onForward: () -> Unit = {}
 ) {
-    val canApprove = if (tx.type == "WITHDRAW") {
-        currentUser?.isSuperAdmin == true || currentUser == null
-    } else {
-        currentUser?.isSuperAdmin == true || currentUser?.isCountrySuperMaster == true || currentUser == null
-    }
+    val isSuperAdminOrNull = currentUser?.isSuperAdmin == true || currentUser == null
+    val isCountryMaster = currentUser?.isCountrySuperMaster == true
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -806,7 +805,49 @@ fun AdminTxCard(
             }
 
             if (tx.status == "Pending") {
-                if (canApprove) {
+                if (tx.type == "WITHDRAW" && isCountryMaster) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Button(
+                            onClick = onForward,
+                            colors = ButtonDefaults.buttonColors(containerColor = BPGoldDark),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text("Forward", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                        IconButton(
+                            onClick = onReject,
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFD32F2F))
+                        ) {
+                            Icon(imageVector = Icons.Default.Close, contentDescription = "Reject", tint = Color.White)
+                        }
+                    }
+                } else if (isSuperAdminOrNull || !isCountryMaster || tx.type != "WITHDRAW") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        IconButton(
+                            onClick = onApprove,
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(BPGreenPrimary)
+                        ) {
+                            Icon(imageVector = Icons.Default.Check, contentDescription = "Approve", tint = Color.White)
+                        }
+                        IconButton(
+                            onClick = onReject,
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFD32F2F))
+                        ) {
+                            Icon(imageVector = Icons.Default.Close, contentDescription = "Reject", tint = Color.White)
+                        }
+                    }
+                }
+            } else if (tx.status.equals("pending_super_admin", true)) {
+                if (isSuperAdminOrNull) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         IconButton(
                             onClick = onApprove,
@@ -828,18 +869,7 @@ fun AdminTxCard(
                         }
                     }
                 } else {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            text = "Awaiting Super Admin",
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            color = Color(0xFFE65100),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                    StatusBadge(status = tx.status)
                 }
             } else {
                 StatusBadge(status = tx.status)

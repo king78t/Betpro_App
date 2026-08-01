@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 enum class ScreenType {
+    SPLASH,
     LOGIN,
     REGISTER,
     USER_HOME,
@@ -41,7 +42,7 @@ class BPWalletViewModel : ViewModel() {
     val exchangeWebsiteUrl = BPWalletRepository.exchangeWebsiteUrl
     val isLoading = BPWalletRepository.isLoading
 
-    private val _currentScreen = MutableStateFlow(ScreenType.LOGIN)
+    private val _currentScreen = MutableStateFlow(ScreenType.SPLASH)
     val currentScreen: StateFlow<ScreenType> = _currentScreen.asStateFlow()
 
     // Login tab mode: true = User, false = Admin
@@ -97,6 +98,19 @@ class BPWalletViewModel : ViewModel() {
 
     fun setScreen(screen: ScreenType) {
         _currentScreen.value = screen
+    }
+
+    fun onSplashCompleted() {
+        val user = currentUser.value
+        if (user != null) {
+            if (user.role == "ADMIN") {
+                setScreen(ScreenType.ADMIN_DASHBOARD)
+            } else {
+                setScreen(ScreenType.USER_HOME)
+            }
+        } else {
+            setScreen(ScreenType.LOGIN)
+        }
     }
 
     fun setLoginTab(isUser: Boolean) {
@@ -173,10 +187,17 @@ class BPWalletViewModel : ViewModel() {
             return
         }
         viewModelScope.launch {
-            val result = BPWalletRepository.requestRegistrationOtp(fullName, trimmedEmail, currency, mobileNumber, pass)
-            result.onSuccess { pending ->
-                _pendingRegistration.value = pending
-                showSnack("Verification OTP sent to $trimmedEmail & $mobileNumber")
+            val result = BPWalletRepository.registerUser(
+                fullName = fullName,
+                email = trimmedEmail,
+                currency = currency,
+                mobileNumber = mobileNumber,
+                password = pass
+            )
+            result.onSuccess { user ->
+                _pendingRegistration.value = null
+                showSnack("Account created successfully! Welcome to BP Wallet, ${user.fullName}.")
+                setScreen(ScreenType.USER_HOME)
             }.onFailure { err ->
                 triggerErrorShake()
                 showSnack("Registration blocked: ${err.message}")
@@ -184,58 +205,12 @@ class BPWalletViewModel : ViewModel() {
         }
     }
 
-    fun verifyRegistrationOtp(enteredOtp: String) {
-        val pending = _pendingRegistration.value
-        if (pending == null) {
-            showSnack("No pending registration session found.")
-            return
-        }
-        if (enteredOtp.trim() != pending.otpCode) {
-            triggerErrorShake()
-            showSnack("Invalid OTP verification code. Please check and try again.")
-            return
-        }
-        viewModelScope.launch {
-            val result = BPWalletRepository.registerUser(
-                pending.fullName,
-                pending.email,
-                pending.currency,
-                pending.mobileNumber,
-                pending.pass
-            )
-            result.onSuccess { user ->
-                _pendingRegistration.value = null
-                showSnack("Email & Phone Verified! Welcome to BP Wallet, ${user.fullName}.")
-                setScreen(ScreenType.USER_HOME)
-            }.onFailure { err ->
-                triggerErrorShake()
-                showSnack("Account activation error: ${err.message}")
-            }
-        }
-    }
+    fun verifyRegistrationOtp(enteredOtp: String) {}
 
-    fun resendRegistrationOtp() {
-        val pending = _pendingRegistration.value ?: return
-        viewModelScope.launch {
-            val result = BPWalletRepository.requestRegistrationOtp(
-                pending.fullName,
-                pending.email,
-                pending.currency,
-                pending.mobileNumber,
-                pending.pass
-            )
-            result.onSuccess { newPending ->
-                _pendingRegistration.value = newPending
-                showSnack("New Verification OTP code sent to ${newPending.email}")
-            }.onFailure { err ->
-                showSnack("Resend error: ${err.message}")
-            }
-        }
-    }
+    fun resendRegistrationOtp() {}
 
     fun cancelRegistrationOtp() {
         _pendingRegistration.value = null
-        showSnack("Registration verification cancelled.")
     }
 
 
