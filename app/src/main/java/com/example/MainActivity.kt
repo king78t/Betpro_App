@@ -23,8 +23,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         try {
             com.google.firebase.FirebaseApp.initializeApp(this)
+            val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            val settings = com.google.firebase.firestore.FirebaseFirestoreSettings.Builder()
+                .setPersistenceEnabled(true)
+                .setCacheSizeBytes(com.google.firebase.firestore.FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                .build()
+            db.firestoreSettings = settings
         } catch (e: Exception) {
-            // Safe fallback when Firebase is not configured
+            // Safe fallback when Firebase is not configured or settings already initialized
         }
         enableEdgeToEdge()
         setContent {

@@ -8,7 +8,9 @@ import com.example.model.TransactionRequest
 import com.example.model.UserAccount
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.Source
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,9 +22,24 @@ import java.util.UUID
 
 object BPWalletRepository {
     private const val TAG = "BPWalletRepo"
+    private var _firestoreInstance: FirebaseFirestore? = null
     private val firestore: FirebaseFirestore?
         get() = try {
-            FirebaseFirestore.getInstance()
+            if (_firestoreInstance == null) {
+                val db = FirebaseFirestore.getInstance()
+                try {
+                    val settings = FirebaseFirestoreSettings.Builder()
+                        .setPersistenceEnabled(true)
+                        .setCacheSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                        .build()
+                    db.firestoreSettings = settings
+                    Log.d(TAG, "Firestore offline persistence enabled successfully")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Note: Firestore settings already initialized or offline fallback: ${e.message}")
+                }
+                _firestoreInstance = db
+            }
+            _firestoreInstance
         } catch (e: Exception) {
             null
         }
@@ -167,6 +184,43 @@ object BPWalletRepository {
         scope.launch {
             try {
                 val db = firestore ?: return@launch
+
+                // Load cached user accounts (with balance) and transaction history immediately from local Firestore SQLite cache
+                try {
+                    val cachedUsersSnapshot = db.collection("users")
+                        .get(Source.CACHE)
+                        .await()
+                    val cachedUsers = cachedUsersSnapshot.documents.mapNotNull { it.toObject(UserAccount::class.java) }
+                    if (cachedUsers.isNotEmpty()) {
+                        val seededAdmins = _usersList.value.filter { it.isSuperAdmin || it.isCountrySuperMaster || it.isSupportStaff || it.isReadOnlyUser || it.id.startsWith("demo_user") }
+                        val missingAdmins = seededAdmins.filter { sa -> cachedUsers.none { it.id == sa.id } }
+                        val fullList = cachedUsers + missingAdmins
+                        _usersList.value = fullList
+                        _currentUser.value?.let { curr ->
+                            fullList.find { it.id == curr.id }?.let { updatedCurr ->
+                                _currentUser.value = updatedCurr
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.d(TAG, "Offline cache users read note: ${e.message}")
+                }
+
+                try {
+                    val cachedTxsSnapshot = db.collection("transactions")
+                        .orderBy("timestamp", Query.Direction.DESCENDING)
+                        .get(Source.CACHE)
+                        .await()
+                    val cachedTxs = cachedTxsSnapshot.documents.mapNotNull { it.toObject(TransactionRequest::class.java) }
+                    if (cachedTxs.isNotEmpty()) {
+                        val currentDemoTxs = _transactionsList.value.filter { it.id.startsWith("tx_demo") }
+                        val missingDemoTxs = currentDemoTxs.filter { dt -> cachedTxs.none { it.id == dt.id } }
+                        _transactionsList.value = cachedTxs + missingDemoTxs
+                    }
+                } catch (e: Exception) {
+                    Log.d(TAG, "Offline cache transactions read note: ${e.message}")
+                }
+
                 db.collection("users").addSnapshotListener { snapshot, e ->
                     if (e != null || snapshot == null) {
                         Log.w(TAG, "Users listener error or offline fallback used: ${e?.message}")
@@ -299,6 +353,40 @@ object BPWalletRepository {
         }
     }
 
+    suspend fun requestRegistrationOtp(
+        fullName: String,
+        email: String,
+        currency: String,
+        mobileNumber: String,
+        password: String
+    ): Result<com.example.model.PendingRegistrationData> {
+        return try {
+            val trimmedEmail = email.trim().lowercase()
+            val cleanMobile = mobileNumber.replace(Regex("[^0-9+]"), "").trim()
+            val existingEmail = _usersList.value.find { it.email.trim().lowercase() == trimmedEmail }
+            if (existingEmail != null) {
+                return Result.failure(Exception("This Email address is already registered."))
+            }
+            val existingPhone = _usersList.value.find { it.mobileNumber.replace(Regex("[^0-9+]"), "").trim() == cleanMobile }
+            if (existingPhone != null) {
+                return Result.failure(Exception("This Mobile Number is already registered."))
+            }
+            val generatedOtp = ((100000..999999).random()).toString()
+            val pendingData = com.example.model.PendingRegistrationData(
+                fullName = fullName.trim(),
+                email = email.trim(),
+                currency = currency,
+                mobileNumber = mobileNumber.trim(),
+                pass = password,
+                otpCode = generatedOtp
+            )
+            Log.i(TAG, "OTP generated for ${email} / ${mobileNumber}: $generatedOtp")
+            Result.success(pendingData)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun registerUser(
         fullName: String,
         email: String,
@@ -307,6 +395,16 @@ object BPWalletRepository {
         password: String
     ): Result<UserAccount> {
         return try {
+            val trimmedEmail = email.trim().lowercase()
+            val cleanMobile = mobileNumber.replace(Regex("[^0-9+]"), "").trim()
+            val existingEmail = _usersList.value.find { it.email.trim().lowercase() == trimmedEmail }
+            if (existingEmail != null) {
+                return Result.failure(Exception("This Email address is already registered."))
+            }
+            val existingPhone = _usersList.value.find { it.mobileNumber.replace(Regex("[^0-9+]"), "").trim() == cleanMobile }
+            if (existingPhone != null) {
+                return Result.failure(Exception("This Mobile Number is already registered."))
+            }
             val userId = "usr_${UUID.randomUUID().toString().take(8)}"
             val country = CountryUtils.getCountryForCurrency(currency)
             val assignedMasterName = when (country) {
@@ -389,18 +487,13 @@ object BPWalletRepository {
             }
 
             val userId = "BP-" + (100000..999999).random()
-            val names = displayName.split(" ")
-            val first = names.firstOrNull() ?: "Google"
-            val last = if (names.size > 1) names.drop(1).joinToString(" ") else "User"
             val newUser = UserAccount(
                 id = userId,
-                firstName = first,
-                lastName = last,
+                fullName = displayName.ifEmpty { "Google User" },
                 email = cleanEmail,
-                phone = "Google Account",
+                mobileNumber = "Google Account",
                 role = "user",
-                balance = 50000.0,
-                isSuperAdmin = false
+                walletBalance = 50000.0
             )
 
             _usersList.value = listOf(newUser) + _usersList.value
@@ -573,7 +666,17 @@ object BPWalletRepository {
         val currentAdmin = _currentUser.value
 
         if (tx.type == "WITHDRAW" && currentAdmin?.isSuperAdmin != true) {
-            return Result.failure(Exception("Only Super Admin can reject withdrawal requests."))
+            if (tx.status.equals("pending_super_admin", true)) {
+                return Result.failure(Exception("This withdrawal has been forwarded. Only Super Admin can reject it."))
+            }
+            if (currentAdmin?.isCountrySuperMaster == true) {
+                val matchesCountry = tx.country.equals(currentAdmin.country, true) || tx.currency.equals(currentAdmin.currency, true)
+                if (!matchesCountry) {
+                    return Result.failure(Exception("Country Super Masters can only reject withdrawals for their assigned country."))
+                }
+            } else {
+                return Result.failure(Exception("Only Super Admin or assigned Country Super Master can reject withdrawal requests."))
+            }
         }
         if (tx.type == "DEPOSIT" && currentAdmin?.isCountrySuperMaster == true) {
             val matchesCountry = tx.country.equals(currentAdmin.country, true) || tx.currency.equals(currentAdmin.currency, true)
@@ -583,6 +686,43 @@ object BPWalletRepository {
         }
 
         val updatedTx = tx.copy(status = "Rejected")
+        currentTxs[idx] = updatedTx
+        _transactionsList.value = currentTxs
+
+        scope.launch {
+            try {
+                firestore?.collection("transactions")?.document(txId)?.set(updatedTx)?.await()
+            } catch (e: Exception) {
+                Log.w(TAG, "Firestore sync note: ${e.message}")
+            }
+        }
+        return Result.success(updatedTx)
+    }
+
+    fun forwardWithdrawalToSuperAdmin(txId: String): Result<TransactionRequest> {
+        val currentTxs = _transactionsList.value.toMutableList()
+        val idx = currentTxs.indexOfFirst { it.id == txId }
+        if (idx == -1) return Result.failure(Exception("Transaction not found."))
+
+        val tx = currentTxs[idx]
+        val currentAdmin = _currentUser.value
+
+        if (tx.type != "WITHDRAW") {
+            return Result.failure(Exception("Only withdrawal requests can be forwarded to Super Admin."))
+        }
+        if (!tx.status.equals("Pending", true)) {
+            return Result.failure(Exception("Only pending withdrawal requests can be forwarded."))
+        }
+        if (currentAdmin?.isCountrySuperMaster == true) {
+            val matchesCountry = tx.country.equals(currentAdmin.country, true) || tx.currency.equals(currentAdmin.currency, true)
+            if (!matchesCountry) {
+                return Result.failure(Exception("Country Super Masters can only forward withdrawals for their assigned country."))
+            }
+        } else if (currentAdmin?.isSuperAdmin != true) {
+            return Result.failure(Exception("Only assigned Country Super Master can forward withdrawal requests."))
+        }
+
+        val updatedTx = tx.copy(status = "pending_super_admin")
         currentTxs[idx] = updatedTx
         _transactionsList.value = currentTxs
 

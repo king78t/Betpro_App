@@ -47,7 +47,8 @@ data class UserAccount(
     val walletBalance: Double = 0.0,
     val masterAgentName: String = "Pakistan Super Master",
     val assignedMasterId: String = "ma_pk",
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val isVerified: Boolean = true
 ) {
     val displayCurrencySymbol: String
         get() = when (currency) {
@@ -122,4 +123,15 @@ data class PaymentGateway(
     val minDeposit: Double = 500.0,
     val minWithdraw: Double = 1000.0
 )
+
+data class PendingRegistrationData(
+    val fullName: String,
+    val email: String,
+    val currency: String,
+    val mobileNumber: String,
+    val pass: String,
+    val otpCode: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 

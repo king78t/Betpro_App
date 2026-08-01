@@ -319,9 +319,11 @@ fun StatusBadge(
     val (bg, textColor) = when (status.lowercase()) {
         "active", "approved", "fixed" -> BPGreenLight to BPGreenDark
         "pending", "waiting" -> BPGoldSoft to BPGoldDark
+        "pending_super_admin", "pending super admin" -> Color(0xFFFFF3E0) to Color(0xFFE65100)
         "blocked", "rejected" -> Color(0xFFFFE5E5) to Color(0xFFD32F2F)
         else -> Slate100 to Slate700
     }
+    val displayStatus = if (status.equals("pending_super_admin", true)) "PENDING SUPER ADMIN" else status.uppercase()
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
@@ -338,7 +340,7 @@ fun StatusBadge(
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = status.uppercase(),
+                text = displayStatus,
                 color = textColor,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold

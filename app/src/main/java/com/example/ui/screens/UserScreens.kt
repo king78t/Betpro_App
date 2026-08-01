@@ -1,7 +1,14 @@
 package com.example.ui.screens
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
+import android.view.ViewGroup
+import android.webkit.CookieManager
+import android.webkit.WebChromeClient
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,10 +28,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.model.PaymentGateway
 import com.example.model.TransactionRequest
 import com.example.model.UserAccount
@@ -54,18 +65,16 @@ fun UserHomeScreen(
     val approvedWithdrawalsCount = userTxs.count { it.type == "WITHDRAW" && it.status == "Approved" }
     val totalWithdrawalSum = userTxs.filter { it.type == "WITHDRAW" && it.status == "Approved" }.sumOf { it.amount }
 
-    if (showBetProModal) {
-        BetProExchangeModal(
-            user = u,
-            onDismiss = { viewModel.setBetProExchangeModalVisible(false) },
-            onCopy = { txt -> viewModel.showSnack("Copied: $txt") }
-        )
-    }
+    BetProWebViewDialogHandler(viewModel = viewModel)
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            UserTopBar(user = u, onLogout = { viewModel.logout() })
+            UserTopBar(
+                user = u,
+                onLogout = { viewModel.logout() },
+                onProfileClick = { viewModel.setScreen(ScreenType.USER_PROFILE) }
+            )
         },
         bottomBar = {
             UserBottomNavBar(
@@ -326,6 +335,34 @@ fun UserHomeScreen(
                             color = Slate900
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Centered Open BetPro Button on Dashboard Card
+                    Button(
+                        onClick = { viewModel.setBetProExchangeModalVisible(true) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = BPGreenPrimary,
+                            contentColor = Color.White
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = "BetPro Exchange",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "OPEN BETPRO EXCHANGE",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
                 }
             }
 
@@ -405,7 +442,8 @@ fun UserHomeScreen(
 @Composable
 fun UserTopBar(
     user: UserAccount,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onProfileClick: (() -> Unit)? = null
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -419,7 +457,17 @@ fun UserTopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = if (onProfileClick != null) {
+                    Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onProfileClick() }
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                } else {
+                    Modifier
+                }
+            ) {
                 // Avatar
                 Box(
                     modifier = Modifier
@@ -459,6 +507,17 @@ fun UserTopBar(
                 // Currency FIXED Badge
                 StatusBadge(status = "${user.currency} FIXED")
 
+                // Profile button
+                if (onProfileClick != null) {
+                    IconButton(onClick = onProfileClick) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Profile",
+                            tint = BPGreenDark
+                        )
+                    }
+                }
+
                 // Notification Bell
                 IconButton(onClick = {}) {
                     Icon(
@@ -495,78 +554,76 @@ fun UserBottomNavBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp, horizontal = 12.dp),
+                .padding(vertical = 8.dp, horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Home
+            // Home (Left 1)
             NavBarItem(
                 label = "Home",
                 icon = Icons.Default.Home,
                 selected = currentScreen == ScreenType.USER_HOME,
-                onClick = { onNavigate(ScreenType.USER_HOME) }
+                onClick = { onNavigate(ScreenType.USER_HOME) },
+                modifier = Modifier.weight(1f)
             )
 
-            // Deposit
+            // Deposit (Left 2)
             NavBarItem(
                 label = "Deposit",
                 icon = Icons.Default.AddCircleOutline,
                 selected = currentScreen == ScreenType.USER_DEPOSIT,
-                onClick = { onNavigate(ScreenType.USER_DEPOSIT) }
+                onClick = { onNavigate(ScreenType.USER_DEPOSIT) },
+                modifier = Modifier.weight(1f)
             )
 
-            // BP ID Center Gold Button
+            // BetPro Center Button (EXACT CENTER - 3rd out of 5 equal weight items)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
-                    .offset(y = (-8).dp)
+                    .weight(1f)
+                    .offset(y = (-10).dp)
                     .clickable { onBpIdClick() }
             ) {
                 Box(
                     modifier = Modifier
-                        .size(52.dp)
+                        .size(56.dp)
                         .clip(CircleShape)
-                        .background(BPGold)
+                        .background(BPGreenPrimary)
                         .border(3.dp, Color.White, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Key,
-                        contentDescription = "BP ID",
-                        tint = Slate900,
-                        modifier = Modifier.size(26.dp)
+                        imageVector = Icons.Default.Language,
+                        contentDescription = "BetPro",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
                     )
                 }
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "BP ID",
-                    fontSize = 11.sp,
+                    text = "BetPro",
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Black,
                     color = Slate900
                 )
             }
 
-            // Withdraw
+            // Withdraw (Right 1)
             NavBarItem(
                 label = "Withdraw",
                 icon = Icons.Default.RemoveCircleOutline,
                 selected = currentScreen == ScreenType.USER_WITHDRAW,
-                onClick = { onNavigate(ScreenType.USER_WITHDRAW) }
+                onClick = { onNavigate(ScreenType.USER_WITHDRAW) },
+                modifier = Modifier.weight(1f)
             )
 
-            // History
+            // History (Right 2)
             NavBarItem(
                 label = "History",
                 icon = Icons.Default.History,
                 selected = currentScreen == ScreenType.USER_HISTORY,
-                onClick = { onNavigate(ScreenType.USER_HISTORY) }
-            )
-
-            // Profile
-            NavBarItem(
-                label = "Profile",
-                icon = Icons.Default.Person,
-                selected = currentScreen == ScreenType.USER_PROFILE,
-                onClick = { onNavigate(ScreenType.USER_PROFILE) }
+                onClick = { onNavigate(ScreenType.USER_HISTORY) },
+                modifier = Modifier.weight(1f)
             )
         }
     }
@@ -577,13 +634,14 @@ fun NavBarItem(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     selected: Boolean,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
+        modifier = modifier
             .clickable { onClick() }
-            .padding(vertical = 4.dp, horizontal = 6.dp)
+            .padding(vertical = 4.dp, horizontal = 4.dp)
     ) {
         Icon(
             imageVector = icon,
@@ -602,116 +660,314 @@ fun NavBarItem(
 }
 
 @Composable
+fun BetProWebViewDialogHandler(viewModel: BPWalletViewModel) {
+    val showBetProModal by viewModel.showBetProExchangeModal.collectAsState()
+    val exchangeUrl by viewModel.exchangeWebsiteUrl.collectAsState()
+    val user by viewModel.currentUser.collectAsState()
+    val u = user ?: return
+    if (showBetProModal) {
+        BetProExchangeModal(
+            user = u,
+            url = exchangeUrl,
+            onDismiss = { viewModel.setBetProExchangeModalVisible(false) },
+            onCopy = { txt -> viewModel.showSnack("Copied: $txt") }
+        )
+    }
+}
+
+object BetProWebViewCache {
+    @SuppressLint("StaticFieldLeak")
+    var cachedWebView: WebView? = null
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
 fun BetProExchangeModal(
     user: UserAccount,
+    url: String = "https://bpexch.live",
     onDismiss: () -> Unit,
-    onCopy: (String) -> Unit
+    onCopy: (String) -> Unit = {}
 ) {
-    val context = LocalContext.current
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Security,
-                    contentDescription = "BetPro Exchange",
-                    tint = BPGreenPrimary,
-                    modifier = Modifier.size(48.dp)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "BetPro Exchange",
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 20.sp,
-                    color = Slate900
-                )
-                Text(
-                    text = "https://bpexch.live",
-                    fontSize = 12.sp,
-                    color = BPGreenDark,
-                    fontWeight = FontWeight.SemiBold
-                )
+    val targetUrl = remember(url) {
+        val clean = url.trim()
+        if (clean.startsWith("http://") || clean.startsWith("https://")) clean else "https://$clean"
+    }
+    var isLoading by remember { mutableStateOf(true) }
+    var webViewRef by remember { mutableStateOf<WebView?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            CookieManager.getInstance().flush()
+        }
+    }
+
+    Dialog(
+        onDismissRequest = {
+            if (webViewRef?.canGoBack() == true) {
+                webViewRef?.goBack()
+            } else {
+                CookieManager.getInstance().flush()
+                onDismiss()
             }
         },
-        text = {
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false
+        )
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = Slate900
+        ) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier
+                    .fillMaxSize()
+                    .systemBarsPadding()
             ) {
-                Button(
-                    onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://bpexch.live"))
-                        try {
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            // Fallback if browser unavailable
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = BPGreenPrimary,
-                        contentColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(12.dp)
+                // Top Header Bar (Video-like experience: title + close/back button)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Slate900,
+                    shadowElevation = 4.dp
                 ) {
-                    Text(
-                        text = "Open BetPro Exchange",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = Icons.Default.OpenInNew,
-                        contentDescription = "Open URL",
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Text(
-                    text = "Official website will open in a secure browser. Login with your device saved passwords or use your assigned credentials below:",
-                    fontSize = 12.sp,
-                    color = Slate500,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Slate100),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Column {
-                                Text(text = "ID: ${user.betproUsername}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                Text(text = "Pass: ${user.betproPassword}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            IconButton(
+                                onClick = {
+                                    if (webViewRef?.canGoBack() == true) {
+                                        webViewRef?.goBack()
+                                    } else {
+                                        CookieManager.getInstance().flush()
+                                        onDismiss()
+                                    }
+                                },
+                                modifier = Modifier.testTag("webview_back_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = Color.White
+                                )
                             }
-                            IconButton(onClick = { onCopy("${user.betproUsername} / ${user.betproPassword}") }) {
-                                Icon(imageVector = Icons.Default.ContentCopy, contentDescription = "Copy", tint = Slate700)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "BetPro Official",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 16.sp,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = targetUrl.removePrefix("https://").removePrefix("http://"),
+                                    fontSize = 11.sp,
+                                    color = BPGreenLight,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = {
+                                    isLoading = true
+                                    webViewRef?.reload()
+                                },
+                                modifier = Modifier.testTag("webview_refresh_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Refresh",
+                                    tint = Color.White
+                                )
                             }
                         }
                     }
                 }
+
+                // Compact Credentials Bar with Auto-Fill button inside WebView
+                Surface(
+                    color = Slate800,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Key,
+                                contentDescription = "ID",
+                                tint = BPGold,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "ID: ${user.betproUsername} | Pass: ${user.betproPassword}",
+                                fontSize = 12.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                val script = """
+                                    (function() {
+                                        var u = "${user.betproUsername}";
+                                        var p = "${user.betproPassword}";
+                                        function setV(el, val) {
+                                            if (!el) return false;
+                                            el.focus();
+                                            el.value = val;
+                                            el.dispatchEvent(new Event('input', { bubbles: true }));
+                                            el.dispatchEvent(new Event('change', { bubbles: true }));
+                                            el.blur();
+                                            return true;
+                                        }
+                                        var inputs = document.querySelectorAll('input');
+                                        var uEl = null;
+                                        var pEl = null;
+                                        for (var i = 0; i < inputs.length; i++) {
+                                            var inp = inputs[i];
+                                            var t = (inp.type || '').toLowerCase();
+                                            var n = (inp.name || '').toLowerCase();
+                                            var id = (inp.id || '').toLowerCase();
+                                            var ph = (inp.placeholder || '').toLowerCase();
+                                            if (t === 'password') {
+                                                pEl = inp;
+                                            } else if (!uEl && (t === 'text' || t === 'email' || t === 'number' || t === 'tel' || t === '' || n.includes('user') || n.includes('login') || n.includes('id') || id.includes('user') || id.includes('login') || ph.includes('user') || ph.includes('id'))) {
+                                                uEl = inp;
+                                            }
+                                        }
+                                        if (!uEl && inputs.length > 0) uEl = inputs[0];
+                                        if (!pEl && inputs.length > 1) pEl = inputs[1];
+                                        setV(uEl, u);
+                                        setV(pEl, p);
+                                        setTimeout(function() {
+                                            var btns = document.querySelectorAll('button, input[type="submit"], a, div');
+                                            for (var j = 0; j < btns.length; j++) {
+                                                var btn = btns[j];
+                                                var txt = (btn.innerText || btn.value || '').toLowerCase();
+                                                if (txt.includes('login') || txt.includes('sign in') || txt.includes('submit') || txt.includes('log in') || (btn.type && btn.type.toLowerCase() === 'submit')) {
+                                                    btn.click();
+                                                    break;
+                                                }
+                                            }
+                                        }, 300);
+                                    })();
+                                """.trimIndent()
+                                webViewRef?.evaluateJavascript(script, null)
+                                onCopy("Credentials Auto-Filled!")
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = BPGold,
+                                contentColor = Slate900
+                            ),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier
+                                .height(28.dp)
+                                .testTag("webview_autofill_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FlashOn,
+                                contentDescription = "Auto Fill",
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("AUTO-FILL", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                    }
+                }
+
+                // Loading Indicator
+                if (isLoading) {
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = BPGreenPrimary,
+                        trackColor = Slate800
+                    )
+                }
+
+                // In-App WebView
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .background(Color.White)
+                ) {
+                    AndroidView(
+                        factory = { context ->
+                            try {
+                                val cacheDir = context.cacheDir
+                                java.io.File(cacheDir, "WebView/Default/HTTP Cache/Code Cache/js").mkdirs()
+                                java.io.File(cacheDir, "WebView/Default/HTTP Cache/Code Cache/wasm").mkdirs()
+                            } catch (_: Exception) {}
+                            val existing = BetProWebViewCache.cachedWebView
+                            if (existing != null) {
+                                (existing.parent as? ViewGroup)?.removeView(existing)
+                                webViewRef = existing
+                                if (existing.url.isNullOrEmpty() || existing.url == "about:blank") {
+                                    existing.loadUrl(targetUrl)
+                                } else {
+                                    isLoading = false
+                                }
+                                existing
+                            } else {
+                                WebView(context).apply {
+                                    layoutParams = ViewGroup.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        ViewGroup.LayoutParams.MATCH_PARENT
+                                    )
+                                    val cookieManager = CookieManager.getInstance()
+                                    cookieManager.setAcceptCookie(true)
+                                    cookieManager.setAcceptThirdPartyCookies(this, true)
+                                    settings.apply {
+                                        javaScriptEnabled = true
+                                        domStorageEnabled = true
+                                        databaseEnabled = true
+                                        loadWithOverviewMode = true
+                                        useWideViewPort = true
+                                        setSupportZoom(true)
+                                        builtInZoomControls = false
+                                        cacheMode = WebSettings.LOAD_DEFAULT
+                                        mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                                        saveFormData = true
+                                    }
+                                    webViewClient = object : WebViewClient() {
+                                        override fun onPageFinished(view: WebView?, url: String?) {
+                                            super.onPageFinished(view, url)
+                                            isLoading = false
+                                            CookieManager.getInstance().flush()
+                                        }
+                                    }
+                                    webChromeClient = WebChromeClient()
+                                    loadUrl(targetUrl)
+                                    webViewRef = this
+                                    BetProWebViewCache.cachedWebView = this
+                                }
+                            }
+                        },
+                        update = { webView ->
+                            if (webView.url.isNullOrEmpty() && webView.originalUrl.isNullOrEmpty()) {
+                                webView.loadUrl(targetUrl)
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close", fontWeight = FontWeight.Bold, color = Slate700)
-            }
-        },
-        containerColor = Color.White,
-        shape = RoundedCornerShape(24.dp)
-    )
+        }
+    }
 }

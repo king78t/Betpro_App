@@ -68,6 +68,11 @@ class BPWalletViewModel : ViewModel() {
     private val _selectedUserForCreds = MutableStateFlow<UserAccount?>(null)
     val selectedUserForCreds: StateFlow<UserAccount?> = _selectedUserForCreds.asStateFlow()
 
+    // OTP / Pending Registration verification state
+    private val _pendingRegistration = MutableStateFlow<com.example.model.PendingRegistrationData?>(null)
+    val pendingRegistration: StateFlow<com.example.model.PendingRegistrationData?> = _pendingRegistration.asStateFlow()
+
+
     // Selected user for balance edit modal
     private val _selectedUserForBalance = MutableStateFlow<UserAccount?>(null)
     val selectedUserForBalance: StateFlow<UserAccount?> = _selectedUserForBalance.asStateFlow()
@@ -150,23 +155,95 @@ class BPWalletViewModel : ViewModel() {
             showSnack("Please fill in all required fields.")
             return
         }
+        val trimmedEmail = email.trim()
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) {
+            triggerErrorShake()
+            showSnack("Please enter a valid email address.")
+            return
+        }
+        val cleanPhone = mobileNumber.replace(Regex("[^0-9+]"), "")
+        if (cleanPhone.length < 9) {
+            triggerErrorShake()
+            showSnack("Please enter a valid phone number (at least 9 digits).")
+            return
+        }
+        if (pass.length < 6) {
+            triggerErrorShake()
+            showSnack("Password must be at least 6 characters long.")
+            return
+        }
         viewModelScope.launch {
-            val result = BPWalletRepository.registerUser(fullName, email, currency, mobileNumber, pass)
-            result.onSuccess { user ->
-                showSnack("Success! Account created in $currency with Mobile $mobileNumber")
-                setScreen(ScreenType.USER_HOME)
+            val result = BPWalletRepository.requestRegistrationOtp(fullName, trimmedEmail, currency, mobileNumber, pass)
+            result.onSuccess { pending ->
+                _pendingRegistration.value = pending
+                showSnack("Verification OTP sent to $trimmedEmail & $mobileNumber")
             }.onFailure { err ->
                 triggerErrorShake()
-                showSnack("Registration error: ${err.message}")
+                showSnack("Registration blocked: ${err.message}")
             }
         }
     }
+
+    fun verifyRegistrationOtp(enteredOtp: String) {
+        val pending = _pendingRegistration.value
+        if (pending == null) {
+            showSnack("No pending registration session found.")
+            return
+        }
+        if (enteredOtp.trim() != pending.otpCode) {
+            triggerErrorShake()
+            showSnack("Invalid OTP verification code. Please check and try again.")
+            return
+        }
+        viewModelScope.launch {
+            val result = BPWalletRepository.registerUser(
+                pending.fullName,
+                pending.email,
+                pending.currency,
+                pending.mobileNumber,
+                pending.pass
+            )
+            result.onSuccess { user ->
+                _pendingRegistration.value = null
+                showSnack("Email & Phone Verified! Welcome to BP Wallet, ${user.fullName}.")
+                setScreen(ScreenType.USER_HOME)
+            }.onFailure { err ->
+                triggerErrorShake()
+                showSnack("Account activation error: ${err.message}")
+            }
+        }
+    }
+
+    fun resendRegistrationOtp() {
+        val pending = _pendingRegistration.value ?: return
+        viewModelScope.launch {
+            val result = BPWalletRepository.requestRegistrationOtp(
+                pending.fullName,
+                pending.email,
+                pending.currency,
+                pending.mobileNumber,
+                pending.pass
+            )
+            result.onSuccess { newPending ->
+                _pendingRegistration.value = newPending
+                showSnack("New Verification OTP code sent to ${newPending.email}")
+            }.onFailure { err ->
+                showSnack("Resend error: ${err.message}")
+            }
+        }
+    }
+
+    fun cancelRegistrationOtp() {
+        _pendingRegistration.value = null
+        showSnack("Registration verification cancelled.")
+    }
+
 
     fun signInWithGoogle(email: String, displayName: String, idToken: String? = null) {
         viewModelScope.launch {
             val result = BPWalletRepository.signInWithGoogle(email, displayName, idToken)
             result.onSuccess { user ->
-                showSnack("Welcome, ${user.firstName}! Signed in with Google via Firebase Auth.")
+                showSnack("Welcome, ${user.fullName}! Signed in with Google via Firebase Auth.")
                 setScreen(ScreenType.USER_HOME)
             }.onFailure { err ->
                 triggerErrorShake()
@@ -241,6 +318,15 @@ class BPWalletViewModel : ViewModel() {
             showSnack("${tx.type} rejected.")
         }.onFailure { err ->
             showSnack(err.message ?: "Rejection failed.")
+        }
+    }
+
+    fun forwardWithdrawalToSuperAdmin(txId: String) {
+        val res = BPWalletRepository.forwardWithdrawalToSuperAdmin(txId)
+        res.onSuccess {
+            showSnack("Withdrawal forwarded to Super Admin for payment release.")
+        }.onFailure { err ->
+            showSnack(err.message ?: "Forwarding failed.")
         }
     }
 

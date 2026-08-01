@@ -302,38 +302,7 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(22.dp))
 
-                    // OR Divider
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = Slate200)
-                        Text(
-                            text = "OR",
-                            modifier = Modifier.padding(horizontal = 14.dp),
-                            fontSize = 12.sp,
-                            color = Slate500,
-                            fontWeight = FontWeight.Bold
-                        )
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = Slate200)
-                    }
-
-                    Spacer(modifier = Modifier.height(18.dp))
-
-                    GoogleSignInButton(
-                        onClick = {
-                            triggerGoogleSignIn(
-                                context = context,
-                                scope = scope,
-                                onNeedPicker = { showGooglePicker = true },
-                                onTokenReceived = { email, name, token ->
-                                    viewModel.signInWithGoogle(email, name, token)
-                                }
-                            )
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // CREATE NEW ACCOUNT Button
                     GlassCreateAccountButton(
@@ -568,6 +537,7 @@ fun RegisterScreen(
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var showGooglePicker by remember { mutableStateOf(false) }
+    val pendingRegistration by viewModel.pendingRegistration.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -578,6 +548,15 @@ fun RegisterScreen(
                 showGooglePicker = false
                 viewModel.signInWithGoogle(em, name, null)
             }
+        )
+    }
+
+    if (pendingRegistration != null) {
+        OtpVerificationModal(
+            pending = pendingRegistration!!,
+            onVerify = { otp -> viewModel.verifyRegistrationOtp(otp) },
+            onResend = { viewModel.resendRegistrationOtp() },
+            onDismiss = { viewModel.cancelRegistrationOtp() }
         )
     }
 
@@ -824,21 +803,6 @@ fun RegisterScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                GoogleSignInButton(
-                    onClick = {
-                        triggerGoogleSignIn(
-                            context = context,
-                            scope = scope,
-                            onNeedPicker = { showGooglePicker = true },
-                            onTokenReceived = { email, name, token ->
-                                viewModel.signInWithGoogle(email, name, token)
-                            }
-                        )
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
                 TextButton(
                     onClick = { viewModel.setScreen(ScreenType.LOGIN) }
                 ) {
@@ -981,11 +945,20 @@ fun GoogleSignInAccountPickerModal(
     onDismiss: () -> Unit,
     onAccountSelected: (email: String, name: String) -> Unit
 ) {
-    val accounts = listOf(
-        Pair("aliking7826t@gmail.com", "Ali King"),
-        Pair("user.wallet@gmail.com", "Wallet Trader"),
-        Pair("vip.bettor@gmail.com", "VIP Bettor")
-    )
+    val context = LocalContext.current
+    val deviceAccounts = remember {
+        try {
+            android.accounts.AccountManager.get(context)
+                .getAccountsByType("com.google")
+                .map { Pair(it.name, it.name.substringBefore("@").replace(".", " ").replaceFirstChar { c -> c.uppercase() }) }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    var customEmail by remember { mutableStateOf("") }
+    var customName by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1016,7 +989,7 @@ fun GoogleSignInAccountPickerModal(
                         color = Slate900
                     )
                     Text(
-                        text = "Firebase Authentication & Firestore",
+                        text = "Connect your real Google Account",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         color = Slate500
@@ -1029,70 +1002,140 @@ fun GoogleSignInAccountPickerModal(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
-                    text = "Choose a Google account to continue to BP Wallet:",
-                    fontSize = 13.sp,
-                    color = Slate700
-                )
-                accounts.forEach { (email, name) ->
-                    Surface(
-                        onClick = { onAccountSelected(email, name) },
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFFF8FAFC),
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("google_account_$email")
-                    ) {
-                        Row(
+                if (deviceAccounts.isNotEmpty()) {
+                    Text(
+                        text = "Google Accounts on this device:",
+                        fontSize = 13.sp,
+                        color = Slate700,
+                        fontWeight = FontWeight.Bold
+                    )
+                    deviceAccounts.forEach { (email, name) ->
+                        Surface(
+                            onClick = { onAccountSelected(email, name) },
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFF8FAFC),
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .testTag("google_account_$email")
                         ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = BPGreenDark,
-                                modifier = Modifier.size(38.dp)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color(0xFF4285F4),
+                                    modifier = Modifier.size(38.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = name.take(1).uppercase(),
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = name.take(1).uppercase(),
-                                        color = Color.White,
+                                        text = name,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp
+                                        fontSize = 14.sp,
+                                        color = Slate900
+                                    )
+                                    Text(
+                                        text = email,
+                                        fontWeight = FontWeight.Normal,
+                                        fontSize = 12.sp,
+                                        color = Slate500
                                     )
                                 }
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = name,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp,
-                                    color = Slate900
-                                )
-                                Text(
-                                    text = email,
-                                    fontWeight = FontWeight.Normal,
-                                    fontSize = 12.sp,
-                                    color = Slate500
+                                Icon(
+                                    imageVector = Icons.Default.ArrowForward,
+                                    contentDescription = "Select Account",
+                                    tint = Color(0xFF4285F4),
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
-                            Icon(
-                                imageVector = Icons.Default.ArrowForward,
-                                contentDescription = "Select Account",
-                                tint = Slate400,
-                                modifier = Modifier.size(16.dp)
-                            )
                         }
                     }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+
+                Text(
+                    text = "Enter your Google account email to connect:",
+                    fontSize = 13.sp,
+                    color = Slate700,
+                    fontWeight = FontWeight.Bold
+                )
+
+                OutlinedTextField(
+                    value = customEmail,
+                    onValueChange = {
+                        customEmail = it
+                        errorMessage = ""
+                    },
+                    label = { Text("Google Email Address") },
+                    placeholder = { Text("yourname@gmail.com") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF4285F4),
+                        unfocusedBorderColor = Slate300
+                    )
+                )
+
+                OutlinedTextField(
+                    value = customName,
+                    onValueChange = { customName = it },
+                    label = { Text("Full Name (Optional)") },
+                    placeholder = { Text("e.g. John Doe") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF4285F4),
+                        unfocusedBorderColor = Slate300
+                    )
+                )
+
+                if (errorMessage.isNotEmpty()) {
+                    Text(
+                        text = errorMessage,
+                        color = Color.Red,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         },
         confirmButton = {
+            Button(
+                onClick = {
+                    val email = customEmail.trim()
+                    if (email.isEmpty() || !email.contains("@")) {
+                        errorMessage = "Please enter a valid Google email address"
+                        return@Button
+                    }
+                    val name = customName.trim().ifEmpty {
+                        email.substringBefore("@").replace(".", " ").replaceFirstChar { c -> c.uppercase() }
+                    }
+                    onAccountSelected(email, name)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4285F4)),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("Connect Google Account", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Slate600, fontWeight = FontWeight.Bold)
+                Text("Cancel", color = Slate500, fontWeight = FontWeight.Bold)
             }
         },
         shape = RoundedCornerShape(20.dp),
@@ -1109,11 +1152,7 @@ fun triggerGoogleSignIn(
     scope.launch {
         try {
             val credentialManager = androidx.credentials.CredentialManager.create(context)
-            val webClientId = try {
-                com.example.BuildConfig.WEB_CLIENT_ID
-            } catch (e: Exception) {
-                "1234567890-example.apps.googleusercontent.com"
-            }
+            val webClientId = "1234567890-example.apps.googleusercontent.com"
             val googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
                 .setFilterByAuthorizedAccounts(false)
                 .setServerClientId(webClientId)
@@ -1142,3 +1181,154 @@ fun triggerGoogleSignIn(
         }
     }
 }
+
+@Composable
+fun OtpVerificationModal(
+    pending: com.example.model.PendingRegistrationData,
+    onVerify: (String) -> Unit,
+    onResend: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var otpInput by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = Icons.Default.VerifiedUser,
+                    contentDescription = "Verify Security",
+                    tint = BPGreenPrimary,
+                    modifier = Modifier.size(48.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Security Verification",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Slate900
+                )
+                Text(
+                    text = "Verify email & phone to activate account",
+                    fontSize = 12.sp,
+                    color = Slate500
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Surface(
+                    color = Slate100,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "A verification code was sent to:",
+                            fontSize = 12.sp,
+                            color = Slate700
+                        )
+                        Text(
+                            text = "Email: ${pending.email}",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate900
+                        )
+                        Text(
+                            text = "Phone: ${pending.mobileNumber}",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate900
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Surface(
+                            color = BPGreenLight,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Demo OTP Code: ${pending.otpCode}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = BPGreenDark,
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = otpInput,
+                    onValueChange = {
+                        if (it.length <= 6) {
+                            otpInput = it
+                            errorMessage = ""
+                        }
+                    },
+                    label = { Text("Enter 6-Digit Verification OTP") },
+                    placeholder = { Text("e.g. 123456") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("otp_input_field"),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                if (errorMessage.isNotEmpty()) {
+                    Text(
+                        text = errorMessage,
+                        color = Color.Red,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = {
+                        if (otpInput.trim().length != 6) {
+                            errorMessage = "Please enter the complete 6-digit OTP code."
+                        } else {
+                            onVerify(otpInput.trim())
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("verify_otp_button"),
+                    colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Verify & Activate Account", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    TextButton(onClick = onResend) {
+                        Text("Resend OTP", color = BPGreenDark, fontWeight = FontWeight.Bold)
+                    }
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancel", color = Slate500, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(24.dp)
+    )
+}
+

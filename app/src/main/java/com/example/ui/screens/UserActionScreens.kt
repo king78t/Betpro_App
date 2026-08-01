@@ -62,10 +62,16 @@ fun UserDepositScreen(
         }
     }
 
+    BetProWebViewDialogHandler(viewModel = viewModel)
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            UserTopBar(user = u, onLogout = { viewModel.logout() })
+            UserTopBar(
+                user = u,
+                onLogout = { viewModel.logout() },
+                onProfileClick = { viewModel.setScreen(ScreenType.USER_PROFILE) }
+            )
         },
         bottomBar = {
             UserBottomNavBar(
@@ -438,10 +444,16 @@ fun UserWithdrawScreen(
     var accountNumber by remember { mutableStateOf(u.mobileNumber) }
     var amountText by remember { mutableStateOf("1000") }
 
+    BetProWebViewDialogHandler(viewModel = viewModel)
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            UserTopBar(user = u, onLogout = { viewModel.logout() })
+            UserTopBar(
+                user = u,
+                onLogout = { viewModel.logout() },
+                onProfileClick = { viewModel.setScreen(ScreenType.USER_PROFILE) }
+            )
         },
         bottomBar = {
             UserBottomNavBar(
@@ -637,10 +649,16 @@ fun UserHistoryScreen(
 
     var selectedTab by remember { mutableStateOf("ALL") } // "ALL", "DEPOSIT", "WITHDRAW"
 
+    BetProWebViewDialogHandler(viewModel = viewModel)
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            UserTopBar(user = u, onLogout = { viewModel.logout() })
+            UserTopBar(
+                user = u,
+                onLogout = { viewModel.logout() },
+                onProfileClick = { viewModel.setScreen(ScreenType.USER_PROFILE) }
+            )
         },
         bottomBar = {
             UserBottomNavBar(
@@ -799,10 +817,16 @@ fun UserProfileScreen(
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
 
+    BetProWebViewDialogHandler(viewModel = viewModel)
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            UserTopBar(user = u, onLogout = { viewModel.logout() })
+            UserTopBar(
+                user = u,
+                onLogout = { viewModel.logout() },
+                onProfileClick = { viewModel.setScreen(ScreenType.USER_PROFILE) }
+            )
         },
         bottomBar = {
             UserBottomNavBar(
