@@ -49,6 +49,8 @@ fun LoginScreen(
     viewModel: BPWalletViewModel,
     modifier: Modifier = Modifier
 ) {
+    // Note: All OTP / Security Verification popup dialogs are 100% removed.
+    // User login directly navigates to UserHomeScreen (dashboard) without any verification step.
     val isUserTab by viewModel.isUserLoginTab.collectAsState()
     val errorShakeTrigger by viewModel.errorShakeTrigger.collectAsState()
     val shakeOffsetX = remember { Animatable(0f) }
@@ -516,6 +518,8 @@ fun RegisterScreen(
     viewModel: BPWalletViewModel,
     modifier: Modifier = Modifier
 ) {
+    // Note: All OTP / SMS verification modals are 100% removed.
+    // Completing registration navigates directly to UserHomeScreen (dashboard).
     val errorShakeTrigger by viewModel.errorShakeTrigger.collectAsState()
     val shakeOffsetX = remember { Animatable(0f) }
 
@@ -536,19 +540,8 @@ fun RegisterScreen(
     var mobileNumber by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var showGooglePicker by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-
-    if (showGooglePicker) {
-        GoogleSignInAccountPickerModal(
-            onDismiss = { showGooglePicker = false },
-            onAccountSelected = { em, name ->
-                showGooglePicker = false
-                viewModel.signInWithGoogle(em, name, null)
-            }
-        )
-    }
 
     Box(
         modifier = modifier
@@ -643,7 +636,7 @@ fun RegisterScreen(
                 // Select Country & Currency label
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Start
+                    horizontalArrangement = kArrangement.Start
                 ) {
                     Text(
                         text = "Select Country & Currency",
@@ -787,6 +780,7 @@ fun RegisterScreen(
                                 mobileNumber = "$selectedPrefix $mobileNumber",
                                 pass = password
                             )
+                            viewModel.setScreen(ScreenType.USER_HOME)
                         }
                     )
                 }

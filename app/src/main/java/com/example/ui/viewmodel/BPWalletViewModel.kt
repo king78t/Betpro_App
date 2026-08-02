@@ -174,20 +174,20 @@ class BPWalletViewModel : ViewModel() {
             return
         }
         val trimmedEmail = email.trim()
-        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(trimmedEmail).matches()) {
+        if (!trimmedEmail.contains("@")) {
             triggerErrorShake()
             showSnack("Please enter a valid email address.")
             return
         }
         val cleanPhone = mobileNumber.replace(Regex("[^0-9+]"), "")
-        if (cleanPhone.length < 9) {
+        if (cleanPhone.length < 5) {
             triggerErrorShake()
-            showSnack("Please enter a valid phone number (at least 9 digits).")
+            showSnack("Please enter a valid phone number.")
             return
         }
-        if (pass.length < 6) {
+        if (pass.length < 4) {
             triggerErrorShake()
-            showSnack("Password must be at least 6 characters long.")
+            showSnack("Password must be at least 4 characters long.")
             return
         }
         viewModelScope.launch {
