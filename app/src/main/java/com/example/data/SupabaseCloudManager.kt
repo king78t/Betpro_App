@@ -110,6 +110,40 @@ object SupabaseCloudManager {
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
 
+        -- =================================================================
+        -- Multi-Country & Multi-Currency Deposit System Relational Tables
+        -- =================================================================
+        CREATE TABLE IF NOT EXISTS payment_gateways_relational (
+            id SERIAL PRIMARY KEY,
+            country_code VARCHAR(10) NOT NULL,
+            currency VARCHAR(10) NOT NULL,
+            method_name VARCHAR(100) NOT NULL,
+            short_description VARCHAR(255),
+            account_title VARCHAR(100),
+            account_number VARCHAR(100),
+            iban VARCHAR(100),
+            bank_name VARCHAR(100),
+            deposit_instructions TEXT,
+            logo_url TEXT,
+            display_order INT DEFAULT 0,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS deposit_requests (
+            id SERIAL PRIMARY KEY,
+            user_id UUID NOT NULL,
+            gateway_id INT REFERENCES payment_gateways_relational(id),
+            amount DECIMAL(15, 2) NOT NULL,
+            currency VARCHAR(10) NOT NULL,
+            screenshot_url TEXT NOT NULL,
+            status VARCHAR(20) DEFAULT 'Pending',
+            admin_notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
         -- Disable row-level security or add public policies for app sync
         ALTER TABLE users ENABLE ROW LEVEL SECURITY;
         CREATE POLICY "Enable all access users" ON users FOR ALL USING (true) WITH CHECK (true);
@@ -128,6 +162,29 @@ object SupabaseCloudManager {
 
         ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
         CREATE POLICY "Enable all access app_settings" ON app_settings FOR ALL USING (true) WITH CHECK (true);
+
+        ALTER TABLE payment_gateways_relational ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY "Enable all access payment_gateways_relational" ON payment_gateways_relational FOR ALL USING (true) WITH CHECK (true);
+
+        ALTER TABLE deposit_requests ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY "Enable all access deposit_requests" ON deposit_requests FOR ALL USING (true) WITH CHECK (true);
+
+        -- =================================================================
+        -- Server-Side Helper Function: increment_user_wallet
+        -- Used by Node.js / Express / Supabase backend when deposit is Approved
+        -- =================================================================
+        CREATE OR REPLACE FUNCTION increment_user_wallet(target_user_id TEXT, amount_to_add DECIMAL)
+        RETURNS VOID AS $$
+        BEGIN
+            UPDATE users
+            SET data = jsonb_set(
+                data,
+                '{walletBalance}',
+                to_jsonb(COALESCE((data->>'walletBalance')::numeric, 0) + amount_to_add)
+            )
+            WHERE id = target_user_id;
+        END;
+        $$ LANGUAGE plpgsql;
     """.trimIndent()
 
     private fun buildHeaders(): Request.Builder {

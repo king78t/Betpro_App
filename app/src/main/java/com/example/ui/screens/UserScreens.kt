@@ -631,7 +631,7 @@ fun UserBottomNavBar(
 
 @Composable
 fun NavBarItem(
-    label: String,
+ label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     selected: Boolean,
     modifier: Modifier = Modifier,
