@@ -52,6 +52,40 @@ object BPWalletRepository {
         }
 
     private val scope = CoroutineScope(Dispatchers.IO)
+    private var appContext: android.content.Context? = null
+    private val previousTxStatuses = mutableMapOf<String, String>()
+
+    fun initContext(context: android.content.Context) {
+        appContext = context.applicationContext
+        com.example.util.NotificationHelper.init(context.applicationContext)
+    }
+
+    private fun updateTransactionsList(newList: List<TransactionRequest>) {
+        checkAndNotifyStatusChanges(newList)
+        _transactionsList.value = newList
+    }
+
+    private fun checkAndNotifyStatusChanges(newList: List<TransactionRequest>) {
+        val ctx = appContext ?: return
+        val currentUserId = _currentUser.value?.id ?: return
+
+        for (tx in newList) {
+            val prevStatus = previousTxStatuses[tx.id]
+            val newStatus = tx.status
+
+            if (prevStatus != null && !prevStatus.equals(newStatus, ignoreCase = true)) {
+                val wasPending = prevStatus.contains("pending", ignoreCase = true)
+                val isNowApprovedOrRejected = newStatus.equals("Approved", ignoreCase = true) || newStatus.equals("Rejected", ignoreCase = true)
+
+                if (wasPending && isNowApprovedOrRejected) {
+                    if (tx.userId == currentUserId || _currentUser.value?.role == "ADMIN") {
+                        com.example.util.NotificationHelper.showTransactionStatusNotification(ctx, tx)
+                    }
+                }
+            }
+            previousTxStatuses[tx.id] = newStatus
+        }
+    }
 
     // Observable StateFlows for UI
     private val _currentUser = MutableStateFlow<UserAccount?>(null)
@@ -87,7 +121,7 @@ object BPWalletRepository {
     init {
         seedDefaultAdminAndDemoUser()
         startFirestoreListeners()
-        startSupabaseCloudSync()
+        syncWithSupabaseCloud()
         scope.launch {
             kotlinx.coroutines.delay(1200)
             _isLoading.value = false
@@ -346,7 +380,7 @@ object BPWalletRepository {
                         val currentDemoTxs = _transactionsList.value.filter { it.id.startsWith("tx_demo") }
                         val missingDemoTxs = currentDemoTxs.filter { dt -> txs.none { it.id == dt.id } }
                         if (txs.isNotEmpty() || missingDemoTxs.isNotEmpty()) {
-                            _transactionsList.value = txs + missingDemoTxs
+                            updateTransactionsList(txs + missingDemoTxs)
                         }
                     }
 
@@ -391,10 +425,15 @@ object BPWalletRepository {
         }
     }
 
-    private fun startSupabaseCloudSync() {
+    fun syncWithSupabaseCloud() {
         scope.launch {
-            try {
-                // 1. Load users from Supabase Cloud Database
+            performSupabaseCloudSync()
+        }
+    }
+
+    suspend fun performSupabaseCloudSync() {
+        try {
+            // 1. Load users from Supabase Cloud Database
                 val cloudUsers = SupabaseCloudManager.loadAllUsers()
                 if (cloudUsers.isNotEmpty()) {
                     val seededAdmins = _usersList.value.filter { it.isSuperAdmin || it.isCountrySuperMaster || it.isSupportStaff || it.isReadOnlyUser || it.id.startsWith("demo_user") }
@@ -417,7 +456,7 @@ object BPWalletRepository {
                 if (cloudTxs.isNotEmpty()) {
                     val currentDemoTxs = _transactionsList.value.filter { it.id.startsWith("tx_demo") }
                     val missingDemoTxs = currentDemoTxs.filter { dt -> cloudTxs.none { it.id == dt.id } }
-                    _transactionsList.value = cloudTxs + missingDemoTxs
+                    updateTransactionsList(cloudTxs + missingDemoTxs)
                 }
 
                 // 3. Load payment gateways from Supabase Cloud Database
@@ -456,7 +495,6 @@ object BPWalletRepository {
             } catch (e: Exception) {
                 Log.w(TAG, "Note: Supabase Cloud Database offline fallback: ${e.message}")
             }
-        }
     }
 
     fun loginUser(emailOrPhone: String, pass: String): Result<UserAccount> {
@@ -686,7 +724,7 @@ object BPWalletRepository {
             status = "Pending",
             timestamp = System.currentTimeMillis()
         )
-        _transactionsList.value = listOf(tx) + _transactionsList.value
+        updateTransactionsList(listOf(tx) + _transactionsList.value)
 
         scope.launch {
             try {
@@ -728,7 +766,7 @@ object BPWalletRepository {
             status = "Pending",
             timestamp = System.currentTimeMillis()
         )
-        _transactionsList.value = listOf(tx) + _transactionsList.value
+        updateTransactionsList(listOf(tx) + _transactionsList.value)
 
         scope.launch {
             try {
@@ -770,7 +808,11 @@ object BPWalletRepository {
 
         val updatedTx = tx.copy(status = "Approved", adminNotes = adminNotes.trim())
         currentTxs[idx] = updatedTx
-        _transactionsList.value = currentTxs
+        updateTransactionsList(currentTxs)
+
+        appContext?.let { ctx ->
+            com.example.util.NotificationHelper.showTransactionStatusNotification(ctx, updatedTx)
+        }
 
         val newBal = if (tx.type == "DEPOSIT") u.walletBalance + tx.amount else (u.walletBalance - tx.amount).coerceAtLeast(0.0)
         val updatedUser = u.copy(walletBalance = newBal)
@@ -823,7 +865,11 @@ object BPWalletRepository {
 
         val updatedTx = tx.copy(status = "Rejected", adminNotes = adminNotes.trim())
         currentTxs[idx] = updatedTx
-        _transactionsList.value = currentTxs
+        updateTransactionsList(currentTxs)
+
+        appContext?.let { ctx ->
+            com.example.util.NotificationHelper.showTransactionStatusNotification(ctx, updatedTx)
+        }
 
         scope.launch {
             try {
@@ -944,6 +990,17 @@ object BPWalletRepository {
     fun updateAdminPassword(newPassword: String): Result<Unit> {
         val curr = _currentUser.value ?: return Result.failure(Exception("No user logged in"))
         val updatedUser = curr.copy(password = newPassword)
+        _currentUser.value = updatedUser
+        _usersList.value = _usersList.value.map {
+            if (it.id == curr.id) updatedUser else it
+        }
+        scope.launch { SupabaseCloudManager.syncUser(updatedUser) }
+        return Result.success(Unit)
+    }
+
+    fun updateUserProfile(fullName: String, mobileNumber: String): Result<Unit> {
+        val curr = _currentUser.value ?: return Result.failure(Exception("No user logged in"))
+        val updatedUser = curr.copy(fullName = fullName.trim(), mobileNumber = mobileNumber.trim())
         _currentUser.value = updatedUser
         _usersList.value = _usersList.value.map {
             if (it.id == curr.id) updatedUser else it

@@ -92,6 +92,14 @@ class BPWalletViewModel : ViewModel() {
     private val _crmSearchQuery = MutableStateFlow("")
     val crmSearchQuery: StateFlow<String> = _crmSearchQuery.asStateFlow()
 
+    // Selected Master Agent for detail modal/view
+    private val _selectedMasterForDetails = MutableStateFlow<MasterAgent?>(null)
+    val selectedMasterForDetails: StateFlow<MasterAgent?> = _selectedMasterForDetails.asStateFlow()
+
+    // Transaction for Deposit Proof Screenshot Verification modal
+    private val _txForProofVerification = MutableStateFlow<TransactionRequest?>(null)
+    val txForProofVerification: StateFlow<TransactionRequest?> = _txForProofVerification.asStateFlow()
+
     // Dialog state for BetPro Exchange Info modal
     private val _showBetProExchangeModal = MutableStateFlow(false)
     val showBetProExchangeModal: StateFlow<Boolean> = _showBetProExchangeModal.asStateFlow()
@@ -399,6 +407,29 @@ class BPWalletViewModel : ViewModel() {
         _crmStatusFilter.value = status
     }
 
+    fun openMasterDetails(agent: MasterAgent) {
+        _selectedMasterForDetails.value = agent
+    }
+
+    fun closeMasterDetails() {
+        _selectedMasterForDetails.value = null
+    }
+
+    fun filterCrmByMaster(agent: MasterAgent) {
+        _crmSearchQuery.value = agent.name
+        _crmCurrencyFilter.value = agent.currency
+        closeMasterDetails()
+        setScreen(ScreenType.ADMIN_USERS_CRM)
+    }
+
+    fun openProofVerification(tx: TransactionRequest) {
+        _txForProofVerification.value = tx
+    }
+
+    fun closeProofVerification() {
+        _txForProofVerification.value = null
+    }
+
     fun setCrmSearchQuery(query: String) {
         _crmSearchQuery.value = query
     }
@@ -474,6 +505,19 @@ class BPWalletViewModel : ViewModel() {
             showSnack("WhatsApp Helpline updated to $it")
         }.onFailure {
             showSnack("Failed to update WhatsApp Helpline: ${it.message}")
+        }
+    }
+
+    fun updateUserProfile(fullName: String, mobileNumber: String) {
+        if (fullName.isBlank()) {
+            showSnack("Full Name cannot be empty")
+            return
+        }
+        val result = BPWalletRepository.updateUserProfile(fullName, mobileNumber)
+        result.onSuccess {
+            showSnack("Profile details updated successfully!")
+        }.onFailure {
+            showSnack("Failed to update profile: ${it.message}")
         }
     }
 

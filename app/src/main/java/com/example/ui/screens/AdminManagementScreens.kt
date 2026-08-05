@@ -441,6 +441,8 @@ fun AdminMasterAgentsScreen(
     val masters by viewModel.masterAgents.collectAsState()
     val showModal by viewModel.showCreateMasterModal.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
+    val selectedMasterForDetails by viewModel.selectedMasterForDetails.collectAsState()
+    val allUsers by viewModel.allUsers.collectAsState()
 
     val countryScopedMasters = if (currentUser?.isSuperAdmin == true || currentUser == null) {
         masters
@@ -457,6 +459,15 @@ fun AdminMasterAgentsScreen(
             onCreate = { name, pass, curr, role, limit, share ->
                 viewModel.createMasterAgent(name, pass, curr, role, limit, share)
             }
+        )
+    }
+
+    if (selectedMasterForDetails != null) {
+        MasterAgentDetailDialog(
+            agent = selectedMasterForDetails!!,
+            allUsers = allUsers,
+            onDismiss = { viewModel.closeMasterDetails() },
+            onFilterCrm = { viewModel.filterCrmByMaster(it) }
         )
     }
 
@@ -487,7 +498,7 @@ fun AdminMasterAgentsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Master Agents & Network Hierarchy",
                         fontSize = 17.sp,
@@ -495,18 +506,20 @@ fun AdminMasterAgentsScreen(
                         color = Slate900
                     )
                     Text(
-                        text = "Click to view complete user lists, balance details",
+                        text = "Click any Master Agent to view assigned users and country details",
                         fontSize = 12.sp,
                         color = Slate500
                     )
                 }
 
+                Spacer(modifier = Modifier.width(8.dp))
                 Button(
                     onClick = { viewModel.openCreateMasterModal() },
                     shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
                 ) {
-                    Text("+ Create Master Agent", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("+ Create Master", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -531,7 +544,10 @@ fun AdminMasterAgentsScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(countryScopedMasters) { agent ->
-                    MasterAgentCard(agent = agent)
+                    MasterAgentCard(
+                        agent = agent,
+                        onClick = { viewModel.openMasterDetails(agent) }
+                    )
                 }
             }
         }
@@ -549,9 +565,14 @@ fun AdminMasterAgentsScreen(
 }
 
 @Composable
-fun MasterAgentCard(agent: MasterAgent) {
+fun MasterAgentCard(
+    agent: MasterAgent,
+    onClick: () -> Unit = {}
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -559,11 +580,11 @@ fun MasterAgentCard(agent: MasterAgent) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(14.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                 Box(
                     modifier = Modifier
                         .size(42.dp)
@@ -579,16 +600,21 @@ fun MasterAgentCard(agent: MasterAgent) {
                     )
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(text = agent.name, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = Slate900)
-                    Text(text = "Role: ${agent.role}", fontSize = 12.sp, color = Slate500)
+                    Text(text = "Role: ${agent.role} • ${agent.country}", fontSize = 12.sp, color = Slate500)
+                    Text(text = "Tap to view assigned users ->", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = BPGreenDark)
                 }
             }
 
             Column(horizontalAlignment = Alignment.End) {
                 StatusBadge(status = agent.currency)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(text = "Share: ${agent.marginShare.toInt()}%", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = BPGreenDark)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "Share: ${agent.marginShare.toInt()}%", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = BPGreenDark)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(imageVector = Icons.Default.ChevronRight, contentDescription = "Open", tint = Slate500, modifier = Modifier.size(18.dp))
+                }
             }
         }
     }
@@ -673,6 +699,7 @@ fun AdminTransactionsScreen(
 ) {
     val allTxs by viewModel.allTransactions.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
+    val proofTx by viewModel.txForProofVerification.collectAsState()
 
     val countryFilteredTxs = if (currentUser?.isSuperAdmin == true || currentUser == null) {
         allTxs
@@ -683,6 +710,21 @@ fun AdminTransactionsScreen(
     }
 
     var showDrawer by remember { mutableStateOf(false) }
+
+    if (proofTx != null) {
+        ProofVerificationDialog(
+            tx = proofTx!!,
+            onDismiss = { viewModel.closeProofVerification() },
+            onApprove = {
+                viewModel.approveTransaction(proofTx!!.id)
+                viewModel.closeProofVerification()
+            },
+            onReject = {
+                viewModel.rejectTransaction(proofTx!!.id)
+                viewModel.closeProofVerification()
+            }
+        )
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         Scaffold(
@@ -736,7 +778,8 @@ fun AdminTransactionsScreen(
                             currentUser = currentUser,
                             onApprove = { viewModel.approveTransaction(tx.id) },
                             onReject = { viewModel.rejectTransaction(tx.id) },
-                            onForward = { viewModel.forwardWithdrawalToSuperAdmin(tx.id) }
+                            onForward = { viewModel.forwardWithdrawalToSuperAdmin(tx.id) },
+                            onViewProof = { viewModel.openProofVerification(tx) }
                         )
                     }
                 }
@@ -761,10 +804,12 @@ fun AdminTxCard(
     currentUser: UserAccount? = null,
     onApprove: () -> Unit,
     onReject: () -> Unit,
-    onForward: () -> Unit = {}
+    onForward: () -> Unit = {},
+    onViewProof: () -> Unit = {}
 ) {
     val isSuperAdminOrNull = currentUser?.isSuperAdmin == true || currentUser == null
     val isCountryMaster = currentUser?.isCountrySuperMaster == true
+    val hasProof = tx.type == "DEPOSIT" || tx.screenshotUri.isNotBlank()
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -772,108 +817,408 @@ fun AdminTxCard(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(14.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    StatusBadge(status = tx.type)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Rs ${tx.amount.toInt()} (${tx.currency})",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 16.sp,
-                        color = Slate900
-                    )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        StatusBadge(status = tx.type)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "${tx.currency} ${tx.amount.toInt()}",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 16.sp,
+                            color = Slate900
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = "User: ${tx.userName} (${tx.userEmail})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate700)
+                    Text(text = "Gateway: ${tx.gatewayName} | Acc: ${tx.accountNumber}", fontSize = 11.sp, color = Slate500)
+                    Text(text = "Ref: ${tx.referenceNumber}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = BPGreenDark)
                 }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(text = "User: ${tx.userName} (${tx.userEmail})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate700)
-                Text(text = "Gateway: ${tx.gatewayName} | Acc: ${tx.accountNumber}", fontSize = 11.sp, color = Slate500)
-                Text(text = "Ref/Screenshot: ${tx.referenceNumber}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = BPGreenDark)
-                if (tx.screenshotUri.isNotBlank()) {
-                    Text(
-                        text = "📎 Screenshot Proof Attached",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = BPGreenPrimary
-                    )
-                }
-            }
 
-            if (tx.status == "Pending") {
-                if (tx.type == "WITHDRAW" && isCountryMaster) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Button(
-                            onClick = onForward,
-                            colors = ButtonDefaults.buttonColors(containerColor = BPGoldDark),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Text("Forward", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                if (tx.status == "Pending") {
+                    if (tx.type == "WITHDRAW" && isCountryMaster) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Button(
+                                onClick = onForward,
+                                colors = ButtonDefaults.buttonColors(containerColor = BPGoldDark),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("Forward", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                            IconButton(
+                                onClick = onReject,
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFD32F2F))
+                            ) {
+                                Icon(imageVector = Icons.Default.Close, contentDescription = "Reject", tint = Color.White)
+                            }
                         }
-                        IconButton(
-                            onClick = onReject,
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFD32F2F))
-                        ) {
-                            Icon(imageVector = Icons.Default.Close, contentDescription = "Reject", tint = Color.White)
+                    } else if (isSuperAdminOrNull || !isCountryMaster || tx.type != "WITHDRAW") {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            IconButton(
+                                onClick = {
+                                    if (tx.type == "DEPOSIT") {
+                                        onViewProof()
+                                    } else {
+                                        onApprove()
+                                    }
+                                },
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(BPGreenPrimary)
+                            ) {
+                                Icon(imageVector = Icons.Default.Check, contentDescription = "Approve", tint = Color.White)
+                            }
+                            IconButton(
+                                onClick = onReject,
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFD32F2F))
+                            ) {
+                                Icon(imageVector = Icons.Default.Close, contentDescription = "Reject", tint = Color.White)
+                            }
                         }
                     }
-                } else if (isSuperAdminOrNull || !isCountryMaster || tx.type != "WITHDRAW") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        IconButton(
-                            onClick = onApprove,
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(BPGreenPrimary)
-                        ) {
-                            Icon(imageVector = Icons.Default.Check, contentDescription = "Approve", tint = Color.White)
+                } else if (tx.status.equals("pending_super_admin", true)) {
+                    if (isSuperAdminOrNull) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            IconButton(
+                                onClick = {
+                                    if (tx.type == "DEPOSIT") {
+                                        onViewProof()
+                                    } else {
+                                        onApprove()
+                                    }
+                                },
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(BPGreenPrimary)
+                            ) {
+                                Icon(imageVector = Icons.Default.Check, contentDescription = "Approve", tint = Color.White)
+                            }
+                            IconButton(
+                                onClick = onReject,
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFD32F2F))
+                            ) {
+                                Icon(imageVector = Icons.Default.Close, contentDescription = "Reject", tint = Color.White)
+                            }
                         }
-                        IconButton(
-                            onClick = onReject,
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFD32F2F))
-                        ) {
-                            Icon(imageVector = Icons.Default.Close, contentDescription = "Reject", tint = Color.White)
-                        }
-                    }
-                }
-            } else if (tx.status.equals("pending_super_admin", true)) {
-                if (isSuperAdminOrNull) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        IconButton(
-                            onClick = onApprove,
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(BPGreenPrimary)
-                        ) {
-                            Icon(imageVector = Icons.Default.Check, contentDescription = "Approve", tint = Color.White)
-                        }
-                        IconButton(
-                            onClick = onReject,
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFD32F2F))
-                        ) {
-                            Icon(imageVector = Icons.Default.Close, contentDescription = "Reject", tint = Color.White)
-                        }
+                    } else {
+                        StatusBadge(status = tx.status)
                     }
                 } else {
                     StatusBadge(status = tx.status)
                 }
-            } else {
-                StatusBadge(status = tx.status)
+            }
+
+            if (tx.type == "DEPOSIT" || hasProof) {
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedButton(
+                    onClick = onViewProof,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(36.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = BPGreenDark)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.RemoveRedEye,
+                        contentDescription = "View Screenshot",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (tx.screenshotUri.isNotBlank()) "View Screenshot Proof (Attached)" else "View Deposit Proof Verification",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+fun ProofVerificationDialog(
+    tx: TransactionRequest,
+    onDismiss: () -> Unit,
+    onApprove: () -> Unit,
+    onReject: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Verified,
+                    contentDescription = "Verified Proof",
+                    tint = BPGreenPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Deposit Proof Verification",
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 18.sp
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Slate100),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Amount: ${tx.currency} ${tx.amount.toInt()}",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 16.sp,
+                            color = Slate900
+                        )
+                        Text(text = "User: ${tx.userName} (${tx.userEmail})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate700)
+                        Text(text = "Gateway: ${tx.gatewayName}", fontSize = 12.sp, color = Slate700)
+                        Text(text = "Reference / Trx ID: ${tx.referenceNumber}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = BPGreenDark)
+                        Text(text = "Country: ${tx.country}", fontSize = 11.sp, color = Slate500)
+                    }
+                }
+
+                Text(
+                    text = "ATTACHED PAYMENT RECEIPT / SCREENSHOT:",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    color = Slate700
+                )
+
+                if (tx.screenshotUri.isNotBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(240.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.Black),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        coil.compose.AsyncImage(
+                            model = tx.screenshotUri,
+                            contentDescription = "Payment Screenshot",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                        )
+                    }
+                } else {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = BPGreenLight),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(130.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ReceiptLong,
+                                contentDescription = "Receipt",
+                                tint = BPGreenDark,
+                                modifier = Modifier.size(36.dp)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Transaction Ref: ${tx.referenceNumber}",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = BPGreenDark
+                            )
+                            Text(
+                                text = "Digital Payment Verification Logged",
+                                fontSize = 11.sp,
+                                color = Slate700
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onApprove,
+                colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
+            ) {
+                Icon(imageVector = Icons.Default.Check, contentDescription = "Approve", modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Approve Deposit", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = onReject,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F))
+                ) {
+                    Text("Reject", fontWeight = FontWeight.Bold)
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Close", color = Slate700)
+                }
+            }
+        }
+    )
+}
+
+@Composable
+fun MasterAgentDetailDialog(
+    agent: MasterAgent,
+    allUsers: List<UserAccount>,
+    onDismiss: () -> Unit,
+    onFilterCrm: (MasterAgent) -> Unit
+) {
+    val assignedUsers = allUsers.filter { u ->
+        u.assignedMasterId == agent.id ||
+        u.masterAgentName.equals(agent.name, ignoreCase = true) ||
+        u.country.equals(agent.country, ignoreCase = true) ||
+        u.currency.equals(agent.currency, ignoreCase = true)
+    }
+    val totalBalance = assignedUsers.sumOf { it.walletBalance }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Security,
+                    contentDescription = agent.name,
+                    tint = BPGreenDark,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(text = agent.name, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+                    Text(text = "${agent.role} (${agent.country} / ${agent.currency})", fontSize = 12.sp, color = Slate500)
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = BPGreenLight),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("ASSIGNED NETWORK USERS", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = BPGreenDark)
+                            Text("${assignedUsers.size} Accounts", fontSize = 16.sp, fontWeight = FontWeight.Black, color = Slate900)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("TOTAL WALLET BALANCE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = BPGreenDark)
+                            Text("${agent.currency} ${totalBalance.toInt()}", fontSize = 16.sp, fontWeight = FontWeight.Black, color = Slate900)
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Registered Users List:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Slate900)
+                    Text("Margin Share: ${agent.marginShare.toInt()}%", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = BPGreenDark)
+                }
+
+                if (assignedUsers.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                        Text("No users registered under this master agent yet.", fontSize = 12.sp, color = Slate500)
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(assignedUsers) { user ->
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Slate100),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(user.fullName, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Slate900)
+                                        Text("${user.email} • ${user.country}", fontSize = 11.sp, color = Slate500)
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text("${user.currency} ${user.walletBalance.toInt()}", fontWeight = FontWeight.Black, fontSize = 13.sp, color = BPGreenDark)
+                                        StatusBadge(status = user.betproIdStatus)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onFilterCrm(agent) },
+                colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
+            ) {
+                Icon(imageVector = Icons.Default.FilterList, contentDescription = "CRM Filter", modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Open in CRM", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = Slate700)
+            }
+        }
+    )
 }

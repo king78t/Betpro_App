@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.sp
 import com.example.model.PaymentGateway
 import com.example.model.TransactionRequest
 import com.example.model.UserAccount
+import com.example.ui.components.ShimmerDepositSkeleton
+import com.example.ui.components.ShimmerWithdrawSkeleton
 import com.example.ui.components.StatusBadge
 import com.example.ui.components.WhatsAppHelplineButton
 import com.example.ui.theme.*
@@ -45,6 +47,7 @@ fun UserDepositScreen(
     val user by viewModel.currentUser.collectAsState()
     val gateways by viewModel.paymentGateways.collectAsState()
     val selectedGw by viewModel.selectedDepositGateway.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     val u = user ?: return
     val currencyGateways = gateways.filter { it.currency.equals(u.currency, true) }.ifEmpty { gateways }
@@ -53,6 +56,7 @@ fun UserDepositScreen(
     var senderAccount by remember { mutableStateOf(u.mobileNumber) }
     var referenceText by remember { mutableStateOf("") }
     var screenshotUri by remember { mutableStateOf("") }
+    var isSubmitting by remember { mutableStateOf(false) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -81,49 +85,31 @@ fun UserDepositScreen(
             )
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Currency badge bar
-            Card(
-                colors = CardDefaults.cardColors(containerColor = BPGreenLight),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
+        if (isLoading && gateways.isEmpty()) {
+            ShimmerDepositSkeleton(modifier = Modifier.padding(innerPadding))
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.AccountBalanceWallet,
-                            contentDescription = "Wallet",
-                            tint = BPGreenDark,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "Deposit Currency: ${u.currency} (${currencyName(u.currency)})",
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 13.sp,
-                            color = BPGreenDark
-                        )
-                    }
-                    StatusBadge(status = "LOCKED")
+                if (isLoading || isSubmitting) {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = BPGreenPrimary,
+                        trackColor = BPGreenLight
+                    )
                 }
-            }
 
-            val gw = selectedGw
-            if (gw == null) {
-                // STEP 1 OF 2: SELECT GATEWAY
+                val gw = selectedGw
+                if (gw == null) {
+                    // STEP 1 OF 2: SELECT GATEWAY
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -162,14 +148,17 @@ fun UserDepositScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
+                                .padding(14.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(46.dp)
+                                        .size(42.dp)
                                         .clip(CircleShape)
                                         .background(BPGreenLight),
                                     contentAlignment = Alignment.Center
@@ -178,38 +167,45 @@ fun UserDepositScreen(
                                         imageVector = Icons.Default.AccountBalance,
                                         contentDescription = gw.name,
                                         tint = BPGreenDark,
-                                        modifier = Modifier.size(22.dp)
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
-                                Spacer(modifier = Modifier.width(14.dp))
-                                Column {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
                                         Text(
                                             text = gw.name,
                                             fontWeight = FontWeight.ExtraBold,
-                                            fontSize = 16.sp,
-                                            color = Slate900
+                                            fontSize = 15.sp,
+                                            color = Slate900,
+                                            maxLines = 1,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                         )
-                                        Spacer(modifier = Modifier.width(8.dp))
                                         StatusBadge(status = gw.currency)
                                     }
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = "Title: ${gw.title}",
                                         fontSize = 12.sp,
-                                        color = Slate700
+                                        color = Slate700,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = "Min Deposit: Rs ${gw.minDeposit.toInt()}",
+                                        text = "Min Deposit: ${u.currency} ${gw.minDeposit.toInt()}",
                                         fontSize = 11.sp,
                                         color = Slate500
                                     )
                                 }
                             }
-
+                            Spacer(modifier = Modifier.width(8.dp))
                             Button(
                                 onClick = { viewModel.selectDepositGateway(gw) },
                                 shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = BPGreenPrimary,
                                     contentColor = Color.White
@@ -396,13 +392,16 @@ fun UserDepositScreen(
 
                 Button(
                     onClick = {
+                        isSubmitting = true
                         val amt = amountText.toDoubleOrNull() ?: 0.0
                         viewModel.submitDepositRequest(
                             amount = amt,
                             reference = referenceText.ifBlank { "TRX-${System.currentTimeMillis()}" },
                             screenshotUri = screenshotUri
                         )
+                        isSubmitting = false
                     },
+                    enabled = !isSubmitting,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),
@@ -412,8 +411,16 @@ fun UserDepositScreen(
                         contentColor = Color.White
                     )
                 ) {
+                    if (isSubmitting) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.5.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
                     Text(
-                        text = "SUBMIT DEPOSIT REQUEST",
+                        text = if (isSubmitting) "SUBMITTING..." else "SUBMIT DEPOSIT REQUEST",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -429,6 +436,7 @@ fun UserDepositScreen(
         }
     }
 }
+}
 
 @Composable
 fun UserWithdrawScreen(
@@ -437,12 +445,14 @@ fun UserWithdrawScreen(
 ) {
     val user by viewModel.currentUser.collectAsState()
     val gateways by viewModel.paymentGateways.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
     val u = user ?: return
 
     var selectedGatewayName by remember { mutableStateOf("EasyPaisa (PKR)") }
     var accountTitle by remember { mutableStateOf(u.fullName) }
     var accountNumber by remember { mutableStateOf(u.mobileNumber) }
     var amountText by remember { mutableStateOf("1000") }
+    var isSubmitting by remember { mutableStateOf(false) }
 
     BetProWebViewDialogHandler(viewModel = viewModel)
 
@@ -463,47 +473,29 @@ fun UserWithdrawScreen(
             )
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Payout Currency header
-            Card(
-                colors = CardDefaults.cardColors(containerColor = BPGreenLight),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
+        if (isLoading && gateways.isEmpty()) {
+            ShimmerWithdrawSkeleton(modifier = Modifier.padding(innerPadding))
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Payments,
-                            contentDescription = "Payout",
-                            tint = BPGreenDark,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "Payout Currency: ${u.currency} (${currencyName(u.currency)})",
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 13.sp,
-                            color = BPGreenDark
-                        )
-                    }
-                    StatusBadge(status = "LOCKED")
+                if (isLoading || isSubmitting) {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = BPGreenPrimary,
+                        trackColor = BPGreenLight
+                    )
                 }
-            }
 
-            // Request Payout Header + min badge
+                // Request Payout Header + min badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -535,34 +527,20 @@ fun UserWithdrawScreen(
                 }
             }
 
-            // Gateway selector pill row
-            Column {
-                Text(
-                    text = "Select Payout Gateway",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Slate700
+            // Custom Bank / Wallet Name input field
+            OutlinedTextField(
+                value = selectedGatewayName,
+                onValueChange = { selectedGatewayName = it },
+                label = { Text("Bank / Wallet Name (e.g., EasyPaisa, JazzCash, Bank Name)") },
+                placeholder = { Text("Enter account or wallet provider name") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = BPGreenPrimary,
+                    unfocusedBorderColor = Slate500
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val gwOptions = listOf("EasyPaisa", "JazzCash", "Meezan Bank")
-                    gwOptions.forEach { opt ->
-                        val selected = selectedGatewayName.contains(opt)
-                        FilterChip(
-                            selected = selected,
-                            onClick = { selectedGatewayName = "$opt (${u.currency})" },
-                            label = { Text(opt, fontWeight = FontWeight.Bold) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = BPGreenPrimary,
-                                selectedLabelColor = Color.White
-                            )
-                        )
-                    }
-                }
-            }
+            )
 
             OutlinedTextField(
                 value = accountTitle,
@@ -580,7 +558,7 @@ fun UserWithdrawScreen(
             OutlinedTextField(
                 value = accountNumber,
                 onValueChange = { accountNumber = it },
-                label = { Text("Account Number / IBAN") },
+                label = { Text("Account Number / IBAN / Phone Number") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true,
@@ -606,9 +584,13 @@ fun UserWithdrawScreen(
 
             Button(
                 onClick = {
+                    isSubmitting = true
                     val amt = amountText.toDoubleOrNull() ?: 0.0
-                    viewModel.submitWithdrawalRequest(amt, selectedGatewayName, accountTitle, accountNumber)
+                    val gwName = if (selectedGatewayName.isNotBlank()) selectedGatewayName else "Bank/Wallet Transfer"
+                    viewModel.submitWithdrawalRequest(amt, gwName, accountTitle, accountNumber)
+                    isSubmitting = false
                 },
+                enabled = !isSubmitting,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -618,10 +600,19 @@ fun UserWithdrawScreen(
                     contentColor = Color.White
                 )
             ) {
-                Icon(imageVector = Icons.Default.Send, contentDescription = "Submit", modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
+                if (isSubmitting) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.5.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                } else {
+                    Icon(imageVector = Icons.Default.Send, contentDescription = "Submit", modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
                 Text(
-                    text = "SUBMIT WITHDRAWAL IN ${u.currency}",
+                    text = if (isSubmitting) "PROCESSING WITHDRAWAL..." else "SUBMIT WITHDRAWAL IN ${u.currency}",
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -635,6 +626,7 @@ fun UserWithdrawScreen(
             )
         }
     }
+}
 }
 
 @Composable
@@ -814,8 +806,12 @@ fun UserProfileScreen(
     val user by viewModel.currentUser.collectAsState()
     val u = user ?: return
 
+    var editableFullName by remember(u.fullName) { mutableStateOf(u.fullName) }
+    var editableMobileNumber by remember(u.mobileNumber) { mutableStateOf(u.mobileNumber) }
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
 
     BetProWebViewDialogHandler(viewModel = viewModel)
 
@@ -844,6 +840,7 @@ fun UserProfileScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Profile Header Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -882,12 +879,194 @@ fun UserProfileScreen(
                         fontSize = 13.sp,
                         color = Slate500
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    StatusBadge(status = "${u.currency} VERIFIED WALLET")
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        StatusBadge(status = "${u.currency} VERIFIED WALLET")
+                        
+                        // Registered Country Badge
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Slate100
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Place,
+                                    contentDescription = "Country",
+                                    tint = Slate700,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = u.country,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Slate800
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
-            // Info rows
+            // User / Agent Unique ID Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = BPGreenLight),
+                border = androidx.compose.foundation.BorderStroke(1.dp, BPGreenPrimary.copy(alpha = 0.3f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(BPGreenPrimary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Badge,
+                                contentDescription = "User/Agent ID",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "Unique User / Agent ID",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = BPGreenDark
+                            )
+                            Text(
+                                text = u.id,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Slate900
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = {
+                            clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(u.id))
+                            viewModel.showSnack("User/Agent ID copied to clipboard!")
+                        },
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(Color.White)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "Copy ID",
+                            tint = BPGreenDark,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+
+            // Manage Account Details Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Manage Account Details",
+                            tint = BPGreenDark,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Manage Account Details",
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 15.sp,
+                                color = Slate900
+                            )
+                            Text(
+                                text = "Update your full name and mobile phone number",
+                                fontSize = 12.sp,
+                                color = Slate500
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = editableFullName,
+                        onValueChange = { editableFullName = it },
+                        label = { Text("Full Name") },
+                        leadingIcon = {
+                            Icon(imageVector = Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = editableMobileNumber,
+                        onValueChange = { editableMobileNumber = it },
+                        label = { Text("Mobile Number") },
+                        leadingIcon = {
+                            Icon(imageVector = Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(18.dp))
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+
+                    Button(
+                        onClick = {
+                            viewModel.updateUserProfile(editableFullName, editableMobileNumber)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Save Profile Changes",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+
+            // Info Overview Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -895,11 +1074,21 @@ fun UserProfileScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    ProfileRowItem(label = "Mobile Number", valText = u.mobileNumber)
+                    Text(
+                        text = "Account Overview & Attributes",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 14.sp,
+                        color = Slate900
+                    )
+                    ProfileRowItem(label = "Unique User / Agent ID", valText = u.id)
+                    HorizontalDivider(color = Slate100)
+                    ProfileRowItem(label = "Registered Country", valText = u.country)
                     HorizontalDivider(color = Slate100)
                     ProfileRowItem(label = "Account Currency", valText = "${u.currency} (${currencyName(u.currency)})")
                     HorizontalDivider(color = Slate100)
                     ProfileRowItem(label = "Assigned Master Agent", valText = u.masterAgentName)
+                    HorizontalDivider(color = Slate100)
+                    ProfileRowItem(label = "BetPro Exchange Username", valText = u.betproUsername)
                     HorizontalDivider(color = Slate100)
                     ProfileRowItem(label = "BetPro ID Status", valText = u.betproIdStatus)
                 }

@@ -316,34 +316,52 @@ fun StatusBadge(
     status: String,
     modifier: Modifier = Modifier
 ) {
-    val (bg, textColor) = when (status.lowercase()) {
-        "active", "approved", "fixed" -> BPGreenLight to BPGreenDark
-        "pending", "waiting" -> BPGoldSoft to BPGoldDark
-        "pending_super_admin", "pending super admin" -> Color(0xFFFFF3E0) to Color(0xFFE65100)
-        "blocked", "rejected" -> Color(0xFFFFE5E5) to Color(0xFFD32F2F)
+    val isLocked = status.equals("locked", ignoreCase = true)
+    val (bg, textColor) = when {
+        isLocked -> Color(0xFFFFFBEB) to Color(0xFFB45309)
+        status.lowercase() in listOf("active", "approved", "fixed") -> BPGreenLight to BPGreenDark
+        status.lowercase() in listOf("pending", "waiting") -> BPGoldSoft to BPGoldDark
+        status.lowercase() in listOf("pending_super_admin", "pending super admin") -> Color(0xFFFFF3E0) to Color(0xFFE65100)
+        status.lowercase() in listOf("blocked", "rejected") -> Color(0xFFFFE5E5) to Color(0xFFD32F2F)
         else -> Slate100 to Slate700
     }
     val displayStatus = if (status.equals("pending_super_admin", true)) "PENDING SUPER ADMIN" else status.uppercase()
     Box(
         modifier = modifier
+            .wrapContentWidth()
             .clip(RoundedCornerShape(20.dp))
             .background(bg)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(textColor)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            if (isLocked) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = "Locked",
+                    tint = textColor,
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(3.dp))
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(textColor)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+            }
             Text(
                 text = displayStatus,
                 color = textColor,
                 fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                softWrap = false
             )
         }
     }
@@ -358,24 +376,25 @@ fun WhatsAppHelplineButton(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .height(48.dp),
+            .height(44.dp),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = BPGreenPrimary,
             contentColor = Color.White
         ),
-        shape = RoundedCornerShape(12.dp),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+        shape = RoundedCornerShape(10.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
     ) {
         Icon(
             imageVector = Icons.Default.Chat,
             contentDescription = "WhatsApp Helpline",
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(18.dp)
         )
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(6.dp))
         Text(
             text = "WhatsApp Helpline",
             fontWeight = FontWeight.Bold,
-            fontSize = 15.sp
+            fontSize = 14.sp
         )
     }
 }
@@ -451,6 +470,120 @@ fun ShimmerDashboardSkeleton(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(110.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(brush)
+        )
+    }
+}
+
+@Composable
+fun ShimmerDepositSkeleton(modifier: Modifier = Modifier) {
+    val brush = rememberShimmerBrush()
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(180.dp)
+                    .height(24.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(brush)
+            )
+            Box(
+                modifier = Modifier
+                    .width(70.dp)
+                    .height(20.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(brush)
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .width(260.dp)
+                .height(16.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(brush)
+        )
+
+        repeat(3) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(84.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(brush)
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(brush)
+        )
+    }
+}
+
+@Composable
+fun ShimmerWithdrawSkeleton(modifier: Modifier = Modifier) {
+    val brush = rememberShimmerBrush()
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(200.dp)
+                    .height(28.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(brush)
+            )
+            Box(
+                modifier = Modifier
+                    .width(90.dp)
+                    .height(24.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(brush)
+            )
+        }
+
+        repeat(4) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(brush)
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(brush)
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
                 .clip(RoundedCornerShape(16.dp))
                 .background(brush)
         )

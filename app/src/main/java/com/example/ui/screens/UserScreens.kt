@@ -99,139 +99,59 @@ fun UserHomeScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-            // Cards Row: Total Deposit & Total Withdrawal
+            // Action Buttons: Deposit & Withdrawal
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // TOTAL DEPOSIT CARD
-                Card(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+                // DEPOSIT BUTTON
+                Button(
+                    onClick = { viewModel.setScreen(ScreenType.USER_DEPOSIT) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = BPGreenPrimary,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "TOTAL DEPOSIT",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Slate500
-                            )
-                            Icon(
-                                imageVector = Icons.Default.TrendingUp,
-                                contentDescription = "Deposit",
-                                tint = BPGreenPrimary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "${u.displayCurrencySymbol}${u.walletBalance.toInt()}",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Slate900
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "$approvedDepositsCount Approved Requests",
-                            fontSize = 11.sp,
-                            color = Slate500
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Button(
-                            onClick = { viewModel.setScreen(ScreenType.USER_DEPOSIT) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(38.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = BPGreenPrimary,
-                                contentColor = Color.White
-                            ),
-                            contentPadding = PaddingValues(horizontal = 4.dp)
-                        ) {
-                            Text(
-                                text = "+ DEPOSIT (${u.currency})",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                    }
+                    Icon(
+                        imageVector = Icons.Default.AddCircle,
+                        contentDescription = "Deposit",
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "+ DEPOSIT (${u.currency})",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
                 }
 
-                // TOTAL WITHDRAWAL CARD
-                Card(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+                // WITHDRAWAL BUTTON
+                Button(
+                    onClick = { viewModel.setScreen(ScreenType.USER_WITHDRAW) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Slate900,
+                        contentColor = Color.White
+                    )
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "TOTAL WITHDRAWAL",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Slate500
-                            )
-                            Icon(
-                                imageVector = Icons.Default.TrendingDown,
-                                contentDescription = "Withdrawal",
-                                tint = BPGoldDark,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "${u.displayCurrencySymbol}${totalWithdrawalSum.toInt()}",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Slate900
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "$approvedWithdrawalsCount Approved Requests",
-                            fontSize = 11.sp,
-                            color = Slate500
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Button(
-                            onClick = { viewModel.setScreen(ScreenType.USER_WITHDRAW) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(38.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Slate700,
-                                contentColor = Color.White
-                            ),
-                            contentPadding = PaddingValues(horizontal = 4.dp)
-                        ) {
-                            Text(
-                                text = "WITHDRAW (${u.currency})",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                    }
+                    Icon(
+                        imageVector = Icons.Default.RemoveCircle,
+                        contentDescription = "Withdraw",
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "WITHDRAW (${u.currency})",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
                 }
             }
 

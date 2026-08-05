@@ -92,9 +92,6 @@ fun AdminDashboardScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                // Supabase Cloud Database Permanent Storage Card
-                SupabaseCloudStorageCard(viewModel = viewModel)
-
                 // 1. USERS (Full width card)
                 AdminStatCard(
                     title = "USERS",
@@ -878,32 +875,6 @@ fun AdminTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Supabase Cloud Active Badge
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color(0xFFE8F5E9),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFA5D6A7))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Cloud,
-                            contentDescription = "Supabase Cloud DB",
-                            tint = Color(0xFF2E7D32),
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Supabase",
-                            color = Color(0xFF1B5E20),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        )
-                    }
-                }
-
                 // User Switch Pill
                 Surface(
                     shape = RoundedCornerShape(16.dp),
@@ -1380,33 +1351,15 @@ fun SupabaseCloudStorageCard(
             )
 
             // Action Buttons
-            Row(
+            OutlinedButton(
+                onClick = { showSqlDialog = true },
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = BPGreenDark)
             ) {
-                OutlinedButton(
-                    onClick = { showSqlDialog = true },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = BPGreenDark)
-                ) {
-                    Icon(imageVector = Icons.Default.Code, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("SQL Setup Script", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-
-                Button(
-                    onClick = {
-                        Toast.makeText(context, "Synchronizing with Supabase Cloud...", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = BPGreenDark)
-                ) {
-                    Icon(imageVector = Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Sync Cloud Now", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
+                Icon(imageVector = Icons.Default.Code, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("SQL Setup Script", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -1462,9 +1415,6 @@ fun AdminSettingsScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Supabase Cloud Database Permanent Storage Card
-                SupabaseCloudStorageCard(viewModel = viewModel)
-
                 // SuperAdmin / Admin Change Password Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
