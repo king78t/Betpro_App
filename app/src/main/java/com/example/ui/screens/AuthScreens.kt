@@ -636,7 +636,7 @@ fun RegisterScreen(
                 // Select Country & Currency label
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = kArrangement.Start
+                    horizontalArrangement = Arrangement.Start
                 ) {
                     Text(
                         text = "Select Country & Currency",

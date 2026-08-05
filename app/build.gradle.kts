@@ -16,8 +16,8 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.bpwallet.kxmzpq"
-    minSdk = 24
+    applicationId = "com.bp.wallet"
+    minSdk = 26
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
@@ -61,7 +61,7 @@ android {
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 
-base.archivesName.set("BP Wallet")
+base.archivesName.set("app")
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
 // to match the convention used in Web projects.
