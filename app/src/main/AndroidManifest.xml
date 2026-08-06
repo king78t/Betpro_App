@@ -13,7 +13,13 @@
     <queries>
         <package android:name="com.google.android.gms" />
         <package android:name="com.android.vending" />
-        <package android:name="com.google.android.apps.messaging" />
+        <package android:name="com.google.android.gms.auth" />
+        <intent>
+            <action android:name="com.google.android.gms.auth.api.signin.ACTION_CONFIG" />
+        </intent>
+        <intent>
+            <action android:name="com.google.android.gms.auth.api.signin.SERVICE" />
+        </intent>
     </queries>
 
     <application
@@ -27,6 +33,14 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication"
         android:usesCleartextTraffic="true">
+        
+        <meta-data
+            android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version" />
+
+        <uses-library
+            android:name="org.apache.http.legacy"
+            android:required="false" />
         
         <!-- Ultra-Premium Fintech Splash Screen Launcher Activity -->
         <activity

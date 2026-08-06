@@ -14,6 +14,7 @@ class BPWalletApplication : Application() {
         
         try {
             FirebaseApp.initializeApp(this)
+            android.util.Log.d("BPWalletApp", "Firebase initialized successfully")
             val db = FirebaseFirestore.getInstance()
             val settings = FirebaseFirestoreSettings.Builder()
                 .setLocalCacheSettings(PersistentCacheSettings.newBuilder()

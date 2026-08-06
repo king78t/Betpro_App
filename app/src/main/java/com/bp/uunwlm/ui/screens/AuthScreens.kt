@@ -1255,7 +1255,13 @@ fun triggerGoogleSignIn(
             val webClientId = try {
                 BuildConfig.WEB_CLIENT_ID
             } catch (e: Exception) {
-                "1234567890-example.apps.googleusercontent.com"
+                ""
+            }
+            
+            if (webClientId.isEmpty() || webClientId.contains("example")) {
+                android.util.Log.w("GoogleSignIn", "WEB_CLIENT_ID is not configured or is a placeholder.")
+                onNeedPicker()
+                return@launch
             }
             
             val googleIdOption = GetGoogleIdOption.Builder()

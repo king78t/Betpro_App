@@ -32,29 +32,23 @@ android {
       if (ksFile.exists()) {
         storeFile = ksFile
         storePassword = System.getenv("STORE_PASSWORD")
-        keyAlias = "upload"
+        keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
         keyPassword = System.getenv("KEY_PASSWORD")
-      }
-    }
-    create("debugConfig") {
-      val ksFile = file("${rootDir}/debug.keystore")
-      if (ksFile.exists()) {
-        storeFile = ksFile
-        storePassword = "android"
-        keyAlias = "androiddebugkey"
-        keyPassword = "android"
       }
     }
   }
 
   buildTypes {
+    debug { }
     release {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.findByName("release")
+      
+      // Use release config if storeFile is set, otherwise fall back to debug config
+      signingConfig = signingConfigs.findByName("release")?.takeIf { it.storeFile != null } 
+          ?: signingConfigs.getByName("debug")
     }
-    debug { signingConfig = signingConfigs.findByName("debugConfig") }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -107,7 +101,6 @@ dependencies {
   implementation(libs.googleid)
   implementation(libs.play.services.auth)
   implementation(libs.play.services.base)
-  implementation(libs.firebase.appcheck.recaptcha)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.androidx.work.runtime.ktx)
