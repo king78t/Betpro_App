@@ -45,7 +45,7 @@ class BPWalletViewModel : ViewModel() {
     private fun getInitialScreen(): ScreenType {
         val user = currentUser.value
         return if (user != null) {
-            if (user.role == "ADMIN") ScreenType.ADMIN_DASHBOARD else ScreenType.USER_HOME
+            if (user.isAdminRole) ScreenType.ADMIN_DASHBOARD else ScreenType.USER_HOME
         } else {
             ScreenType.LOGIN
         }
@@ -53,6 +53,36 @@ class BPWalletViewModel : ViewModel() {
 
     private val _currentScreen = MutableStateFlow(getInitialScreen())
     val currentScreen: StateFlow<ScreenType> = _currentScreen.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            currentUser.collect { user ->
+                if (user != null) {
+                    val current = _currentScreen.value
+                    if (current == ScreenType.LOGIN || current == ScreenType.REGISTER || current == ScreenType.SPLASH) {
+                        _currentScreen.value = if (user.isAdminRole) ScreenType.ADMIN_DASHBOARD else ScreenType.USER_HOME
+                    } else if (user.isAdminRole && !isScreenAdmin(current)) {
+                        _currentScreen.value = ScreenType.ADMIN_DASHBOARD
+                    } else if (!user.isAdminRole && isScreenAdmin(current)) {
+                        _currentScreen.value = ScreenType.USER_HOME
+                    }
+                } else {
+                    if (_currentScreen.value != ScreenType.SPLASH && _currentScreen.value != ScreenType.REGISTER) {
+                        _currentScreen.value = ScreenType.LOGIN
+                    }
+                }
+            }
+        }
+    }
+
+    private fun isScreenAdmin(screen: ScreenType): Boolean {
+        return screen == ScreenType.ADMIN_DASHBOARD ||
+               screen == ScreenType.ADMIN_LIVE_CONTROL ||
+               screen == ScreenType.ADMIN_USERS_CRM ||
+               screen == ScreenType.ADMIN_MASTER_AGENTS ||
+               screen == ScreenType.ADMIN_TRANSACTIONS ||
+               screen == ScreenType.ADMIN_SETTINGS
+    }
 
     // Login tab mode: true = User, false = Admin
     private val _isUserLoginTab = MutableStateFlow(true)
@@ -115,7 +145,7 @@ class BPWalletViewModel : ViewModel() {
     fun onSplashCompleted() {
         val user = currentUser.value
         if (user != null) {
-            if (user.role == "ADMIN") {
+            if (user.isAdminRole) {
                 setScreen(ScreenType.ADMIN_DASHBOARD)
             } else {
                 setScreen(ScreenType.USER_HOME)
@@ -146,7 +176,11 @@ class BPWalletViewModel : ViewModel() {
         val result = BPWalletRepository.loginUser(emailOrPhone, pass)
         result.onSuccess { user ->
             showSnack("Welcome Back, ${user.fullName}!")
-            setScreen(ScreenType.USER_HOME)
+            if (user.isAdminRole) {
+                setScreen(ScreenType.ADMIN_DASHBOARD)
+            } else {
+                setScreen(ScreenType.USER_HOME)
+            }
         }.onFailure { err ->
             triggerErrorShake()
             showSnack(err.message ?: "Login failed")
@@ -162,7 +196,11 @@ class BPWalletViewModel : ViewModel() {
         val result = BPWalletRepository.loginAdmin(username, pass)
         result.onSuccess { admin ->
             showSnack("Admin logged in successfully! Welcome ${admin.fullName}")
-            setScreen(ScreenType.ADMIN_DASHBOARD)
+            if (admin.isAdminRole) {
+                setScreen(ScreenType.ADMIN_DASHBOARD)
+            } else {
+                setScreen(ScreenType.USER_HOME)
+            }
         }.onFailure { err ->
             triggerErrorShake()
             showSnack(err.message ?: "Admin login failed")

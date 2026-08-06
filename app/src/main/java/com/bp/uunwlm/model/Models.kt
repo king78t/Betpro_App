@@ -57,16 +57,22 @@ data class UserAccount(
         }
 
     val isSuperAdmin: Boolean
-        get() = role == "Super Admin" || role == "admin" || role == "SuperAdmin"
+        get() = role.equals("Super Admin", ignoreCase = true) ||
+                role.equals("admin", ignoreCase = true) ||
+                role.equals("SuperAdmin", ignoreCase = true) ||
+                role.equals("ADMIN", ignoreCase = true)
 
     val isCountrySuperMaster: Boolean
-        get() = role == "Country Super Master"
+        get() = role.equals("Country Super Master", ignoreCase = true)
 
     val isSupportStaff: Boolean
-        get() = role == "Support Staff"
+        get() = role.equals("Support Staff", ignoreCase = true)
 
     val isReadOnlyUser: Boolean
-        get() = role == "Read Only User"
+        get() = role.equals("Read Only User", ignoreCase = true)
+
+    val isAdminRole: Boolean
+        get() = isSuperAdmin || isCountrySuperMaster || isSupportStaff || isReadOnlyUser
 
     val canModifyData: Boolean
         get() = isSuperAdmin || isCountrySuperMaster || isSupportStaff

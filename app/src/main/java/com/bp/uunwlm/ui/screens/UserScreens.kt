@@ -844,7 +844,6 @@ fun BetProExchangeModal(
                                     cacheMode = WebSettings.LOAD_DEFAULT
                                     mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                                 }
-                                setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
                                 webViewClient = object : WebViewClient() {
                                     override fun onPageFinished(view: WebView?, url: String?) {
                                         super.onPageFinished(view, url)

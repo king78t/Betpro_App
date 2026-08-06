@@ -59,13 +59,188 @@ object BPWalletRepository {
     private var appContext: Context? = null
     private val previousTxStatuses = mutableMapOf<String, String>()
 
+    private const val PREFS_NAME = "bp_wallet_session_prefs"
+    private const val KEY_IS_LOGGED_IN = "is_logged_in"
+    private const val KEY_USER_ID = "user_id"
+    private const val KEY_USER_NAME = "user_full_name"
+    private const val KEY_USER_EMAIL = "user_email"
+    private const val KEY_USER_CURRENCY = "user_currency"
+    private const val KEY_USER_COUNTRY = "user_country"
+    private const val KEY_USER_MOBILE = "user_mobile"
+    private const val KEY_USER_PASSWORD = "user_password"
+    private const val KEY_USER_ROLE = "user_role"
+    private const val KEY_USER_BETPRO_USERNAME = "user_betpro_username"
+    private const val KEY_USER_BETPRO_PASSWORD = "user_betpro_password"
+    private const val KEY_USER_BETPRO_STATUS = "user_betpro_status"
+    private const val KEY_USER_WALLET_BALANCE = "user_wallet_balance"
+    private const val KEY_USER_MASTER_NAME = "user_master_name"
+    private const val KEY_USER_ASSIGNED_MASTER_ID = "user_assigned_master_id"
+    private const val KEY_USER_CREATED_AT = "user_created_at"
+    private const val KEY_USER_IS_VERIFIED = "user_is_verified"
+
+    fun saveSession(user: UserAccount) {
+        val ctx = appContext ?: return
+        try {
+            val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit()
+                .putBoolean(KEY_IS_LOGGED_IN, true)
+                .putString(KEY_USER_ID, user.id)
+                .putString(KEY_USER_NAME, user.fullName)
+                .putString(KEY_USER_EMAIL, user.email)
+                .putString(KEY_USER_CURRENCY, user.currency)
+                .putString(KEY_USER_COUNTRY, user.country)
+                .putString(KEY_USER_MOBILE, user.mobileNumber)
+                .putString(KEY_USER_PASSWORD, user.password)
+                .putString(KEY_USER_ROLE, user.role)
+                .putString(KEY_USER_BETPRO_USERNAME, user.betproUsername)
+                .putString(KEY_USER_BETPRO_PASSWORD, user.betproPassword)
+                .putString(KEY_USER_BETPRO_STATUS, user.betproIdStatus)
+                .putFloat(KEY_USER_WALLET_BALANCE, user.walletBalance.toFloat())
+                .putString(KEY_USER_MASTER_NAME, user.masterAgentName)
+                .putString(KEY_USER_ASSIGNED_MASTER_ID, user.assignedMasterId)
+                .putLong(KEY_USER_CREATED_AT, user.createdAt)
+                .putBoolean(KEY_USER_IS_VERIFIED, user.isVerified)
+                .apply()
+            Log.d(TAG, "Session persisted for user: ${user.fullName} (${user.role})")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving session to SharedPreferences", e)
+        }
+    }
+
+    fun restoreSession(): UserAccount? {
+        val ctx = appContext ?: return null
+        try {
+            val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val isLoggedIn = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
+            val userId = prefs.getString(KEY_USER_ID, "") ?: ""
+            if (isLoggedIn && userId.isNotBlank()) {
+                val user = UserAccount(
+                    id = userId,
+                    fullName = prefs.getString(KEY_USER_NAME, "") ?: "",
+                    email = prefs.getString(KEY_USER_EMAIL, "") ?: "",
+                    currency = prefs.getString(KEY_USER_CURRENCY, "PKR") ?: "PKR",
+                    country = prefs.getString(KEY_USER_COUNTRY, "Pakistan") ?: "Pakistan",
+                    mobileNumber = prefs.getString(KEY_USER_MOBILE, "") ?: "",
+                    password = prefs.getString(KEY_USER_PASSWORD, "") ?: "",
+                    role = prefs.getString(KEY_USER_ROLE, "user") ?: "user",
+                    betproUsername = prefs.getString(KEY_USER_BETPRO_USERNAME, "Book") ?: "Book",
+                    betproPassword = prefs.getString(KEY_USER_BETPRO_PASSWORD, "active") ?: "active",
+                    betproIdStatus = prefs.getString(KEY_USER_BETPRO_STATUS, "Active") ?: "Active",
+                    walletBalance = prefs.getFloat(KEY_USER_WALLET_BALANCE, 0.0f).toDouble(),
+                    masterAgentName = prefs.getString(KEY_USER_MASTER_NAME, "Pakistan Super Master") ?: "Pakistan Super Master",
+                    assignedMasterId = prefs.getString(KEY_USER_ASSIGNED_MASTER_ID, "ma_pk") ?: "ma_pk",
+                    createdAt = prefs.getLong(KEY_USER_CREATED_AT, System.currentTimeMillis()),
+                    isVerified = prefs.getBoolean(KEY_USER_IS_VERIFIED, true)
+                )
+                Log.d(TAG, "Restored active session: ${user.fullName} (${user.role})")
+                return user
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error restoring session from SharedPreferences", e)
+        }
+        return null
+    }
+
+    fun clearSession() {
+        val ctx = appContext ?: return
+        try {
+            val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit().clear().apply()
+            Log.d(TAG, "Session cleared from SharedPreferences")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error clearing session", e)
+        }
+    }
+
+    private const val PREFS_KNOWN_NAME = "bp_wallet_known_items_prefs"
+    private const val KEY_KNOWN_TX_IDS = "known_tx_ids"
+    private const val KEY_KNOWN_USER_IDS = "known_user_ids"
+
+    private val knownTxIds = mutableSetOf<String>()
+    private val knownUserIds = mutableSetOf<String>()
+    private var isKnownItemsLoaded = false
+
+    private fun ensureKnownItemsLoaded() {
+        val ctx = appContext ?: return
+        if (isKnownItemsLoaded) return
+        try {
+            val prefs = ctx.getSharedPreferences(PREFS_KNOWN_NAME, Context.MODE_PRIVATE)
+            val savedTxs = prefs.getStringSet(KEY_KNOWN_TX_IDS, null)
+            val savedUsers = prefs.getStringSet(KEY_KNOWN_USER_IDS, null)
+            if (savedTxs != null) {
+                knownTxIds.addAll(savedTxs)
+            }
+            if (savedUsers != null) {
+                knownUserIds.addAll(savedUsers)
+            }
+            isKnownItemsLoaded = true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error reading known items from SharedPreferences", e)
+        }
+    }
+
+    private fun persistKnownItems() {
+        val ctx = appContext ?: return
+        try {
+            val prefs = ctx.getSharedPreferences(PREFS_KNOWN_NAME, Context.MODE_PRIVATE)
+            prefs.edit()
+                .putStringSet(KEY_KNOWN_TX_IDS, HashSet(knownTxIds))
+                .putStringSet(KEY_KNOWN_USER_IDS, HashSet(knownUserIds))
+                .apply()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error persisting known items to SharedPreferences", e)
+        }
+    }
+
+    private fun checkAndTriggerAdminAlerts(txs: List<TransactionRequest>, users: List<UserAccount>) {
+        val ctx = appContext ?: return
+        ensureKnownItemsLoaded()
+
+        var changed = false
+        val isFirstInit = knownTxIds.isEmpty() && knownUserIds.isEmpty()
+
+        for (u in users) {
+            if (!knownUserIds.contains(u.id)) {
+                knownUserIds.add(u.id)
+                changed = true
+                if (!isFirstInit && !u.isSuperAdmin && !u.role.contains("admin", ignoreCase = true)) {
+                    NotificationHelper.showAdminNewAccountNotification(ctx, u)
+                }
+            }
+        }
+
+        for (tx in txs) {
+            if (!knownTxIds.contains(tx.id)) {
+                knownTxIds.add(tx.id)
+                changed = true
+                if (!isFirstInit && tx.status.equals("Pending", ignoreCase = true)) {
+                    if (tx.type.equals("DEPOSIT", ignoreCase = true)) {
+                        NotificationHelper.showAdminNewDepositNotification(ctx, tx)
+                    } else if (tx.type.equals("WITHDRAW", ignoreCase = true)) {
+                        NotificationHelper.showAdminNewWithdrawalNotification(ctx, tx)
+                    }
+                }
+            }
+        }
+
+        if (changed) {
+            persistKnownItems()
+        }
+    }
+
     fun initContext(context: Context) {
         appContext = context.applicationContext
         NotificationHelper.init(context.applicationContext)
+        ensureKnownItemsLoaded()
+        restoreSession()?.let { restoredUser ->
+            _currentUser.value = restoredUser
+            Log.i(TAG, "Initialized active session for user ${restoredUser.fullName} (${restoredUser.role})")
+        }
     }
 
     private fun updateTransactionsList(newList: List<TransactionRequest>) {
         checkAndNotifyStatusChanges(newList)
+        checkAndTriggerAdminAlerts(newList, _usersList.value)
         _transactionsList.value = newList
     }
 
@@ -520,6 +695,7 @@ object BPWalletRepository {
                 }
             }
             _currentUser.value = match
+            saveSession(match)
             return Result.success(match)
         } else {
             // Also try matching by name
@@ -528,6 +704,7 @@ object BPWalletRepository {
             }
             if (nameMatch != null) {
                 _currentUser.value = nameMatch
+                saveSession(nameMatch)
                 return Result.success(nameMatch)
             } else {
                 return Result.failure(Exception("Invalid email/mobile number or password. Please check your credentials."))
@@ -563,6 +740,7 @@ object BPWalletRepository {
             
             if (existing != null) {
                 _currentUser.value = existing
+                saveSession(existing)
                 Result.success(existing)
             } else {
                 // Create minimal user account for phone login
@@ -577,6 +755,7 @@ object BPWalletRepository {
                 )
                 _usersList.value = listOf(newUser) + _usersList.value
                 _currentUser.value = newUser
+                saveSession(newUser)
                 firestore?.collection("users")?.document(userId)?.set(newUser)?.await()
                 Result.success(newUser)
             }
@@ -606,6 +785,7 @@ object BPWalletRepository {
                 betproIdStatus = "Active"
             )
             _currentUser.value = adminUser
+            saveSession(adminUser)
             return Result.success(adminUser)
         }
         val adminMatch = _usersList.value.find {
@@ -614,6 +794,7 @@ object BPWalletRepository {
         }
         return if (adminMatch != null && (adminMatch.password == pass || (adminMatch.isSuperAdmin && (pass == "Asd1234" || pass == "Asdf1234")))) {
             _currentUser.value = adminMatch
+            saveSession(adminMatch)
             Result.success(adminMatch)
         } else {
             Result.failure(Exception("Invalid Admin Username or Password."))
@@ -668,9 +849,19 @@ object BPWalletRepository {
                 createdAt = System.currentTimeMillis()
             )
 
-            // Save to local flow instantly
+            // Save to local flow instantly and persist session
             _usersList.value = listOf(newUser) + _usersList.value
             _currentUser.value = newUser
+            saveSession(newUser)
+
+            ensureKnownItemsLoaded()
+            if (!knownUserIds.contains(newUser.id)) {
+                knownUserIds.add(newUser.id)
+                persistKnownItems()
+            }
+            appContext?.let { ctx ->
+                NotificationHelper.showAdminNewAccountNotification(ctx, newUser)
+            }
 
             // Try Firebase in background if online
             scope.launch {
@@ -707,6 +898,7 @@ object BPWalletRepository {
             }
             if (existing != null) {
                 _currentUser.value = existing
+                saveSession(existing)
                 if (!idToken.isNullOrEmpty()) {
                     scope.launch {
                         try {
@@ -732,6 +924,16 @@ object BPWalletRepository {
 
             _usersList.value = listOf(newUser) + _usersList.value
             _currentUser.value = newUser
+            saveSession(newUser)
+
+            ensureKnownItemsLoaded()
+            if (!knownUserIds.contains(newUser.id)) {
+                knownUserIds.add(newUser.id)
+                persistKnownItems()
+            }
+            appContext?.let { ctx ->
+                NotificationHelper.showAdminNewAccountNotification(ctx, newUser)
+            }
 
             scope.launch {
                 try {
@@ -757,6 +959,7 @@ object BPWalletRepository {
     }
 
     fun logout() {
+        clearSession()
         _currentUser.value = null
         try {
             auth?.signOut()
@@ -790,6 +993,15 @@ object BPWalletRepository {
             timestamp = System.currentTimeMillis()
         )
         updateTransactionsList(listOf(tx) + _transactionsList.value)
+
+        ensureKnownItemsLoaded()
+        if (!knownTxIds.contains(tx.id)) {
+            knownTxIds.add(tx.id)
+            persistKnownItems()
+        }
+        appContext?.let { ctx ->
+            NotificationHelper.showAdminNewDepositNotification(ctx, tx)
+        }
 
         scope.launch {
             try {
@@ -832,6 +1044,15 @@ object BPWalletRepository {
             timestamp = System.currentTimeMillis()
         )
         updateTransactionsList(listOf(tx) + _transactionsList.value)
+
+        ensureKnownItemsLoaded()
+        if (!knownTxIds.contains(tx.id)) {
+            knownTxIds.add(tx.id)
+            persistKnownItems()
+        }
+        appContext?.let { ctx ->
+            NotificationHelper.showAdminNewWithdrawalNotification(ctx, tx)
+        }
 
         scope.launch {
             try {
@@ -1003,6 +1224,7 @@ object BPWalletRepository {
             _usersList.value = currentUsers
             if (_currentUser.value?.id == userId) {
                 _currentUser.value = updatedUser
+                saveSession(updatedUser)
             }
 
             scope.launch {
@@ -1056,6 +1278,7 @@ object BPWalletRepository {
         val curr = _currentUser.value ?: return Result.failure(Exception("No user logged in"))
         val updatedUser = curr.copy(password = newPassword)
         _currentUser.value = updatedUser
+        saveSession(updatedUser)
         _usersList.value = _usersList.value.map {
             if (it.id == curr.id) updatedUser else it
         }
@@ -1067,6 +1290,7 @@ object BPWalletRepository {
         val curr = _currentUser.value ?: return Result.failure(Exception("No user logged in"))
         val updatedUser = curr.copy(fullName = fullName.trim(), mobileNumber = mobileNumber.trim())
         _currentUser.value = updatedUser
+        saveSession(updatedUser)
         _usersList.value = _usersList.value.map {
             if (it.id == curr.id) updatedUser else it
         }
@@ -1078,6 +1302,7 @@ object BPWalletRepository {
         val curr = _currentUser.value ?: return Result.failure(Exception("No user logged in"))
         val updatedUser = curr.copy(password = newPassword)
         _currentUser.value = updatedUser
+        saveSession(updatedUser)
         _usersList.value = _usersList.value.map {
             if (it.id == curr.id) updatedUser else it
         }

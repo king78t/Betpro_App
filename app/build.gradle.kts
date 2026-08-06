@@ -17,12 +17,16 @@ android {
 
   defaultConfig {
     applicationId = "com.aistudio.bpwallet.vkpmxr"
-    minSdk = 26
+    minSdk = 24
     targetSdk = 34
     versionCode = 1
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+    ndk {
+      abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
+    }
   }
 
   signingConfigs {
@@ -45,9 +49,8 @@ android {
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       
-      // Use release config if storeFile is set, otherwise fall back to debug config
-      signingConfig = signingConfigs.findByName("release")?.takeIf { it.storeFile != null } 
-          ?: signingConfigs.getByName("debug")
+      // Make release build unsigned by removing the signingConfig
+      signingConfig = null
     }
   }
   compileOptions {
