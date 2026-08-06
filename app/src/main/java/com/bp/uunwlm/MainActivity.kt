@@ -1,4 +1,4 @@
-package com.example
+package com.bp.uunwlm
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -22,10 +22,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.ui.screens.*
-import com.example.ui.theme.*
-import com.example.ui.viewmodel.BPWalletViewModel
-import com.example.ui.viewmodel.ScreenType
+import com.bp.uunwlm.ui.screens.*
+import com.bp.uunwlm.ui.theme.*
+import com.bp.uunwlm.ui.viewmodel.BPWalletViewModel
+import com.bp.uunwlm.ui.viewmodel.ScreenType
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -1,4 +1,4 @@
-package com.example.worker
+package com.bp.uunwlm.worker
 
 import android.content.Context
 import android.util.Log
@@ -11,7 +11,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.example.data.BPWalletRepository
+import com.bp.uunwlm.data.BPWalletRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit

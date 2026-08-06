@@ -1,4 +1,4 @@
-package com.example.util
+package com.bp.uunwlm.util
 
 import android.Manifest
 import android.app.NotificationChannel
@@ -11,8 +11,8 @@ import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import com.example.MainActivity
-import com.example.model.TransactionRequest
+import com.bp.uunwlm.MainActivity
+import com.bp.uunwlm.model.TransactionRequest
 
 object NotificationHelper {
 

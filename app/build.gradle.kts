@@ -13,12 +13,12 @@ base.archivesName.set("app")
 
 android {
   namespace = "com.bp.uunwlm"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  compileSdk = 35
 
   defaultConfig {
     applicationId = "com.bp.uunwlm"
     minSdk = 26
-    targetSdk = 36
+    targetSdk = 35
     versionCode = 1
     versionName = "1.0"
 
@@ -60,8 +60,6 @@ android {
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }
-
-base.archivesName.set("app")
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
 // to match the convention used in Web projects.
@@ -108,6 +106,8 @@ dependencies {
   implementation(libs.androidx.credentials)
   implementation(libs.androidx.credentials.play.services)
   implementation(libs.googleid)
+  implementation("com.google.android.gms:play-services-auth:21.3.0")
+  implementation("com.google.android.gms:play-services-base:18.5.0")
   implementation(libs.firebase.appcheck.recaptcha)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)

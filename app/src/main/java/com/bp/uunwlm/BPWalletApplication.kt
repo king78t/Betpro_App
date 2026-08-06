@@ -1,12 +1,12 @@
-package com.example
+package com.bp.uunwlm
 
 import android.app.Application
 import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.PersistentCacheSettings
-import com.example.data.BPWalletRepository
-import com.example.worker.SupabaseSyncWorker
+import com.bp.uunwlm.data.BPWalletRepository
+import com.bp.uunwlm.worker.SupabaseSyncWorker
 
 class BPWalletApplication : Application() {
     override fun onCreate() {

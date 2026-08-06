@@ -1,4 +1,4 @@
-package com.example.ui.screens
+package com.bp.uunwlm.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,20 +23,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.model.MasterAgent
-import com.example.model.PaymentGateway
-import com.example.model.TransactionRequest
-import com.example.model.UserAccount
-import com.example.ui.components.ShimmerDashboardSkeleton
-import com.example.ui.components.StatusBadge
-import com.example.ui.theme.*
+import com.bp.uunwlm.model.MasterAgent
+import com.bp.uunwlm.model.PaymentGateway
+import com.bp.uunwlm.model.TransactionRequest
+import com.bp.uunwlm.model.UserAccount
+import com.bp.uunwlm.ui.components.ShimmerDashboardSkeleton
+import com.bp.uunwlm.ui.components.StatusBadge
+import com.bp.uunwlm.ui.theme.*
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import android.widget.Toast
-import com.example.data.SupabaseCloudManager
-import com.example.ui.viewmodel.BPWalletViewModel
-import com.example.ui.viewmodel.ScreenType
+import com.bp.uunwlm.data.SupabaseCloudManager
+import com.bp.uunwlm.ui.viewmodel.BPWalletViewModel
+import com.bp.uunwlm.ui.viewmodel.ScreenType
 
 @Composable
 fun AdminDashboardScreen(

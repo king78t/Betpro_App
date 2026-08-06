@@ -1,4 +1,4 @@
-package com.example.ui.components
+package com.bp.uunwlm.ui.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -31,8 +31,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.R
-import com.example.ui.theme.*
+import com.bp.uunwlm.R
+import com.bp.uunwlm.ui.theme.*
 
 @Composable
 fun BPLogoIcon(

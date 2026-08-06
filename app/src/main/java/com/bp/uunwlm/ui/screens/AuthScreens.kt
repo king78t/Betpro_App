@@ -1,4 +1,4 @@
-package com.example.ui.screens
+package com.bp.uunwlm.ui.screens
 
 import android.content.Context
 import androidx.compose.animation.core.*
@@ -36,12 +36,13 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import com.example.ui.components.BPTabSwitcher
-import com.example.ui.components.BPWalletLogo
-import com.example.ui.components.CurrencyCard
-import com.example.ui.theme.*
-import com.example.ui.viewmodel.BPWalletViewModel
-import com.example.ui.viewmodel.ScreenType
+import com.bp.uunwlm.ui.components.BPTabSwitcher
+import com.bp.uunwlm.ui.components.BPWalletLogo
+import com.bp.uunwlm.ui.components.CurrencyCard
+import com.bp.uunwlm.ui.theme.*
+import com.bp.uunwlm.ui.viewmodel.BPWalletViewModel
+import com.bp.uunwlm.ui.viewmodel.ScreenType
+import com.bp.uunwlm.BuildConfig
 
 @Composable
 fun LoginScreen(
@@ -73,6 +74,38 @@ fun LoginScreen(
     var showGooglePicker by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
+    val showOtpDialog by viewModel.showOtpDialog.collectAsState()
+
+    if (showOtpDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.closeOtpDialog() },
+            title = { Text("Verify Phone Number") },
+            text = {
+                var code by remember { mutableStateOf("") }
+                Column {
+                    Text("Enter the 6-digit code sent to your mobile number")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = code,
+                        onValueChange = { if (it.length <= 6) code = it },
+                        label = { Text("Verification Code") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = { viewModel.verifyOtp(code) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
+                    ) {
+                        Text("Verify & Login")
+                    }
+                }
+            },
+            confirmButton = {}
+        )
+    }
 
     if (showGooglePicker) {
         GoogleSignInAccountPickerModal(
@@ -341,6 +374,74 @@ fun LoginScreen(
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // PHONE LOGIN OPTION
+                    Text(
+                        text = "Or continue with",
+                        fontSize = 12.sp,
+                        color = Slate500,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
+                            onClick = { showGooglePicker = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.White,
+                            border = BorderStroke(1.dp, Slate200)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(vertical = 12.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AccountCircle,
+                                    contentDescription = "Google",
+                                    tint = Color(0xFF4285F4),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Google", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Surface(
+                            onClick = { 
+                                val activity = context as? android.app.Activity
+                                if (activity != null) {
+                                    viewModel.startPhoneLogin(emailOrPhone, activity)
+                                } else {
+                                    viewModel.showSnack("Could not start phone login: Activity context missing")
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.White,
+                            border = BorderStroke(1.dp, Slate200)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(vertical = 12.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PhoneAndroid,
+                                    contentDescription = "Phone",
+                                    tint = BPGreenDark,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Phone", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
 
@@ -929,15 +1030,7 @@ fun GoogleSignInAccountPickerModal(
     onAccountSelected: (email: String, name: String) -> Unit
 ) {
     val context = LocalContext.current
-    val deviceAccounts = remember {
-        try {
-            android.accounts.AccountManager.get(context)
-                .getAccountsByType("com.google")
-                .map { Pair(it.name, it.name.substringBefore("@").replace(".", " ").replaceFirstChar { c -> c.uppercase() }) }
-        } catch (e: Exception) {
-            emptyList()
-        }
-    }
+    val deviceAccounts = emptyList<Pair<String, String>>()
 
     var customEmail by remember { mutableStateOf("") }
     var customName by remember { mutableStateOf("") }
@@ -1134,8 +1227,15 @@ fun triggerGoogleSignIn(
 ) {
     scope.launch {
         try {
+            val availability = com.google.android.gms.common.GoogleApiAvailability.getInstance()
+            val resultStatus = availability.isGooglePlayServicesAvailable(context)
+            if (resultStatus != com.google.android.gms.common.ConnectionResult.SUCCESS) {
+                onNeedPicker()
+                return@launch
+            }
+
             val credentialManager = androidx.credentials.CredentialManager.create(context)
-            val webClientId = "1234567890-example.apps.googleusercontent.com"
+            val webClientId = BuildConfig.WEB_CLIENT_ID
             val googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
                 .setFilterByAuthorizedAccounts(false)
                 .setServerClientId(webClientId)

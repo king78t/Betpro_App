@@ -1,4 +1,4 @@
-package com.example.model
+package com.bp.uunwlm.model
 
 object CountryUtils {
     val ALL_COUNTRIES = listOf(

@@ -1,4 +1,4 @@
-package com.example.ui.screens
+package com.bp.uunwlm.ui.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -38,8 +38,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.R
-import com.example.ui.viewmodel.BPWalletViewModel
+import com.bp.uunwlm.R
+import com.bp.uunwlm.ui.viewmodel.BPWalletViewModel
 import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin

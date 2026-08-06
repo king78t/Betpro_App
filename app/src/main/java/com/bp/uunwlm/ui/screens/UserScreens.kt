@@ -1,4 +1,4 @@
-package com.example.ui.screens
+package com.bp.uunwlm.ui.screens
 
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -37,15 +37,15 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.example.model.PaymentGateway
-import com.example.model.TransactionRequest
-import com.example.model.UserAccount
-import com.example.ui.components.ShimmerDashboardSkeleton
-import com.example.ui.components.StatusBadge
-import com.example.ui.components.WhatsAppHelplineButton
-import com.example.ui.theme.*
-import com.example.ui.viewmodel.BPWalletViewModel
-import com.example.ui.viewmodel.ScreenType
+import com.bp.uunwlm.model.PaymentGateway
+import com.bp.uunwlm.model.TransactionRequest
+import com.bp.uunwlm.model.UserAccount
+import com.bp.uunwlm.ui.components.ShimmerDashboardSkeleton
+import com.bp.uunwlm.ui.components.StatusBadge
+import com.bp.uunwlm.ui.components.WhatsAppHelplineButton
+import com.bp.uunwlm.ui.theme.*
+import com.bp.uunwlm.ui.viewmodel.BPWalletViewModel
+import com.bp.uunwlm.ui.viewmodel.ScreenType
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -596,10 +596,6 @@ fun BetProWebViewDialogHandler(viewModel: BPWalletViewModel) {
     }
 }
 
-object BetProWebViewCache {
-    @SuppressLint("StaticFieldLeak")
-    var cachedWebView: WebView? = null
-}
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -830,57 +826,46 @@ fun BetProExchangeModal(
                 ) {
                     AndroidView(
                         factory = { context ->
-                            val existing = BetProWebViewCache.cachedWebView
-                            if (existing != null) {
-                                (existing.parent as? ViewGroup)?.removeView(existing)
-                                webViewRef = existing
-                                if (existing.url.isNullOrEmpty() || existing.url == "about:blank") {
-                                    existing.loadUrl(targetUrl)
-                                } else {
-                                    isLoading = false
+                            WebView(context).apply {
+                                layoutParams = ViewGroup.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT
+                                )
+                                val cookieManager = CookieManager.getInstance()
+                                cookieManager.setAcceptCookie(true)
+                                cookieManager.setAcceptThirdPartyCookies(this, true)
+                                settings.apply {
+                                    javaScriptEnabled = true
+                                    domStorageEnabled = true
+                                    loadWithOverviewMode = true
+                                    useWideViewPort = true
+                                    setSupportZoom(true)
+                                    builtInZoomControls = false
+                                    cacheMode = WebSettings.LOAD_DEFAULT
+                                    mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                                 }
-                                existing
-                            } else {
-                                WebView(context).apply {
-                                    layoutParams = ViewGroup.LayoutParams(
-                                        ViewGroup.LayoutParams.MATCH_PARENT,
-                                        ViewGroup.LayoutParams.MATCH_PARENT
-                                    )
-                                    val cookieManager = CookieManager.getInstance()
-                                    cookieManager.setAcceptCookie(true)
-                                    cookieManager.setAcceptThirdPartyCookies(this, true)
-                                    settings.apply {
-                                        javaScriptEnabled = true
-                                        domStorageEnabled = true
-                                        loadWithOverviewMode = true
-                                        useWideViewPort = true
-                                        setSupportZoom(true)
-                                        builtInZoomControls = false
-                                        cacheMode = WebSettings.LOAD_DEFAULT
-                                        mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                                setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
+                                webViewClient = object : WebViewClient() {
+                                    override fun onPageFinished(view: WebView?, url: String?) {
+                                        super.onPageFinished(view, url)
+                                        isLoading = false
+                                        CookieManager.getInstance().flush()
                                     }
-                                    webViewClient = object : WebViewClient() {
-                                        override fun onPageFinished(view: WebView?, url: String?) {
-                                            super.onPageFinished(view, url)
-                                            isLoading = false
-                                            CookieManager.getInstance().flush()
-                                        }
-                                    }
-                                    webChromeClient = WebChromeClient()
-                                    loadUrl(targetUrl)
-                                    webViewRef = this
-                                    BetProWebViewCache.cachedWebView = this
                                 }
+                                webChromeClient = WebChromeClient()
+                                loadUrl(targetUrl)
+                                webViewRef = this
                             }
-                        },
-                        onRelease = { webView ->
-                            // When released from this view, we detach it but keep it in cache
-                            (webView.parent as? ViewGroup)?.removeView(webView)
                         },
                         update = { webView ->
                             if (webView.url.isNullOrEmpty() && webView.originalUrl.isNullOrEmpty()) {
                                 webView.loadUrl(targetUrl)
                             }
+                        },
+                        onRelease = { webView ->
+                            webView.stopLoading()
+                            webView.removeAllViews()
+                            webView.destroy()
                         },
                         modifier = Modifier.fillMaxSize()
                     )

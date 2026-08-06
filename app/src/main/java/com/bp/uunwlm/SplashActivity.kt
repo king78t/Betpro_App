@@ -1,4 +1,4 @@
-package com.example
+package com.bp.uunwlm
 
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -10,9 +10,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.ui.screens.SplashScreen
-import com.example.ui.theme.MyApplicationTheme
-import com.example.ui.viewmodel.BPWalletViewModel
+import com.bp.uunwlm.ui.screens.SplashScreen
+import com.bp.uunwlm.ui.theme.MyApplicationTheme
+import com.bp.uunwlm.ui.viewmodel.BPWalletViewModel
 
 @SuppressLint("CustomSplashScreen")
 class SplashActivity : ComponentActivity() {
@@ -22,7 +22,7 @@ class SplashActivity : ComponentActivity() {
         setContent {
             MyApplicationTheme {
                 val viewModel: BPWalletViewModel = viewModel()
-                viewModel.setScreen(com.example.ui.viewmodel.ScreenType.SPLASH)
+                viewModel.setScreen(com.bp.uunwlm.ui.viewmodel.ScreenType.SPLASH)
                 Box(modifier = Modifier.fillMaxSize()) {
                     SplashScreen(
                         viewModel = viewModel,

@@ -1,4 +1,4 @@
-package com.example.ui.screens
+package com.bp.uunwlm.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -27,16 +27,16 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.model.PaymentGateway
-import com.example.model.TransactionRequest
-import com.example.model.UserAccount
-import com.example.ui.components.ShimmerDepositSkeleton
-import com.example.ui.components.ShimmerWithdrawSkeleton
-import com.example.ui.components.StatusBadge
-import com.example.ui.components.WhatsAppHelplineButton
-import com.example.ui.theme.*
-import com.example.ui.viewmodel.BPWalletViewModel
-import com.example.ui.viewmodel.ScreenType
+import com.bp.uunwlm.model.PaymentGateway
+import com.bp.uunwlm.model.TransactionRequest
+import com.bp.uunwlm.model.UserAccount
+import com.bp.uunwlm.ui.components.ShimmerDepositSkeleton
+import com.bp.uunwlm.ui.components.ShimmerWithdrawSkeleton
+import com.bp.uunwlm.ui.components.StatusBadge
+import com.bp.uunwlm.ui.components.WhatsAppHelplineButton
+import com.bp.uunwlm.ui.theme.*
+import com.bp.uunwlm.ui.viewmodel.BPWalletViewModel
+import com.bp.uunwlm.ui.viewmodel.ScreenType
 import java.text.SimpleDateFormat
 import java.util.*
 

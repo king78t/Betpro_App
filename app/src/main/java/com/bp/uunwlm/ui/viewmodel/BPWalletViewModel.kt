@@ -1,12 +1,12 @@
-package com.example.ui.viewmodel
+package com.bp.uunwlm.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.BPWalletRepository
-import com.example.model.MasterAgent
-import com.example.model.PaymentGateway
-import com.example.model.TransactionRequest
-import com.example.model.UserAccount
+import com.bp.uunwlm.data.BPWalletRepository
+import com.bp.uunwlm.model.MasterAgent
+import com.bp.uunwlm.model.PaymentGateway
+import com.bp.uunwlm.model.TransactionRequest
+import com.bp.uunwlm.model.UserAccount
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -227,6 +227,63 @@ class BPWalletViewModel : ViewModel() {
                 showSnack("Google Sign-in error: ${err.message}")
             }
         }
+    }
+
+    private val _phoneVerificationId = MutableStateFlow<String?>(null)
+    val phoneVerificationId: StateFlow<String?> = _phoneVerificationId.asStateFlow()
+
+    private val _showOtpDialog = MutableStateFlow(false)
+    val showOtpDialog: StateFlow<Boolean> = _showOtpDialog.asStateFlow()
+
+    fun startPhoneLogin(phoneNumber: String, activity: android.app.Activity) {
+        if (phoneNumber.isBlank() || phoneNumber.length < 8) {
+            showSnack("Please enter a valid phone number")
+            return
+        }
+        
+        val callbacks = object : com.google.firebase.auth.PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+            override fun onVerificationCompleted(credential: com.google.firebase.auth.PhoneAuthCredential) {
+                // Auto-verification handled in some cases
+                viewModelScope.launch {
+                    val res = BPWalletRepository.verifyPhoneCode(credential.smsCode ?: "", _phoneVerificationId.value ?: "")
+                    res.onSuccess { setScreen(ScreenType.USER_HOME) }
+                }
+            }
+
+            override fun onVerificationFailed(e: com.google.firebase.FirebaseException) {
+                showSnack("Verification failed: ${e.message}")
+            }
+
+            override fun onCodeSent(verificationId: String, token: com.google.firebase.auth.PhoneAuthProvider.ForceResendingToken) {
+                _phoneVerificationId.value = verificationId
+                _showOtpDialog.value = true
+                showSnack("Verification code sent to $phoneNumber")
+            }
+        }
+        
+        BPWalletRepository.startPhoneVerification(phoneNumber, activity, callbacks)
+    }
+
+    fun verifyOtp(code: String) {
+        val vid = _phoneVerificationId.value
+        if (vid == null) {
+            showSnack("Session expired. Please try again.")
+            return
+        }
+        viewModelScope.launch {
+            val res = BPWalletRepository.verifyPhoneCode(code, vid)
+            res.onSuccess {
+                _showOtpDialog.value = false
+                showSnack("Phone verified! Welcome to BP Wallet.")
+                setScreen(ScreenType.USER_HOME)
+            }.onFailure {
+                showSnack("Invalid verification code.")
+            }
+        }
+    }
+
+    fun closeOtpDialog() {
+        _showOtpDialog.value = false
     }
 
     fun logout() {

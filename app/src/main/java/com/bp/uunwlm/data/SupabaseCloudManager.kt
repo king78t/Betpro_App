@@ -1,12 +1,12 @@
-package com.example.data
+package com.bp.uunwlm.data
 
 import android.util.Log
-import com.example.BuildConfig
-import com.example.model.MasterAgent
-import com.example.model.PaymentGateway
-import com.example.model.TransactionRequest
-import com.example.model.UserAccount
-import com.example.model.UserWithdrawalAccount
+import com.bp.uunwlm.BuildConfig
+import com.bp.uunwlm.model.MasterAgent
+import com.bp.uunwlm.model.PaymentGateway
+import com.bp.uunwlm.model.TransactionRequest
+import com.bp.uunwlm.model.UserAccount
+import com.bp.uunwlm.model.UserWithdrawalAccount
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject

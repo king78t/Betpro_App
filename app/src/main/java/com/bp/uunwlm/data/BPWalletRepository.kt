@@ -1,12 +1,12 @@
-package com.example.data
+package com.bp.uunwlm.data
 
 import android.util.Log
-import com.example.model.CountryUtils
-import com.example.model.MasterAgent
-import com.example.model.PaymentGateway
-import com.example.model.TransactionRequest
-import com.example.model.UserAccount
-import com.example.model.UserWithdrawalAccount
+import com.bp.uunwlm.model.CountryUtils
+import com.bp.uunwlm.model.MasterAgent
+import com.bp.uunwlm.model.PaymentGateway
+import com.bp.uunwlm.model.TransactionRequest
+import com.bp.uunwlm.model.UserAccount
+import com.bp.uunwlm.model.UserWithdrawalAccount
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
@@ -59,7 +59,7 @@ object BPWalletRepository {
 
     fun initContext(context: android.content.Context) {
         appContext = context.applicationContext
-        com.example.util.NotificationHelper.init(context.applicationContext)
+        com.bp.uunwlm.util.NotificationHelper.init(context.applicationContext)
     }
 
     private fun updateTransactionsList(newList: List<TransactionRequest>) {
@@ -81,7 +81,7 @@ object BPWalletRepository {
 
                 if (wasPending && isNowApprovedOrRejected) {
                     if (tx.userId == currentUserId || _currentUser.value?.role == "ADMIN") {
-                        com.example.util.NotificationHelper.showTransactionStatusNotification(ctx, tx)
+                        com.bp.uunwlm.util.NotificationHelper.showTransactionStatusNotification(ctx, tx)
                     }
                 }
             }
@@ -505,9 +505,20 @@ object BPWalletRepository {
             (it.email.equals(trimmed, true) || it.mobileNumber.replace(" ", "").endsWith(trimmed.replace(" ", ""))) &&
                     (it.password == pass || pass == "admin")
         }
-        return if (match != null) {
+        
+        if (match != null) {
+            // Background sign-in to Firebase Auth if possible
+            if (match.email.contains("@") && match.password.isNotBlank()) {
+                scope.launch {
+                    try {
+                        auth?.signInWithEmailAndPassword(match.email, match.password)?.await()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Firebase Auth background login note: ${e.message}")
+                    }
+                }
+            }
             _currentUser.value = match
-            Result.success(match)
+            return Result.success(match)
         } else {
             // Also try matching by name
             val nameMatch = _usersList.value.find {
@@ -515,10 +526,60 @@ object BPWalletRepository {
             }
             if (nameMatch != null) {
                 _currentUser.value = nameMatch
-                Result.success(nameMatch)
+                return Result.success(nameMatch)
             } else {
-                Result.failure(Exception("Invalid email/mobile number or password. Please check your credentials."))
+                return Result.failure(Exception("Invalid email/mobile number or password. Please check your credentials."))
             }
+        }
+    }
+
+    private var verificationId: String? = null
+
+    fun startPhoneVerification(
+        phoneNumber: String,
+        activity: android.app.Activity,
+        callbacks: com.google.firebase.auth.PhoneAuthProvider.OnVerificationStateChangedCallbacks
+    ) {
+        val options = com.google.firebase.auth.PhoneAuthOptions.newBuilder(auth ?: return)
+            .setPhoneNumber(phoneNumber)
+            .setTimeout(60L, java.util.concurrent.TimeUnit.SECONDS)
+            .setActivity(activity)
+            .setCallbacks(callbacks)
+            .build()
+        com.google.firebase.auth.PhoneAuthProvider.verifyPhoneNumber(options)
+    }
+
+    suspend fun verifyPhoneCode(code: String, verificationId: String): Result<UserAccount> {
+        return try {
+            val credential = com.google.firebase.auth.PhoneAuthProvider.getCredential(verificationId, code)
+            val authResult = auth?.signInWithCredential(credential)?.await()
+            val firebaseUser = authResult?.user ?: return Result.failure(Exception("Phone verification failed"))
+            
+            // Link or find existing user by phone
+            val phone = firebaseUser.phoneNumber ?: ""
+            val existing = _usersList.value.find { it.mobileNumber.contains(phone) || phone.contains(it.mobileNumber) }
+            
+            if (existing != null) {
+                _currentUser.value = existing
+                Result.success(existing)
+            } else {
+                // Create minimal user account for phone login
+                val userId = firebaseUser.uid
+                val newUser = UserAccount(
+                    id = userId,
+                    fullName = "Phone User",
+                    email = "phone_${userId.take(5)}@bpwallet.com",
+                    mobileNumber = phone,
+                    role = "user",
+                    walletBalance = 0.0
+                )
+                _usersList.value = listOf(newUser) + _usersList.value
+                _currentUser.value = newUser
+                firestore?.collection("users")?.document(userId)?.set(newUser)?.await()
+                Result.success(newUser)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 
@@ -813,7 +874,7 @@ object BPWalletRepository {
         updateTransactionsList(currentTxs)
 
         appContext?.let { ctx ->
-            com.example.util.NotificationHelper.showTransactionStatusNotification(ctx, updatedTx)
+            com.bp.uunwlm.util.NotificationHelper.showTransactionStatusNotification(ctx, updatedTx)
         }
 
         val newBal = if (tx.type == "DEPOSIT") u.walletBalance + tx.amount else (u.walletBalance - tx.amount).coerceAtLeast(0.0)
@@ -870,7 +931,7 @@ object BPWalletRepository {
         updateTransactionsList(currentTxs)
 
         appContext?.let { ctx ->
-            com.example.util.NotificationHelper.showTransactionStatusNotification(ctx, updatedTx)
+            com.bp.uunwlm.util.NotificationHelper.showTransactionStatusNotification(ctx, updatedTx)
         }
 
         scope.launch {
