@@ -16,7 +16,7 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.bp.wallet"
+    applicationId = "com.aistudio.bpwallet.zkjthp"
     minSdk = 26
     targetSdk = 36
     versionCode = 1

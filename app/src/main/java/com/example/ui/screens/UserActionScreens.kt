@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -503,7 +504,7 @@ fun UserWithdrawScreen(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { viewModel.setScreen(ScreenType.USER_HOME) }) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                     Text(
                         text = "Request ${u.currency} Payout",
@@ -608,7 +609,7 @@ fun UserWithdrawScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                 } else {
-                    Icon(imageVector = Icons.Default.Send, contentDescription = "Submit", modifier = Modifier.size(18.dp))
+                    Icon(imageVector = Icons.AutoMirrored.Filled.Send, contentDescription = "Submit", modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                 }
                 Text(
@@ -724,7 +725,7 @@ fun UserHistoryScreen(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(filteredTxs) { tx ->
+                    items(filteredTxs, key = { it.id }) { tx ->
                         TransactionItemCard(tx = tx)
                     }
                 }
@@ -1188,7 +1189,7 @@ fun UserProfileScreen(
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Icon(imageVector = Icons.Default.Logout, contentDescription = "Logout")
+                Icon(imageVector = Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout")
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(text = "Log Out of BP Wallet", fontWeight = FontWeight.Bold)
             }

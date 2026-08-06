@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -248,7 +249,7 @@ fun AdminDashboardScreen(
                                 contentColor = Color.White
                             )
                         ) {
-                            Icon(imageVector = Icons.Default.Send, contentDescription = "Send", modifier = Modifier.size(18.dp))
+                            Icon(imageVector = Icons.AutoMirrored.Filled.Send, contentDescription = "Send", modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "BROADCAST PUSH ALERT",
@@ -711,7 +712,7 @@ fun AdminEnterpriseDrawer(
                     Spacer(modifier = Modifier.height(6.dp))
                     AdminDrawerItem(
                         label = "Transactions",
-                        icon = Icons.Default.ReceiptLong,
+                        icon = Icons.AutoMirrored.Filled.ReceiptLong,
                         selected = currentScreen == ScreenType.ADMIN_TRANSACTIONS,
                         onClick = {
                             onNavigate(ScreenType.ADMIN_TRANSACTIONS)
@@ -778,7 +779,7 @@ fun AdminEnterpriseDrawer(
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ArrowForward,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = "Logout",
                             tint = Slate500,
                             modifier = Modifier.size(18.dp)
@@ -991,7 +992,7 @@ fun AdminBottomNavBar(
             )
             AdminNavItem(
                 label = "Transactions",
-                icon = Icons.Default.ReceiptLong,
+                icon = Icons.AutoMirrored.Filled.ReceiptLong,
                 selected = currentScreen == ScreenType.ADMIN_TRANSACTIONS,
                 onClick = { onNavigate(ScreenType.ADMIN_TRANSACTIONS) }
             )
@@ -1731,7 +1732,7 @@ fun AdminSettingsScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Send,
+                                imageVector = Icons.AutoMirrored.Filled.Send,
                                 contentDescription = null,
                                 tint = Color.White,
                                 modifier = Modifier.size(16.dp)

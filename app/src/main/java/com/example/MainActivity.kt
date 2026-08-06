@@ -30,24 +30,6 @@ import com.example.ui.viewmodel.ScreenType
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        try {
-            com.google.firebase.FirebaseApp.initializeApp(this)
-            val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-            val settings = com.google.firebase.firestore.FirebaseFirestoreSettings.Builder()
-                .setPersistenceEnabled(true)
-                .setCacheSizeBytes(com.google.firebase.firestore.FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
-                .build()
-            db.firestoreSettings = settings
-        } catch (e: Exception) {
-            // Safe fallback when Firebase is not configured or settings already initialized
-        }
-
-        // Initialize repository context and notification channel
-        com.example.data.BPWalletRepository.initContext(applicationContext)
-
-        // Initialize WorkManager automated background Supabase sync
-        com.example.worker.SupabaseSyncWorker.schedulePeriodicSync(applicationContext)
-
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {

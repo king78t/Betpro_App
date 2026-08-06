@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -220,7 +221,7 @@ fun AdminUsersCrmScreen(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(filteredUsers) { u ->
+                    items(filteredUsers, key = { it.id }) { u ->
                         CrmUserCard(
                             user = u,
                             onAssignCreds = { viewModel.openBetProCredsModal(u) }
@@ -543,7 +544,7 @@ fun AdminMasterAgentsScreen(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(countryScopedMasters) { agent ->
+                items(countryScopedMasters, key = { it.id }) { agent ->
                     MasterAgentCard(
                         agent = agent,
                         onClick = { viewModel.openMasterDetails(agent) }
@@ -772,7 +773,7 @@ fun AdminTransactionsScreen(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(countryFilteredTxs) { tx ->
+                    items(countryFilteredTxs, key = { it.id }) { tx ->
                         AdminTxCard(
                             tx = tx,
                             currentUser = currentUser,
@@ -1049,7 +1050,7 @@ fun ProofVerificationDialog(
                             verticalArrangement = Arrangement.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.ReceiptLong,
+                                imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
                                 contentDescription = "Receipt",
                                 tint = BPGreenDark,
                                 modifier = Modifier.size(36.dp)
@@ -1177,7 +1178,7 @@ fun MasterAgentDetailDialog(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        items(assignedUsers) { user ->
+                        items(assignedUsers, key = { it.id }) { user ->
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = Slate100),
                                 shape = RoundedCornerShape(8.dp),

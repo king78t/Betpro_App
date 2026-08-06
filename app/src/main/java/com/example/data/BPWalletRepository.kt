@@ -10,6 +10,7 @@ import com.example.model.UserWithdrawalAccount
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
+import com.google.firebase.firestore.PersistentCacheSettings
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.Source
 import kotlinx.coroutines.CoroutineScope
@@ -30,8 +31,9 @@ object BPWalletRepository {
                 val db = FirebaseFirestore.getInstance()
                 try {
                     val settings = FirebaseFirestoreSettings.Builder()
-                        .setPersistenceEnabled(true)
-                        .setCacheSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                        .setLocalCacheSettings(PersistentCacheSettings.newBuilder()
+                            .setSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                            .build())
                         .build()
                     db.firestoreSettings = settings
                     Log.d(TAG, "Firestore offline persistence enabled successfully")

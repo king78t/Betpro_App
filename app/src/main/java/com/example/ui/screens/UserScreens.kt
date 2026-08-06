@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -674,7 +675,7 @@ fun BetProExchangeModal(
                                 modifier = Modifier.testTag("webview_back_button")
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.ArrowBack,
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = "Back",
                                     tint = Color.White
                                 )
@@ -829,11 +830,6 @@ fun BetProExchangeModal(
                 ) {
                     AndroidView(
                         factory = { context ->
-                            try {
-                                val cacheDir = context.cacheDir
-                                java.io.File(cacheDir, "WebView/Default/HTTP Cache/Code Cache/js").mkdirs()
-                                java.io.File(cacheDir, "WebView/Default/HTTP Cache/Code Cache/wasm").mkdirs()
-                            } catch (_: Exception) {}
                             val existing = BetProWebViewCache.cachedWebView
                             if (existing != null) {
                                 (existing.parent as? ViewGroup)?.removeView(existing)
@@ -856,14 +852,12 @@ fun BetProExchangeModal(
                                     settings.apply {
                                         javaScriptEnabled = true
                                         domStorageEnabled = true
-                                        databaseEnabled = true
                                         loadWithOverviewMode = true
                                         useWideViewPort = true
                                         setSupportZoom(true)
                                         builtInZoomControls = false
                                         cacheMode = WebSettings.LOAD_DEFAULT
                                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                                        saveFormData = true
                                     }
                                     webViewClient = object : WebViewClient() {
                                         override fun onPageFinished(view: WebView?, url: String?) {
@@ -878,6 +872,10 @@ fun BetProExchangeModal(
                                     BetProWebViewCache.cachedWebView = this
                                 }
                             }
+                        },
+                        onRelease = { webView ->
+                            // When released from this view, we detach it but keep it in cache
+                            (webView.parent as? ViewGroup)?.removeView(webView)
                         },
                         update = { webView ->
                             if (webView.url.isNullOrEmpty() && webView.originalUrl.isNullOrEmpty()) {

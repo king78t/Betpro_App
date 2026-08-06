@@ -18,11 +18,6 @@ import com.example.ui.viewmodel.BPWalletViewModel
 class SplashActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        try {
-            com.google.firebase.FirebaseApp.initializeApp(this)
-        } catch (e: Exception) {
-            // Safe fallback when Firebase is not configured
-        }
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
