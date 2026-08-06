@@ -12,11 +12,11 @@ plugins {
 base.archivesName.set("app")
 
 android {
-  namespace = "com.example"
+  namespace = "com.bp.uunwlm"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.bpwallet.zkjthp"
+    applicationId = "com.bp.uunwlm"
     minSdk = 26
     targetSdk = 36
     versionCode = 1
