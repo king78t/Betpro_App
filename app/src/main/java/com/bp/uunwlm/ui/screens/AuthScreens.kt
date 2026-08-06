@@ -3,6 +3,7 @@ package com.bp.uunwlm.ui.screens
 import android.content.Context
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -19,13 +20,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -52,6 +56,7 @@ import com.bp.uunwlm.ui.theme.*
 import com.bp.uunwlm.ui.viewmodel.BPWalletViewModel
 import com.bp.uunwlm.ui.viewmodel.ScreenType
 import com.bp.uunwlm.BuildConfig
+import com.bp.uunwlm.R
 
 @Composable
 fun LoginScreen(
@@ -132,6 +137,18 @@ fun LoginScreen(
             .background(Color(0xFFF8FAFC)),
         contentAlignment = Alignment.Center
     ) {
+        // Decorative background hero banner at the top
+        Image(
+            painter = painterResource(id = R.drawable.bp_wallet_hero_banner_1786021234535),
+            contentDescription = "BP Wallet Hero Banner",
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(280.dp)
+                .align(Alignment.TopCenter)
+                .alpha(0.6f),
+            contentScale = ContentScale.Crop
+        )
+
         // Decorative background pastel glassmorphism circles from image
         Box(
             modifier = Modifier
@@ -139,7 +156,7 @@ fun LoginScreen(
                 .align(Alignment.TopStart)
                 .offset(x = (-80).dp, y = (-70).dp)
                 .background(
-                    color = Color(0xFFD1F4E0).copy(alpha = 0.7f),
+                    color = Color(0xFFD1F4E0).copy(alpha = 0.5f),
                     shape = RoundedCornerShape(1000.dp)
                 )
         )
