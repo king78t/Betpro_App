@@ -33,6 +33,12 @@ android {
       keyAlias = "upload"
       keyPassword = System.getenv("KEY_PASSWORD")
     }
+    create("debug") {
+      storeFile = file("debug.keystore")
+      storePassword = "android"
+      keyAlias = "androiddebugkey"
+      keyPassword = "android"
+    }
   }
 
   buildTypes {
@@ -43,8 +49,7 @@ android {
       signingConfig = signingConfigs.getByName("release")
     }
     debug {
-      // Disable signing for debug builds to avoid keystore requirement in CI/CD
-      signingConfig = null
+      signingConfig = signingConfigs.getByName("debug")
     }
   }
   compileOptions {
