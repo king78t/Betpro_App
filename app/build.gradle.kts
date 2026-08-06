@@ -13,12 +13,12 @@ base.archivesName.set("app")
 
 android {
   namespace = "com.bp.uunwlm"
-  compileSdk = 35
+  compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
     applicationId = "com.bp.uunwlm"
     minSdk = 26
-    targetSdk = 35
+    targetSdk = 36
     versionCode = 1
     versionName = "1.0"
 
@@ -33,12 +33,6 @@ android {
       keyAlias = "upload"
       keyPassword = System.getenv("KEY_PASSWORD")
     }
-    create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
-    }
   }
 
   buildTypes {
@@ -48,7 +42,10 @@ android {
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }
-    debug { signingConfig = signingConfigs.getByName("debugConfig") }
+    debug {
+      // Disable signing for debug builds to avoid keystore requirement in CI/CD
+      signingConfig = null
+    }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -60,6 +57,8 @@ android {
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }
+
+base.archivesName.set("app")
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
 // to match the convention used in Web projects.
@@ -106,8 +105,6 @@ dependencies {
   implementation(libs.androidx.credentials)
   implementation(libs.androidx.credentials.play.services)
   implementation(libs.googleid)
-  implementation("com.google.android.gms:play-services-auth:21.3.0")
-  implementation("com.google.android.gms:play-services-base:18.5.0")
   implementation(libs.firebase.appcheck.recaptcha)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
