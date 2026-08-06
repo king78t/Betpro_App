@@ -29,63 +29,12 @@ jobs:
             chmod +x gradlew
           fi
 
-      # Create google-services.json from secret
-      - name: Create google-services.json from Secret
-        env:
-          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-        run: |
-          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
-            echo "WARNING: GOOGLE_SERVICES_JSON secret not found. Creating a stub file..."
-            mkdir -p app/src
-            cat > app/google-services.json << 'EOF'
-          {
-            "type": "service_account",
-            "project_id": "betpro-app",
-            "private_key_id": "key123",
-            "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDU8/23Z2/D\n-----END PRIVATE KEY-----\n",
-            "client_email": "firebase-adminsdk@betpro-app.iam.gserviceaccount.com",
-            "client_id": "123456789",
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-            "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk%40betpro-app.iam.gserviceaccount.com"
-          }
-          EOF
-          else
-            echo "$GOOGLE_SERVICES_JSON" | base64 -d > app/google-services.json
-          fi
-
-      # Create debug.keystore from secret or generate one
-      - name: Setup Debug Keystore
-        env:
-          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
-        run: |
-          if [ -z "$DEBUG_KEYSTORE_BASE64" ]; then
-            echo "Generating a new debug keystore..."
-            keytool -genkey -v -keystore debug.keystore \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          else
-            echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > debug.keystore
-          fi
-          ls -lh debug.keystore
-
       - name: Build Debug APK
-        run: ./gradlew :app:assembleDebug --no-daemon
+        run: gradle :app:assembleDebug --no-daemon
 
       - name: Build Release APK & App Bundle
         run: |
-          ./gradlew :app:assembleRelease :app:bundleRelease --no-daemon
-        env:
-          KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
-          STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        continue-on-error: true
+          gradle :app:assembleRelease :app:bundleRelease --no-daemon
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
@@ -93,7 +42,6 @@ jobs:
           name: bp-wallet-debug-apk
           path: app/build/outputs/apk/debug/**/*.apk
           retention-days: 14
-        if: always()
 
       - name: Upload Release APK & AAB Artifacts
         uses: actions/upload-artifact@v4
@@ -103,11 +51,3 @@ jobs:
             app/build/outputs/apk/release/**/*.apk
             app/build/outputs/bundle/release/**/*.aab
           retention-days: 30
-        if: always()
-
-      - name: Build Status
-        run: |
-          echo "✅ Build Process Completed!"
-          echo "Debug APK: app/build/outputs/apk/debug/"
-          echo "Release APK: app/build/outputs/apk/release/"
-          echo "App Bundle: app/build/outputs/bundle/release/"
