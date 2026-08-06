@@ -1,9 +1,14 @@
 package com.bp.uunwlm
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -17,10 +22,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bp.uunwlm.ui.screens.*
 import com.bp.uunwlm.ui.theme.*
@@ -48,13 +55,13 @@ fun BPWalletApp(
     val broadcast by viewModel.recentBroadcast.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
 
     var showPermissionDialog by remember { mutableStateOf(false) }
 
-    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-        val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-            contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val permissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
             onResult = { isGranted ->
                 showPermissionDialog = false
                 if (!isGranted) {
@@ -66,10 +73,10 @@ fun BPWalletApp(
         )
 
         LaunchedEffect(Unit) {
-            if (androidx.core.content.ContextCompat.checkSelfPermission(
+            if (ContextCompat.checkSelfPermission(
                     context,
-                    android.Manifest.permission.POST_NOTIFICATIONS
-                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
             ) {
                 showPermissionDialog = true
             }
@@ -78,7 +85,7 @@ fun BPWalletApp(
         if (showPermissionDialog) {
             NotificationPermissionDialog(
                 onEnableClick = {
-                    permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 },
                 onDismissClick = {
                     showPermissionDialog = false

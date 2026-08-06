@@ -5,6 +5,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -33,6 +35,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.CustomCredential
+import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -392,11 +401,21 @@ fun LoginScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Surface(
-                            onClick = { showGooglePicker = true },
+                            onClick = { 
+                                triggerGoogleSignIn(
+                                    context = context,
+                                    scope = scope,
+                                    onNeedPicker = { showGooglePicker = true },
+                                    onTokenReceived = { email, name, idToken ->
+                                        viewModel.signInWithGoogle(email, name, idToken)
+                                    }
+                                )
+                            },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(16.dp),
                             color = Color.White,
-                            border = BorderStroke(1.dp, Slate200)
+                            border = BorderStroke(1.dp, Slate200),
+                            interactionSource = remember { MutableInteractionSource() }
                         ) {
                             Row(
                                 modifier = Modifier.padding(vertical = 12.dp),
@@ -549,15 +568,14 @@ fun GlassLoginButton(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .height(56.dp)
             .shadow(
-                elevation = 10.dp,
-                shape = RoundedCornerShape(50),
-                spotColor = Color(0xFF10B981),
-                ambientColor = Color(0xFF059669)
+                elevation = 8.dp,
+                shape = RoundedCornerShape(28.dp),
+                spotColor = Color(0xFF10B981).copy(alpha = 0.4f)
             ),
-        shape = RoundedCornerShape(50),
-        color = Color.Transparent
+        shape = RoundedCornerShape(28.dp),
+        color = Color(0xFF10B981)
     ) {
         Box(
             modifier = Modifier
@@ -575,7 +593,7 @@ fun GlassLoginButton(
             Text(
                 text = text,
                 color = Color.White,
-                fontSize = 16.sp,
+                fontSize = 17.sp,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = 0.5.sp
             )
@@ -593,10 +611,10 @@ fun GlassCreateAccountButton(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .height(50.dp),
-        shape = RoundedCornerShape(50),
+            .height(54.dp),
+        shape = RoundedCornerShape(27.dp),
         color = Color(0xFFE4F2EE),
-        border = BorderStroke(1.2.dp, Color(0xFFBAE6DA))
+        border = BorderStroke(1.5.dp, Color(0xFFBAE6DA))
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -605,8 +623,8 @@ fun GlassCreateAccountButton(
             Text(
                 text = text,
                 color = Color(0xFF065F46),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.ExtraBold,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Black,
                 letterSpacing = 0.8.sp
             )
         }
@@ -880,7 +898,6 @@ fun RegisterScreen(
                                 mobileNumber = "$selectedPrefix $mobileNumber",
                                 pass = password
                             )
-                            viewModel.setScreen(ScreenType.USER_HOME)
                         }
                     )
                 }
@@ -920,15 +937,14 @@ fun Premium3DButton(
     Surface(
         onClick = onClick,
         modifier = modifier
-            .widthIn(min = 130.dp, max = 165.dp)
-            .height(36.dp)
+            .widthIn(min = 140.dp)
+            .height(48.dp)
             .shadow(
-                elevation = 5.dp,
-                shape = RoundedCornerShape(18.dp),
-                spotColor = backgroundColor,
-                ambientColor = backgroundColor
+                elevation = 6.dp,
+                shape = RoundedCornerShape(24.dp),
+                spotColor = backgroundColor.copy(alpha = 0.4f)
             ),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(24.dp),
         color = containerCol,
         border = BorderStroke(if (isOutlined) 1.5.dp else 2.dp, borderCol)
     ) {
@@ -954,22 +970,22 @@ fun Premium3DButton(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(horizontal = 12.dp)
+                modifier = Modifier.padding(horizontal = 16.dp)
             ) {
                 Text(
                     text = text,
                     color = textCol,
-                    fontSize = 12.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 0.5.sp
                 )
                 if (icon != null) {
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Icon(
                         imageVector = icon,
                         contentDescription = text,
                         tint = textCol,
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
@@ -1227,39 +1243,48 @@ fun triggerGoogleSignIn(
 ) {
     scope.launch {
         try {
-            val availability = com.google.android.gms.common.GoogleApiAvailability.getInstance()
+            val availability = GoogleApiAvailability.getInstance()
             val resultStatus = availability.isGooglePlayServicesAvailable(context)
-            if (resultStatus != com.google.android.gms.common.ConnectionResult.SUCCESS) {
+            if (resultStatus != ConnectionResult.SUCCESS) {
+                android.util.Log.w("GoogleSignIn", "Play Services not available: $resultStatus")
                 onNeedPicker()
                 return@launch
             }
 
-            val credentialManager = androidx.credentials.CredentialManager.create(context)
-            val webClientId = BuildConfig.WEB_CLIENT_ID
-            val googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
+            val credentialManager = CredentialManager.create(context)
+            val webClientId = try {
+                BuildConfig.WEB_CLIENT_ID
+            } catch (e: Exception) {
+                "1234567890-example.apps.googleusercontent.com"
+            }
+            
+            val googleIdOption = GetGoogleIdOption.Builder()
                 .setFilterByAuthorizedAccounts(false)
                 .setServerClientId(webClientId)
                 .setAutoSelectEnabled(true)
                 .build()
 
-            val request = androidx.credentials.GetCredentialRequest.Builder()
+            val request = GetCredentialRequest.Builder()
                 .addCredentialOption(googleIdOption)
                 .build()
 
             val result = credentialManager.getCredential(context, request)
             val credential = result.credential
-            if (credential is androidx.credentials.CustomCredential &&
-                credential.type == com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+            if (credential is CustomCredential &&
+                credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
             ) {
                 val googleIdTokenCredential =
-                    com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.createFrom(credential.data)
+                    GoogleIdTokenCredential.createFrom(credential.data)
                 val email = googleIdTokenCredential.id
                 val name = googleIdTokenCredential.displayName ?: email.substringBefore("@")
                 onTokenReceived(email, name, googleIdTokenCredential.idToken)
             } else {
+                android.util.Log.w("GoogleSignIn", "Unexpected credential type: ${credential.type}")
                 onNeedPicker()
             }
         } catch (e: Exception) {
+            android.util.Log.e("GoogleSignIn", "Error during sign in", e)
+            // If it's a SecurityException or other common GMS error, we definitely want the fallback picker
             onNeedPicker()
         }
     }

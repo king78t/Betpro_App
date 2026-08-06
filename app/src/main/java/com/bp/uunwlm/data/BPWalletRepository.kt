@@ -1,5 +1,6 @@
 package com.bp.uunwlm.data
 
+import android.content.Context
 import android.util.Log
 import com.bp.uunwlm.model.CountryUtils
 import com.bp.uunwlm.model.MasterAgent
@@ -7,6 +8,7 @@ import com.bp.uunwlm.model.PaymentGateway
 import com.bp.uunwlm.model.TransactionRequest
 import com.bp.uunwlm.model.UserAccount
 import com.bp.uunwlm.model.UserWithdrawalAccount
+import com.bp.uunwlm.util.NotificationHelper
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
@@ -54,12 +56,12 @@ object BPWalletRepository {
         }
 
     private val scope = CoroutineScope(Dispatchers.IO)
-    private var appContext: android.content.Context? = null
+    private var appContext: Context? = null
     private val previousTxStatuses = mutableMapOf<String, String>()
 
-    fun initContext(context: android.content.Context) {
+    fun initContext(context: Context) {
         appContext = context.applicationContext
-        com.bp.uunwlm.util.NotificationHelper.init(context.applicationContext)
+        NotificationHelper.init(context.applicationContext)
     }
 
     private fun updateTransactionsList(newList: List<TransactionRequest>) {
@@ -81,7 +83,7 @@ object BPWalletRepository {
 
                 if (wasPending && isNowApprovedOrRejected) {
                     if (tx.userId == currentUserId || _currentUser.value?.role == "ADMIN") {
-                        com.bp.uunwlm.util.NotificationHelper.showTransactionStatusNotification(ctx, tx)
+                        NotificationHelper.showTransactionStatusNotification(ctx, tx)
                     }
                 }
             }
