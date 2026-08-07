@@ -26,32 +26,51 @@ import java.util.UUID
 
 object BPWalletRepository {
     private const val TAG = "BPWalletRepo"
+    private fun isPlayServicesAvailable(): Boolean {
+        val ctx = appContext ?: return false
+        return try {
+            val availability = com.google.android.gms.common.GoogleApiAvailability.getInstance()
+            val resultCode = availability.isGooglePlayServicesAvailable(ctx)
+            resultCode == com.google.android.gms.common.ConnectionResult.SUCCESS
+        } catch (t: Throwable) {
+            false
+        }
+    }
+
     private var _firestoreInstance: FirebaseFirestore? = null
     private val firestore: FirebaseFirestore?
         get() = try {
-            if (_firestoreInstance == null) {
-                val db = FirebaseFirestore.getInstance()
-                try {
-                    val settings = FirebaseFirestoreSettings.Builder()
-                        .setLocalCacheSettings(PersistentCacheSettings.newBuilder()
-                            .setSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
-                            .build())
-                        .build()
-                    db.firestoreSettings = settings
-                    Log.d(TAG, "Firestore offline persistence enabled successfully")
-                } catch (e: Exception) {
-                    Log.w(TAG, "Note: Firestore settings already initialized or offline fallback: ${e.message}")
+            if (!isPlayServicesAvailable()) {
+                null
+            } else {
+                if (_firestoreInstance == null) {
+                    val db = FirebaseFirestore.getInstance()
+                    try {
+                        val settings = FirebaseFirestoreSettings.Builder()
+                            .setLocalCacheSettings(PersistentCacheSettings.newBuilder()
+                                .setSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                                .build())
+                            .build()
+                        db.firestoreSettings = settings
+                        Log.d(TAG, "Firestore offline persistence enabled successfully")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Note: Firestore settings already initialized or offline fallback: ${e.message}")
+                    }
+                    _firestoreInstance = db
                 }
-                _firestoreInstance = db
+                _firestoreInstance
             }
-            _firestoreInstance
-        } catch (e: Exception) {
+        } catch (t: Throwable) {
             null
         }
     private val auth: FirebaseAuth?
         get() = try {
-            FirebaseAuth.getInstance()
-        } catch (e: Exception) {
+            if (!isPlayServicesAvailable()) {
+                null
+            } else {
+                FirebaseAuth.getInstance()
+            }
+        } catch (t: Throwable) {
             null
         }
 
@@ -298,12 +317,19 @@ object BPWalletRepository {
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     init {
+        Log.i(TAG, "BP Wallet Repository Initializing...")
+        Log.i(TAG, "Runtime Database Endpoint: ${SupabaseCloudManager.SUPABASE_URL}")
+        
         seedDefaultAdminAndDemoUser()
         startFirestoreListeners()
         syncWithSupabaseCloud()
         scope.launch {
             kotlinx.coroutines.delay(1200)
             _isLoading.value = false
+            Log.i(TAG, "Initialization complete. Total users in memory: ${_usersList.value.size}")
+            _usersList.value.forEach { u ->
+                Log.d(TAG, "User In Memory: ${u.fullName} (ID: ${u.id}, Role: ${u.role})")
+            }
         }
     }
 
@@ -535,16 +561,17 @@ object BPWalletRepository {
                         Log.w(TAG, "Users listener error or offline fallback used: ${e?.message}")
                         return@addSnapshotListener
                     }
-                    val users = snapshot.documents.mapNotNull { it.toObject(UserAccount::class.java) }
-                    if (users.isNotEmpty()) {
-                        // Merge with any demo admin/master accounts if not present in firestore
-                        val seededAdmins = _usersList.value.filter { it.isSuperAdmin || it.isCountrySuperMaster || it.isSupportStaff || it.isReadOnlyUser || it.id.startsWith("demo_user") }
-                        val missingAdmins = seededAdmins.filter { sa -> users.none { it.id == sa.id } }
-                        val fullList = users + missingAdmins
-                        _usersList.value = fullList
+                    val firestoreUsers = snapshot.documents.mapNotNull { it.toObject(UserAccount::class.java) }
+                    if (firestoreUsers.isNotEmpty()) {
+                        val currentList = _usersList.value
+                        // Merge: Priority to Firestore data if present, otherwise keep current (which might be from Supabase)
+                        val mergedMap = currentList.associateBy { it.id }.toMutableMap()
+                        firestoreUsers.forEach { mergedMap[it.id] = it }
+                        
+                        _usersList.value = mergedMap.values.toList()
                         _isLoading.value = false
                         _currentUser.value?.let { curr ->
-                            fullList.find { it.id == curr.id }?.let { updatedCurr ->
+                            mergedMap[curr.id]?.let { updatedCurr ->
                                 _currentUser.value = updatedCurr
                             }
                         }
@@ -555,29 +582,36 @@ object BPWalletRepository {
                     .orderBy("timestamp", Query.Direction.DESCENDING)
                     .addSnapshotListener { snapshot, e ->
                         if (e != null || snapshot == null) return@addSnapshotListener
-                        val txs = snapshot.documents.mapNotNull { it.toObject(TransactionRequest::class.java) }
-                        val currentDemoTxs = _transactionsList.value.filter { it.id.startsWith("tx_demo") }
-                        val missingDemoTxs = currentDemoTxs.filter { dt -> txs.none { it.id == dt.id } }
-                        if (txs.isNotEmpty() || missingDemoTxs.isNotEmpty()) {
-                            updateTransactionsList(txs + missingDemoTxs)
+                        val firestoreTxs = snapshot.documents.mapNotNull { it.toObject(TransactionRequest::class.java) }
+                        if (firestoreTxs.isNotEmpty()) {
+                            val currentTxs = _transactionsList.value
+                            val mergedMap = currentTxs.associateBy { it.id }.toMutableMap()
+                            firestoreTxs.forEach { mergedMap[it.id] = it }
+                            updateTransactionsList(mergedMap.values.toList().sortedByDescending { it.timestamp })
                         }
                     }
 
                 db.collection("master_agents")
                     .addSnapshotListener { snapshot, e ->
                         if (e != null || snapshot == null) return@addSnapshotListener
-                        val agents = snapshot.documents.mapNotNull { it.toObject(MasterAgent::class.java) }
-                        if (agents.isNotEmpty()) {
-                            _masterAgentsList.value = agents
+                        val firestoreAgents = snapshot.documents.mapNotNull { it.toObject(MasterAgent::class.java) }
+                        if (firestoreAgents.isNotEmpty()) {
+                            val currentAgents = _masterAgentsList.value
+                            val mergedMap = currentAgents.associateBy { it.id }.toMutableMap()
+                            firestoreAgents.forEach { mergedMap[it.id] = it }
+                            _masterAgentsList.value = mergedMap.values.toList()
                         }
                     }
 
                 db.collection("payment_gateways")
                     .addSnapshotListener { snapshot, e ->
                         if (e != null || snapshot == null) return@addSnapshotListener
-                        val gateways = snapshot.documents.mapNotNull { it.toObject(PaymentGateway::class.java) }
-                        if (gateways.isNotEmpty()) {
-                            _paymentGateways.value = gateways
+                        val firestoreGateways = snapshot.documents.mapNotNull { it.toObject(PaymentGateway::class.java) }
+                        if (firestoreGateways.isNotEmpty()) {
+                            val currentGateways = _paymentGateways.value
+                            val mergedMap = currentGateways.associateBy { it.id }.toMutableMap()
+                            firestoreGateways.forEach { mergedMap[it.id] = it }
+                            _paymentGateways.value = mergedMap.values.toList().sortedBy { it.displayOrder }
                         }
                     }
 
@@ -612,68 +646,87 @@ object BPWalletRepository {
 
     suspend fun performSupabaseCloudSync() {
         try {
+            Log.d(TAG, "Starting Supabase Cloud Sync... Fetching from ${SupabaseCloudManager.SUPABASE_URL}")
             // 1. Load users from Supabase Cloud Database
-                val cloudUsers = SupabaseCloudManager.loadAllUsers()
-                if (cloudUsers.isNotEmpty()) {
-                    val seededAdmins = _usersList.value.filter { it.isSuperAdmin || it.isCountrySuperMaster || it.isSupportStaff || it.isReadOnlyUser || it.id.startsWith("demo_user") }
-                    val missingAdmins = seededAdmins.filter { sa -> cloudUsers.none { it.id == sa.id } }
-                    val fullList = cloudUsers + missingAdmins
-                    _usersList.value = fullList
-                    _currentUser.value?.let { curr ->
-                        fullList.find { it.id == curr.id }?.let { updatedCurr ->
-                            _currentUser.value = updatedCurr
-                        }
-                    }
-                } else {
-                    for (u in _usersList.value) {
-                        SupabaseCloudManager.syncUser(u)
-                    }
-                }
-
-                // 2. Load transactions from Supabase Cloud Database
-                val cloudTxs = SupabaseCloudManager.loadAllTransactions()
-                if (cloudTxs.isNotEmpty()) {
-                    val currentDemoTxs = _transactionsList.value.filter { it.id.startsWith("tx_demo") }
-                    val missingDemoTxs = currentDemoTxs.filter { dt -> cloudTxs.none { it.id == dt.id } }
-                    updateTransactionsList(cloudTxs + missingDemoTxs)
-                }
-
-                // 3. Load payment gateways from Supabase Cloud Database
-                val cloudGateways = SupabaseCloudManager.loadAllGateways()
-                if (cloudGateways.isNotEmpty()) {
-                    _paymentGateways.value = cloudGateways
-                } else {
-                    for (gw in _paymentGateways.value) {
-                        SupabaseCloudManager.syncPaymentGateway(gw)
-                    }
-                }
-
-                // 4. Load master agents from Supabase Cloud Database
-                val cloudAgents = SupabaseCloudManager.loadAllMasterAgents()
-                if (cloudAgents.isNotEmpty()) {
-                    _masterAgentsList.value = cloudAgents
-                } else {
-                    for (ma in _masterAgentsList.value) {
-                        SupabaseCloudManager.syncMasterAgent(ma)
-                    }
-                }
-
-                // 5. Load withdrawal accounts from Supabase Cloud Database
-                val cloudAccounts = SupabaseCloudManager.loadAllWithdrawalAccounts()
-                if (cloudAccounts.isNotEmpty()) {
-                    _userWithdrawalAccounts.value = cloudAccounts
-                }
-
-                // 6. Load settings from Supabase Cloud Database
-                val helpNumber = SupabaseCloudManager.loadSetting("whatsapp_helpline", _whatsappHelplineNumber.value)
-                if (helpNumber.isNotEmpty()) _whatsappHelplineNumber.value = helpNumber
-                val exchUrl = SupabaseCloudManager.loadSetting("exchange_website", _exchangeWebsiteUrl.value)
-                if (exchUrl.isNotEmpty()) _exchangeWebsiteUrl.value = exchUrl
-
-                Log.i(TAG, "Supabase Cloud Database synchronization completed successfully")
-            } catch (e: Exception) {
-                Log.w(TAG, "Note: Supabase Cloud Database offline fallback: ${e.message}")
+            val cloudUsers = SupabaseCloudManager.loadAllUsers()
+            Log.i(TAG, "Supabase Cloud returned ${cloudUsers.size} users")
+            
+            val localUsers = _usersList.value
+            Log.d(TAG, "Local users before merge: ${localUsers.size}")
+            val mergedUsersMap = (localUsers + cloudUsers).associateBy { it.id }
+            val mergedUsersList = mergedUsersMap.values.toList()
+            _usersList.value = mergedUsersList
+            
+            // Proactively sync missing local users to cloud
+            val usersMissingFromCloud = localUsers.filter { local -> 
+                cloudUsers.none { it.id == local.id } 
             }
+            for (u in usersMissingFromCloud) {
+                SupabaseCloudManager.syncUser(u)
+            }
+
+            _currentUser.value?.let { curr ->
+                mergedUsersMap[curr.id]?.let { updatedCurr ->
+                    _currentUser.value = updatedCurr
+                }
+            }
+
+            // 2. Load transactions from Supabase Cloud Database
+            val cloudTxs = SupabaseCloudManager.loadAllTransactions()
+            val localTxs = _transactionsList.value
+            val mergedTxsMap = (localTxs + cloudTxs).associateBy { it.id }
+            val mergedTxsList = mergedTxsMap.values.toList()
+            updateTransactionsList(mergedTxsList)
+            
+            val txsMissingFromCloud = localTxs.filter { local ->
+                cloudTxs.none { it.id == local.id }
+            }
+            for (tx in txsMissingFromCloud) {
+                SupabaseCloudManager.syncTransaction(tx)
+            }
+
+            // 3. Load payment gateways from Supabase Cloud Database
+            val cloudGateways = SupabaseCloudManager.loadAllGateways()
+            val localGateways = _paymentGateways.value
+            val mergedGatewaysMap = (localGateways + cloudGateways).associateBy { it.id }
+            _paymentGateways.value = mergedGatewaysMap.values.toList()
+            
+            val gatewaysMissingFromCloud = localGateways.filter { local ->
+                cloudGateways.none { it.id == local.id }
+            }
+            for (gw in gatewaysMissingFromCloud) {
+                SupabaseCloudManager.syncPaymentGateway(gw)
+            }
+
+            // 4. Load master agents from Supabase Cloud Database
+            val cloudAgents = SupabaseCloudManager.loadAllMasterAgents()
+            val localAgents = _masterAgentsList.value
+            val mergedAgentsMap = (localAgents + cloudAgents).associateBy { it.id }
+            _masterAgentsList.value = mergedAgentsMap.values.toList()
+            
+            val agentsMissingFromCloud = localAgents.filter { local ->
+                cloudAgents.none { it.id == local.id }
+            }
+            for (ma in agentsMissingFromCloud) {
+                SupabaseCloudManager.syncMasterAgent(ma)
+            }
+
+            // 5. Load withdrawal accounts from Supabase Cloud Database
+            val cloudAccounts = SupabaseCloudManager.loadAllWithdrawalAccounts()
+            if (cloudAccounts.isNotEmpty()) {
+                _userWithdrawalAccounts.value = cloudAccounts
+            }
+
+            // 6. Load settings from Supabase Cloud Database
+            val helpNumber = SupabaseCloudManager.loadSetting("whatsapp_helpline", _whatsappHelplineNumber.value)
+            if (helpNumber.isNotEmpty()) _whatsappHelplineNumber.value = helpNumber
+            val exchUrl = SupabaseCloudManager.loadSetting("exchange_website", _exchangeWebsiteUrl.value)
+            if (exchUrl.isNotEmpty()) _exchangeWebsiteUrl.value = exchUrl
+
+            Log.i(TAG, "Supabase Cloud Database synchronization (Merge Strategy) completed successfully")
+        } catch (e: Exception) {
+            Log.w(TAG, "Note: Supabase Cloud Database sync error: ${e.message}")
+        }
     }
 
     fun loginUser(emailOrPhone: String, pass: String): Result<UserAccount> {

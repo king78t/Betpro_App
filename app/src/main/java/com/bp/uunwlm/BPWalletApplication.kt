@@ -1,6 +1,8 @@
 package com.bp.uunwlm
 
 import android.app.Application
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
@@ -13,17 +15,26 @@ class BPWalletApplication : Application() {
         super.onCreate()
         
         try {
+            val availability = GoogleApiAvailability.getInstance()
+            val code = availability.isGooglePlayServicesAvailable(this)
+            android.util.Log.i("BPWalletApp", "Google Play Services check result: $code")
+            
+            // Initialize Firebase regardless of GMS code, as it might still work or provide local fallback
             FirebaseApp.initializeApp(this)
-            android.util.Log.d("BPWalletApp", "Firebase initialized successfully")
-            val db = FirebaseFirestore.getInstance()
-            val settings = FirebaseFirestoreSettings.Builder()
-                .setLocalCacheSettings(PersistentCacheSettings.newBuilder()
-                    .setSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
-                    .build())
-                .build()
-            db.firestoreSettings = settings
-        } catch (e: Exception) {
-            // Safe fallback
+            android.util.Log.d("BPWalletApp", "FirebaseApp.initializeApp() called")
+            
+            if (code == ConnectionResult.SUCCESS) {
+                val db = FirebaseFirestore.getInstance()
+                val settings = FirebaseFirestoreSettings.Builder()
+                    .setLocalCacheSettings(PersistentCacheSettings.newBuilder()
+                        .setSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                        .build())
+                    .build()
+                db.firestoreSettings = settings
+                android.util.Log.d("BPWalletApp", "Firestore settings initialized with persistence")
+            }
+        } catch (e: Throwable) {
+            android.util.Log.e("BPWalletApp", "Initialization error: ${e.message}", e)
         }
 
         // Initialize repository context

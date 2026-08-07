@@ -56,6 +56,15 @@ class BPWalletViewModel : ViewModel() {
 
     init {
         viewModelScope.launch {
+            allUsers.collect { users ->
+                val normalUsers = users.filter { !it.isSuperAdmin && !it.isCountrySuperMaster && !it.isSupportStaff && !it.isReadOnlyUser && it.role != "admin" }
+                android.util.Log.i("BPWalletVM", "Users Update: Total=${users.size}, Normal (Displayed)=${normalUsers.size}")
+                users.forEach { u ->
+                    android.util.Log.d("BPWalletVM", "  - User: ${u.fullName} (ID: ${u.id}, Role: ${u.role}, Admin: ${u.isSuperAdmin})")
+                }
+            }
+        }
+        viewModelScope.launch {
             currentUser.collect { user ->
                 if (user != null) {
                     val current = _currentScreen.value

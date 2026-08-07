@@ -30,27 +30,32 @@ android {
   }
 
   signingConfigs {
+    getByName("debug") {
+      // Keep default debug config
+    }
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      val ksFile = file(keystorePath)
-      if (ksFile.exists()) {
-        storeFile = ksFile
-        storePassword = System.getenv("STORE_PASSWORD")
-        keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
-        keyPassword = System.getenv("KEY_PASSWORD")
+      val keystoreFile = rootProject.file("bpwallet.jks")
+      if (keystoreFile.exists()) {
+        storeFile = keystoreFile
+        storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD") ?: ""
+        keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: "bpwallet"
+        keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
+        println(">>> Using Custom Release Keystore: ${keystoreFile.absolutePath}")
+      } else {
+        throw GradleException("Release keystore 'bpwallet.jks' not found in project root. Please upload it to proceed with signed release build.")
       }
     }
   }
 
   buildTypes {
-    debug { }
+    debug {
+      signingConfig = signingConfigs.getByName("debug")
+    }
     release {
-      isCrunchPngs = false
-      isMinifyEnabled = false
+      isCrunchPngs = true
+      isMinifyEnabled = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      
-      // Make release build unsigned by removing the signingConfig
-      signingConfig = null
+      signingConfig = signingConfigs.getByName("release")
     }
   }
   compileOptions {
