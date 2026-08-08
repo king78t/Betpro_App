@@ -1,5 +1,7 @@
 package com.bp.uunwlm.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -964,6 +967,9 @@ fun ProofVerificationDialog(
     onApprove: () -> Unit,
     onReject: () -> Unit
 ) {
+    val context = LocalContext.current
+    val isPending = tx.status.equals("Pending", ignoreCase = true) || tx.status.equals("pending_super_admin", ignoreCase = true)
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -1008,21 +1014,49 @@ fun ProofVerificationDialog(
                         Text(text = "Gateway: ${tx.gatewayName}", fontSize = 12.sp, color = Slate700)
                         Text(text = "Reference / Trx ID: ${tx.referenceNumber}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = BPGreenDark)
                         Text(text = "Country: ${tx.country}", fontSize = 11.sp, color = Slate500)
+                        Text(text = "Status: ${tx.status}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (isPending) BPGoldDark else BPGreenDark)
                     }
                 }
 
-                Text(
-                    text = "ATTACHED PAYMENT RECEIPT / SCREENSHOT:",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = Slate700
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "ATTACHED PAYMENT RECEIPT:",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = Slate700
+                    )
+
+                    if (tx.screenshotUri.isNotBlank()) {
+                        IconButton(
+                            onClick = {
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(tx.screenshotUri))
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "Cannot open image link", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = "Download",
+                                tint = BPGreenPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
 
                 if (tx.screenshotUri.isNotBlank()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(240.dp)
+                            .height(280.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(Color.Black),
                         contentAlignment = Alignment.Center
@@ -1073,22 +1107,26 @@ fun ProofVerificationDialog(
             }
         },
         confirmButton = {
-            Button(
-                onClick = onApprove,
-                colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
-            ) {
-                Icon(imageVector = Icons.Default.Check, contentDescription = "Approve", modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Approve Deposit", fontWeight = FontWeight.Bold)
+            if (isPending) {
+                Button(
+                    onClick = onApprove,
+                    colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
+                ) {
+                    Icon(imageVector = Icons.Default.Check, contentDescription = "Approve", modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Approve Deposit", fontWeight = FontWeight.Bold)
+                }
             }
         },
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = onReject,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F))
-                ) {
-                    Text("Reject", fontWeight = FontWeight.Bold)
+                if (isPending) {
+                    OutlinedButton(
+                        onClick = onReject,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F))
+                    ) {
+                        Text("Reject", fontWeight = FontWeight.Bold)
+                    }
                 }
                 TextButton(onClick = onDismiss) {
                     Text("Close", color = Slate700)

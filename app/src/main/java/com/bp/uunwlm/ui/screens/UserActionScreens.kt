@@ -449,7 +449,7 @@ fun UserWithdrawScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val u = user ?: return
 
-    var selectedGatewayName by remember { mutableStateOf("EasyPaisa (PKR)") }
+    var selectedGatewayName by remember { mutableStateOf("") }
     var accountTitle by remember { mutableStateOf(u.fullName) }
     var accountNumber by remember { mutableStateOf(u.mobileNumber) }
     var amountText by remember { mutableStateOf("1000") }
@@ -532,7 +532,7 @@ fun UserWithdrawScreen(
             OutlinedTextField(
                 value = selectedGatewayName,
                 onValueChange = { selectedGatewayName = it },
-                label = { Text("Bank / Wallet Name (e.g., EasyPaisa, JazzCash, Bank Name)") },
+                label = { Text("Bank / Wallet Name (e.g., Bank Name, Wallet Provider)") },
                 placeholder = { Text("Enter account or wallet provider name") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),

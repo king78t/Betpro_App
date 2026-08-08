@@ -16,7 +16,7 @@ android {
   compileSdk = 35
 
   defaultConfig {
-    applicationId = "com.aistudio.bpwallet.vkpmxr"
+    applicationId = "com.bp.uunwlm"
     minSdk = 24
     targetSdk = 34
     versionCode = 1
@@ -104,6 +104,7 @@ dependencies {
   implementation(libs.coil.compose)
   implementation(libs.firebase.firestore)
   implementation(libs.firebase.auth)
+  implementation(libs.firebase.analytics)
   implementation(libs.androidx.credentials)
   implementation(libs.androidx.credentials.play.services)
   implementation(libs.googleid)

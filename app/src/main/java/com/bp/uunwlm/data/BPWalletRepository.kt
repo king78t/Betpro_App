@@ -39,39 +39,56 @@ object BPWalletRepository {
 
     private var _firestoreInstance: FirebaseFirestore? = null
     private val firestore: FirebaseFirestore?
-        get() = try {
-            if (!isPlayServicesAvailable()) {
-                null
-            } else {
-                if (_firestoreInstance == null) {
-                    val db = FirebaseFirestore.getInstance()
-                    try {
-                        val settings = FirebaseFirestoreSettings.Builder()
-                            .setLocalCacheSettings(PersistentCacheSettings.newBuilder()
-                                .setSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
-                                .build())
-                            .build()
-                        db.firestoreSettings = settings
-                        Log.d(TAG, "Firestore offline persistence enabled successfully")
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Note: Firestore settings already initialized or offline fallback: ${e.message}")
+        get() {
+            return try {
+                if (!isPlayServicesAvailable()) {
+                    Log.w(TAG, "Firestore initialization skipped: Play Services not available")
+                    null
+                } else {
+                    if (_firestoreInstance == null) {
+                        try {
+                            val db = FirebaseFirestore.getInstance()
+                            try {
+                                val settings = FirebaseFirestoreSettings.Builder()
+                                    .setLocalCacheSettings(PersistentCacheSettings.newBuilder()
+                                        .setSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                                        .build())
+                                    .build()
+                                db.firestoreSettings = settings
+                                Log.d(TAG, "Firestore offline persistence enabled successfully")
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Note: Firestore settings already initialized or offline fallback: ${e.message}")
+                            }
+                            _firestoreInstance = db
+                        } catch (se: SecurityException) {
+                            Log.e(TAG, "SecurityException while getting Firestore: ${se.message}")
+                            return null
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Exception while getting Firestore: ${e.message}")
+                            return null
+                        }
                     }
-                    _firestoreInstance = db
+                    _firestoreInstance
                 }
-                _firestoreInstance
-            }
-        } catch (t: Throwable) {
-            null
-        }
-    private val auth: FirebaseAuth?
-        get() = try {
-            if (!isPlayServicesAvailable()) {
+            } catch (t: Throwable) {
+                Log.e(TAG, "Critical error obtaining Firestore: ${t.message}")
                 null
-            } else {
-                FirebaseAuth.getInstance()
             }
-        } catch (t: Throwable) {
-            null
+        }
+
+    private val auth: FirebaseAuth?
+        get() {
+            return try {
+                if (!isPlayServicesAvailable()) {
+                    Log.w(TAG, "FirebaseAuth initialization skipped: Play Services not available")
+                    null
+                } else {
+                    FirebaseAuth.getInstance()
+                }
+            } catch (t: Throwable) {
+                Log.e(TAG, "Critical error obtaining FirebaseAuth: ${t.message}")
+                null
+            }
         }
 
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -298,10 +315,10 @@ object BPWalletRepository {
     private val _masterAgentsList = MutableStateFlow<List<MasterAgent>>(emptyList())
     val masterAgentsList: StateFlow<List<MasterAgent>> = _masterAgentsList.asStateFlow()
 
-    private val _paymentGateways = MutableStateFlow<List<PaymentGateway>>(defaultGateways())
+    private val _paymentGateways = MutableStateFlow<List<PaymentGateway>>(emptyList())
     val paymentGateways: StateFlow<List<PaymentGateway>> = _paymentGateways.asStateFlow()
 
-    private val _userWithdrawalAccounts = MutableStateFlow<List<UserWithdrawalAccount>>(defaultWithdrawalAccounts())
+    private val _userWithdrawalAccounts = MutableStateFlow<List<UserWithdrawalAccount>>(emptyList())
     val userWithdrawalAccounts: StateFlow<List<UserWithdrawalAccount>> = _userWithdrawalAccounts.asStateFlow()
 
     private val _recentBroadcast = MutableStateFlow<Pair<String, String>?>(null)
@@ -315,6 +332,10 @@ object BPWalletRepository {
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    fun setLoading(loading: Boolean) {
+        _isLoading.value = loading
+    }
 
     init {
         Log.i(TAG, "BP Wallet Repository Initializing...")
@@ -332,140 +353,6 @@ object BPWalletRepository {
             }
         }
     }
-
-    private fun defaultGateways(): List<PaymentGateway> = listOf(
-        // Pakistan - PKR
-        PaymentGateway(
-            id = "gw_ep_1",
-            name = "EasyPaisa",
-            currency = "PKR",
-            country = "Pakistan",
-            title = "Muhammad Usman BP Exch",
-            accountNumber = "03001234567",
-            bankName = "Telenor Microfinance Bank",
-            instructions = "Open EasyPaisa App -> Send Money to Mobile Account -> 03001234567. Please upload screenshot of the receipt after payment.",
-            shortDescription = "Instant 24/7 EasyPaisa Mobile Transfer",
-            isEnabled = true,
-            displayOrder = 1,
-            minDeposit = 500.0
-        ),
-        PaymentGateway(
-            id = "gw_jz_1",
-            name = "JazzCash",
-            currency = "PKR",
-            country = "Pakistan",
-            title = "Usman Ali Trading",
-            accountNumber = "03007654321",
-            bankName = "Mobilink Microfinance Bank",
-            instructions = "Open JazzCash App -> Send Money -> 03007654321. Attach screenshot of transaction receipt.",
-            shortDescription = "Instant JazzCash Mobile Account",
-            isEnabled = true,
-            displayOrder = 2,
-            minDeposit = 500.0
-        ),
-        PaymentGateway(
-            id = "gw_mz_1",
-            name = "Meezan Bank",
-            currency = "PKR",
-            country = "Pakistan",
-            title = "BP Traders Private Ltd",
-            accountNumber = "0102010123456789",
-            iban = "PK36MEZN0001020101234567",
-            bankName = "Meezan Bank Ltd",
-            instructions = "Transfer via IBFT or Raast to Meezan Bank. Ensure exact amount is sent and upload screenshot.",
-            shortDescription = "Meezan Islamic Banking Transfer",
-            isEnabled = true,
-            displayOrder = 3,
-            minDeposit = 1000.0
-        ),
-        // UAE - AED
-        PaymentGateway(
-            id = "gw_aed_1",
-            name = "Emirates NBD",
-            currency = "AED",
-            country = "UAE",
-            title = "BP Exchange Middle East",
-            accountNumber = "10190023456701",
-            iban = "AE2103300000001234567",
-            bankName = "Emirates NBD Bank PJSC",
-            instructions = "Transfer AED via Emirates NBD Online or ATM Deposit. Upload receipt screenshot.",
-            shortDescription = "Emirates NBD Instant Bank Transfer",
-            isEnabled = true,
-            displayOrder = 1,
-            minDeposit = 100.0
-        ),
-        PaymentGateway(
-            id = "gw_aed_2",
-            name = "ADCB Bank",
-            currency = "AED",
-            country = "UAE",
-            title = "BP Wallet Trading LLC",
-            accountNumber = "0880011223344",
-            iban = "AE880120000000987654321",
-            bankName = "Abu Dhabi Commercial Bank",
-            instructions = "Transfer AED via ADCB mobile app or ATM cash deposit. Upload screenshot.",
-            shortDescription = "Abu Dhabi Commercial Bank Transfer",
-            isEnabled = true,
-            displayOrder = 2,
-            minDeposit = 100.0
-        ),
-        // Saudi Arabia - SAR
-        PaymentGateway(
-            id = "gw_sar_1",
-            name = "Al Rajhi Bank",
-            currency = "SAR",
-            country = "Saudi Arabia",
-            title = "BP Wallet SA Trading",
-            accountNumber = "204608010167519",
-            iban = "SA0380000000608010167519",
-            bankName = "Al Rajhi Bank",
-            instructions = "Transfer via Al Rajhi App or Sarie Instant Payment. Attach transfer receipt screenshot.",
-            shortDescription = "Al Rajhi Fast Pay Transfer",
-            isEnabled = true,
-            displayOrder = 1,
-            minDeposit = 100.0
-        ),
-        PaymentGateway(
-            id = "gw_sar_2",
-            name = "STC Pay",
-            currency = "SAR",
-            country = "Saudi Arabia",
-            title = "BP Wallet SA Trading",
-            accountNumber = "0550123456",
-            bankName = "STC Pay Saudi Arabia",
-            instructions = "Send SAR via STC Pay to our merchant number. Take receipt screenshot.",
-            shortDescription = "STC Pay Digital Wallet",
-            isEnabled = true,
-            displayOrder = 2,
-            minDeposit = 50.0
-        )
-    )
-
-    private fun defaultWithdrawalAccounts(): List<UserWithdrawalAccount> = listOf(
-        UserWithdrawalAccount(
-            id = "wa_ep_1",
-            userId = "",
-            type = "EasyPaisa",
-            title = "Usman Ali",
-            accountNumber = "03001234567"
-        ),
-        UserWithdrawalAccount(
-            id = "wa_jz_1",
-            userId = "",
-            type = "JazzCash",
-            title = "Usman Ali",
-            accountNumber = "03007654321"
-        ),
-        UserWithdrawalAccount(
-            id = "wa_bank_1",
-            userId = "",
-            type = "Bank Account",
-            title = "Usman Ali",
-            accountNumber = "0102010123456789",
-            iban = "PK36MEZN0001020101234567",
-            bankName = "Meezan Bank"
-        )
-    )
 
     private fun seedDefaultAdminAndDemoUser() {
         val defaultAdmin = UserAccount(

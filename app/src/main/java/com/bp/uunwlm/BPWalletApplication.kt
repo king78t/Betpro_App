@@ -20,18 +20,28 @@ class BPWalletApplication : Application() {
             android.util.Log.i("BPWalletApp", "Google Play Services check result: $code")
             
             // Initialize Firebase regardless of GMS code, as it might still work or provide local fallback
-            FirebaseApp.initializeApp(this)
-            android.util.Log.d("BPWalletApp", "FirebaseApp.initializeApp() called")
+            try {
+                FirebaseApp.initializeApp(this)
+                android.util.Log.d("BPWalletApp", "FirebaseApp.initializeApp() called")
+            } catch (e: Exception) {
+                android.util.Log.e("BPWalletApp", "FirebaseApp init error: ${e.message}")
+            }
             
             if (code == ConnectionResult.SUCCESS) {
-                val db = FirebaseFirestore.getInstance()
-                val settings = FirebaseFirestoreSettings.Builder()
-                    .setLocalCacheSettings(PersistentCacheSettings.newBuilder()
-                        .setSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
-                        .build())
-                    .build()
-                db.firestoreSettings = settings
-                android.util.Log.d("BPWalletApp", "Firestore settings initialized with persistence")
+                try {
+                    val db = FirebaseFirestore.getInstance()
+                    val settings = FirebaseFirestoreSettings.Builder()
+                        .setLocalCacheSettings(PersistentCacheSettings.newBuilder()
+                            .setSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                            .build())
+                        .build()
+                    db.firestoreSettings = settings
+                    android.util.Log.d("BPWalletApp", "Firestore settings initialized with persistence")
+                } catch (se: SecurityException) {
+                    android.util.Log.e("BPWalletApp", "SecurityException during Firestore init: ${se.message}")
+                } catch (e: Exception) {
+                    android.util.Log.e("BPWalletApp", "Exception during Firestore init: ${e.message}")
+                }
             }
         } catch (e: Throwable) {
             android.util.Log.e("BPWalletApp", "Initialization error: ${e.message}", e)

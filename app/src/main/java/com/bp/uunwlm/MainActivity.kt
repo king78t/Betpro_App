@@ -33,6 +33,7 @@ import com.bp.uunwlm.ui.screens.*
 import com.bp.uunwlm.ui.theme.*
 import com.bp.uunwlm.ui.viewmodel.BPWalletViewModel
 import com.bp.uunwlm.ui.viewmodel.ScreenType
+import kotlinx.coroutines.flow.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,9 +54,31 @@ fun BPWalletApp(
     val currentScreen by viewModel.currentScreen.collectAsState()
     val snackMessage by viewModel.snackMessage.collectAsState()
     val broadcast by viewModel.recentBroadcast.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+
+    LaunchedEffect(viewModel.uiEvent) {
+        viewModel.uiEvent.collect { event: com.bp.uunwlm.util.UiEvent ->
+            when (event) {
+                is com.bp.uunwlm.util.UiEvent.ShowSnackbar -> {
+                    snackbarHostState.showSnackbar(
+                        message = event.message,
+                        actionLabel = event.actionLabel,
+                        duration = event.duration
+                    )
+                }
+                is com.bp.uunwlm.util.UiEvent.ShowToast -> {
+                    android.widget.Toast.makeText(
+                        context,
+                        event.message,
+                        if (event.isLong) android.widget.Toast.LENGTH_LONG else android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
 
     var showPermissionDialog by remember { mutableStateOf(false) }
 
@@ -94,13 +117,6 @@ fun BPWalletApp(
         }
     }
 
-    LaunchedEffect(snackMessage) {
-        snackMessage?.let { msg ->
-            snackbarHostState.showSnackbar(msg)
-            viewModel.clearSnackMessage()
-        }
-    }
-
     LaunchedEffect(broadcast) {
         broadcast?.let { (title, msg) ->
             snackbarHostState.showSnackbar("📢 $title: $msg")
@@ -136,6 +152,17 @@ fun BPWalletApp(
                 ScreenType.ADMIN_MASTER_AGENTS -> AdminMasterAgentsScreen(viewModel = viewModel)
                 ScreenType.ADMIN_TRANSACTIONS -> AdminTransactionsScreen(viewModel = viewModel)
                 ScreenType.ADMIN_SETTINGS -> AdminSettingsScreen(viewModel = viewModel)
+            }
+
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = BPGreenPrimary)
+                }
             }
         }
     }

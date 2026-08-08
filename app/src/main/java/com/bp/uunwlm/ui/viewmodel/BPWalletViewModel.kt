@@ -7,10 +7,7 @@ import com.bp.uunwlm.model.MasterAgent
 import com.bp.uunwlm.model.PaymentGateway
 import com.bp.uunwlm.model.TransactionRequest
 import com.bp.uunwlm.model.UserAccount
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 enum class ScreenType {
@@ -101,6 +98,15 @@ class BPWalletViewModel : ViewModel() {
     private val _snackMessage = MutableStateFlow<String?>(null)
     val snackMessage: StateFlow<String?> = _snackMessage.asStateFlow()
 
+    private val _uiEvent = kotlinx.coroutines.channels.Channel<com.bp.uunwlm.util.UiEvent>()
+    val uiEvent = _uiEvent.receiveAsFlow()
+
+    fun sendUiEvent(event: com.bp.uunwlm.util.UiEvent) {
+        viewModelScope.launch {
+            _uiEvent.send(event)
+        }
+    }
+
     // Shake animation trigger for failed login attempts / visual feedback
     private val _errorShakeTrigger = MutableStateFlow(0)
     val errorShakeTrigger: StateFlow<Int> = _errorShakeTrigger.asStateFlow()
@@ -174,6 +180,25 @@ class BPWalletViewModel : ViewModel() {
 
     fun showSnack(message: String) {
         _snackMessage.value = message
+        sendUiEvent(com.bp.uunwlm.util.UiEvent.ShowSnackbar(message))
+    }
+
+    fun showToast(message: String, isLong: Boolean = false) {
+        sendUiEvent(com.bp.uunwlm.util.UiEvent.ShowToast(message, isLong))
+    }
+
+    private fun <T> handleResult(
+        result: Result<T>,
+        onSuccess: (T) -> Unit,
+        onError: ((Throwable) -> Unit)? = null
+    ) {
+        result.onSuccess {
+            onSuccess(it)
+        }.onFailure { err ->
+            val message = com.bp.uunwlm.util.ErrorHandler.getErrorMessage(err)
+            showSnack(message)
+            onError?.invoke(err)
+        }
     }
 
     fun loginUser(emailOrPhone: String, pass: String) {
@@ -182,18 +207,19 @@ class BPWalletViewModel : ViewModel() {
             showSnack("Please enter email/phone and password")
             return
         }
+        BPWalletRepository.setLoading(true)
         val result = BPWalletRepository.loginUser(emailOrPhone, pass)
-        result.onSuccess { user ->
+        BPWalletRepository.setLoading(false)
+        handleResult(result, onSuccess = { user ->
             showSnack("Welcome Back, ${user.fullName}!")
             if (user.isAdminRole) {
                 setScreen(ScreenType.ADMIN_DASHBOARD)
             } else {
                 setScreen(ScreenType.USER_HOME)
             }
-        }.onFailure { err ->
+        }, onError = {
             triggerErrorShake()
-            showSnack(err.message ?: "Login failed")
-        }
+        })
     }
 
     fun loginAdmin(username: String, pass: String) {
@@ -202,18 +228,19 @@ class BPWalletViewModel : ViewModel() {
             showSnack("Please enter admin username and password")
             return
         }
+        BPWalletRepository.setLoading(true)
         val result = BPWalletRepository.loginAdmin(username, pass)
-        result.onSuccess { admin ->
+        BPWalletRepository.setLoading(false)
+        handleResult(result, onSuccess = { admin ->
             showSnack("Admin logged in successfully! Welcome ${admin.fullName}")
             if (admin.isAdminRole) {
                 setScreen(ScreenType.ADMIN_DASHBOARD)
             } else {
                 setScreen(ScreenType.USER_HOME)
             }
-        }.onFailure { err ->
+        }, onError = {
             triggerErrorShake()
-            showSnack(err.message ?: "Admin login failed")
-        }
+        })
     }
 
     fun registerUser(
@@ -246,6 +273,7 @@ class BPWalletViewModel : ViewModel() {
             return
         }
         viewModelScope.launch {
+            BPWalletRepository.setLoading(true)
             val result = BPWalletRepository.registerUser(
                 fullName = fullName,
                 email = trimmedEmail,
@@ -253,26 +281,27 @@ class BPWalletViewModel : ViewModel() {
                 mobileNumber = mobileNumber,
                 password = pass
             )
-            result.onSuccess { user ->
+            BPWalletRepository.setLoading(false)
+            handleResult(result, onSuccess = { user ->
                 showSnack("Account created successfully! Welcome to BP Wallet, ${user.fullName}.")
                 setScreen(ScreenType.USER_HOME)
-            }.onFailure { err ->
+            }, onError = {
                 triggerErrorShake()
-                showSnack("Registration blocked: ${err.message}")
-            }
+            })
         }
     }
 
     fun signInWithGoogle(email: String, displayName: String, idToken: String? = null) {
         viewModelScope.launch {
+            BPWalletRepository.setLoading(true)
             val result = BPWalletRepository.signInWithGoogle(email, displayName, idToken)
-            result.onSuccess { user ->
+            BPWalletRepository.setLoading(false)
+            handleResult(result, onSuccess = { user ->
                 showSnack("Welcome, ${user.fullName}! Signed in with Google via Firebase Auth.")
                 setScreen(ScreenType.USER_HOME)
-            }.onFailure { err ->
+            }, onError = {
                 triggerErrorShake()
-                showSnack("Google Sign-in error: ${err.message}")
-            }
+            })
         }
     }
 
@@ -288,20 +317,24 @@ class BPWalletViewModel : ViewModel() {
             return
         }
         
+        BPWalletRepository.setLoading(true)
         val callbacks = object : com.google.firebase.auth.PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
             override fun onVerificationCompleted(credential: com.google.firebase.auth.PhoneAuthCredential) {
                 // Auto-verification handled in some cases
                 viewModelScope.launch {
                     val res = BPWalletRepository.verifyPhoneCode(credential.smsCode ?: "", _phoneVerificationId.value ?: "")
                     res.onSuccess { setScreen(ScreenType.USER_HOME) }
+                    BPWalletRepository.setLoading(false)
                 }
             }
 
             override fun onVerificationFailed(e: com.google.firebase.FirebaseException) {
+                BPWalletRepository.setLoading(false)
                 showSnack("Verification failed: ${e.message}")
             }
 
             override fun onCodeSent(verificationId: String, token: com.google.firebase.auth.PhoneAuthProvider.ForceResendingToken) {
+                BPWalletRepository.setLoading(false)
                 _phoneVerificationId.value = verificationId
                 _showOtpDialog.value = true
                 showSnack("Verification code sent to $phoneNumber")
@@ -318,14 +351,14 @@ class BPWalletViewModel : ViewModel() {
             return
         }
         viewModelScope.launch {
+            BPWalletRepository.setLoading(true)
             val res = BPWalletRepository.verifyPhoneCode(code, vid)
-            res.onSuccess {
+            BPWalletRepository.setLoading(false)
+            handleResult(res, onSuccess = {
                 _showOtpDialog.value = false
                 showSnack("Phone verified! Welcome to BP Wallet.")
                 setScreen(ScreenType.USER_HOME)
-            }.onFailure {
-                showSnack("Invalid verification code.")
-            }
+            })
         }
     }
 
@@ -356,14 +389,14 @@ class BPWalletViewModel : ViewModel() {
             return
         }
         val refToSave = if (reference.isBlank()) "PROOF_UPLOADED" else reference
+        BPWalletRepository.setLoading(true)
         val result = BPWalletRepository.createDepositRequest(amount, gw.name, refToSave, screenshotUri)
-        result.onSuccess {
+        BPWalletRepository.setLoading(false)
+        handleResult(result, onSuccess = {
             showSnack("Deposit Request of $curr ${amount.toInt()} submitted! Awaiting Admin approval.")
             _selectedDepositGateway.value = null
             setScreen(ScreenType.USER_HOME)
-        }.onFailure { err ->
-            showSnack(err.message ?: "Could not create deposit request")
-        }
+        })
     }
 
     fun submitWithdrawalRequest(
@@ -376,41 +409,41 @@ class BPWalletViewModel : ViewModel() {
             showSnack("Please enter Account Title and Number/IBAN")
             return
         }
+        BPWalletRepository.setLoading(true)
         val result = BPWalletRepository.createWithdrawalRequest(amount, gatewayName, accountTitle, accountNumberOrIban)
-        result.onSuccess {
+        BPWalletRepository.setLoading(false)
+        handleResult(result, onSuccess = {
             showSnack("Withdrawal Request of Rs ${amount.toInt()} submitted successfully!")
             setScreen(ScreenType.USER_HOME)
-        }.onFailure { err ->
-            showSnack(err.message ?: "Withdrawal error")
-        }
+        })
     }
 
     // Admin Actions
     fun approveTransaction(txId: String, notes: String = "") {
+        BPWalletRepository.setLoading(true)
         val res = BPWalletRepository.approveTransaction(txId, notes)
-        res.onSuccess { tx ->
+        BPWalletRepository.setLoading(false)
+        handleResult(res, onSuccess = { tx ->
             showSnack("${tx.type} approved successfully!")
-        }.onFailure { err ->
-            showSnack(err.message ?: "Approval failed.")
-        }
+        })
     }
 
     fun rejectTransaction(txId: String, notes: String = "") {
+        BPWalletRepository.setLoading(true)
         val res = BPWalletRepository.rejectTransaction(txId, notes)
-        res.onSuccess { tx ->
+        BPWalletRepository.setLoading(false)
+        handleResult(res, onSuccess = { tx ->
             showSnack("${tx.type} rejected.")
-        }.onFailure { err ->
-            showSnack(err.message ?: "Rejection failed.")
-        }
+        })
     }
 
     fun forwardWithdrawalToSuperAdmin(txId: String) {
+        BPWalletRepository.setLoading(true)
         val res = BPWalletRepository.forwardWithdrawalToSuperAdmin(txId)
-        res.onSuccess {
+        BPWalletRepository.setLoading(false)
+        handleResult(res, onSuccess = {
             showSnack("Withdrawal forwarded to Super Admin for payment release.")
-        }.onFailure { err ->
-            showSnack(err.message ?: "Forwarding failed.")
-        }
+        })
     }
 
     fun addPaymentGateway(
@@ -429,9 +462,11 @@ class BPWalletViewModel : ViewModel() {
         minDeposit: Double = 500.0,
         minWithdraw: Double = 1000.0
     ) {
+        BPWalletRepository.setLoading(true)
         val res = BPWalletRepository.addPaymentGateway(
             name, currency, country, title, accountNumber, iban, bankName, instructions, shortDescription, logoUrl, isEnabled, displayOrder, minDeposit, minWithdraw
         )
+        BPWalletRepository.setLoading(false)
         res.onSuccess {
             showSnack("Payment Method added successfully!")
         }.onFailure { err ->
@@ -456,9 +491,11 @@ class BPWalletViewModel : ViewModel() {
         minDeposit: Double = 500.0,
         minWithdraw: Double = 1000.0
     ) {
+        BPWalletRepository.setLoading(true)
         val res = BPWalletRepository.updatePaymentGateway(
             id, name, currency, country, title, accountNumber, iban, bankName, instructions, shortDescription, logoUrl, isEnabled, displayOrder, minDeposit, minWithdraw
         )
+        BPWalletRepository.setLoading(false)
         res.onSuccess {
             showSnack("Payment Method updated successfully!")
         }.onFailure { err ->
@@ -467,7 +504,9 @@ class BPWalletViewModel : ViewModel() {
     }
 
     fun togglePaymentGatewayStatus(id: String) {
+        BPWalletRepository.setLoading(true)
         val res = BPWalletRepository.togglePaymentGatewayStatus(id)
+        BPWalletRepository.setLoading(false)
         res.onSuccess { gw ->
             val statusStr = if (gw.isEnabled) "Enabled" else "Disabled"
             showSnack("${gw.name} is now $statusStr")
@@ -477,7 +516,9 @@ class BPWalletViewModel : ViewModel() {
     }
 
     fun deletePaymentGateway(gatewayId: String) {
+        BPWalletRepository.setLoading(true)
         val res = BPWalletRepository.deletePaymentGateway(gatewayId)
+        BPWalletRepository.setLoading(false)
         res.onSuccess {
             showSnack("Payment Method removed.")
         }.onFailure { err ->
@@ -494,13 +535,13 @@ class BPWalletViewModel : ViewModel() {
     }
 
     fun saveBetProCredentials(userId: String, username: String, pass: String, status: String) {
+        BPWalletRepository.setLoading(true)
         val result = BPWalletRepository.updateBetProCredentials(userId, username, pass, status)
-        result.onSuccess {
+        BPWalletRepository.setLoading(false)
+        handleResult(result, onSuccess = {
             showSnack("User account updated & user notified!")
             _selectedUserForCreds.value = null
-        }.onFailure {
-            showSnack("Failed to update credentials")
-        }
+        })
     }
 
     fun setCrmCurrencyFilter(currency: String) {
@@ -558,7 +599,9 @@ class BPWalletViewModel : ViewModel() {
             showSnack("Please enter Master Agent/Agency Name")
             return
         }
+        BPWalletRepository.setLoading(true)
         val result = BPWalletRepository.createMasterAgent(name, password, currency, role, creditLimit, marginShare)
+        BPWalletRepository.setLoading(false)
         result.onSuccess { agent ->
             showSnack("Master Agent '${agent.name}' created in ${agent.currency}!")
             closeCreateMasterModal()
@@ -591,7 +634,9 @@ class BPWalletViewModel : ViewModel() {
             showSnack("Password must be at least 4 characters")
             return
         }
+        BPWalletRepository.setLoading(true)
         val result = BPWalletRepository.updateAdminPassword(newPassword)
+        BPWalletRepository.setLoading(false)
         result.onSuccess {
             showSnack("Admin / SuperAdmin password updated successfully!")
         }.onFailure {
@@ -604,7 +649,9 @@ class BPWalletViewModel : ViewModel() {
             showSnack("Please enter a valid WhatsApp Helpline Number")
             return
         }
+        BPWalletRepository.setLoading(true)
         val result = BPWalletRepository.updateWhatsAppHelpline(number)
+        BPWalletRepository.setLoading(false)
         result.onSuccess {
             showSnack("WhatsApp Helpline updated to $it")
         }.onFailure {
@@ -617,12 +664,12 @@ class BPWalletViewModel : ViewModel() {
             showSnack("Full Name cannot be empty")
             return
         }
+        BPWalletRepository.setLoading(true)
         val result = BPWalletRepository.updateUserProfile(fullName, mobileNumber)
-        result.onSuccess {
+        BPWalletRepository.setLoading(false)
+        handleResult(result, onSuccess = {
             showSnack("Profile details updated successfully!")
-        }.onFailure {
-            showSnack("Failed to update profile: ${it.message}")
-        }
+        })
     }
 
     fun updateUserPassword(newPassword: String) {
@@ -630,16 +677,18 @@ class BPWalletViewModel : ViewModel() {
             showSnack("Password must be at least 4 characters")
             return
         }
+        BPWalletRepository.setLoading(true)
         val result = BPWalletRepository.updateUserPassword(newPassword)
-        result.onSuccess {
+        BPWalletRepository.setLoading(false)
+        handleResult(result, onSuccess = {
             showSnack("Your password was updated successfully!")
-        }.onFailure {
-            showSnack("Failed to update password: ${it.message}")
-        }
+        })
     }
 
     fun updateExchangeWebsiteUrl(url: String) {
+        BPWalletRepository.setLoading(true)
         val result = BPWalletRepository.updateExchangeWebsiteUrl(url)
+        BPWalletRepository.setLoading(false)
         result.onSuccess {
             showSnack("Exchange URL updated to $it")
         }.onFailure {
