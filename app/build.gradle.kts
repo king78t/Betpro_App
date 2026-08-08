@@ -34,15 +34,16 @@ android {
       // Keep default debug config
     }
     create("release") {
-      val keystoreFile = rootProject.file("bpwallet.jks")
+      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "bpwallet.jks"
+      val keystoreFile = rootProject.file(keystorePath)
       if (keystoreFile.exists()) {
         storeFile = keystoreFile
-        storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD") ?: ""
-        keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: "bpwallet"
-        keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
+        storePassword = System.getenv("STORE_PASSWORD") ?: ""
+        keyAlias = System.getenv("KEY_ALIAS") ?: "bpwallet"
+        keyPassword = System.getenv("KEY_PASSWORD") ?: ""
         println(">>> Using Custom Release Keystore: ${keystoreFile.absolutePath}")
       } else {
-        throw GradleException("Release keystore 'bpwallet.jks' not found in project root. Please upload it to proceed with signed release build.")
+        throw GradleException("Release keystore '$keystorePath' not found in project root. Please upload it to proceed with signed release build.")
       }
     }
   }
@@ -53,7 +54,7 @@ android {
     }
     release {
       isCrunchPngs = true
-      isMinifyEnabled = true
+n      isMinifyEnabled = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }
@@ -97,35 +98,4 @@ dependencies {
   implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.runtime.ktx)
-  implementation(libs.androidx.lifecycle.viewmodel.ktx)
-  implementation(libs.androidx.lifecycle.viewmodel.compose)
-  implementation(libs.androidx.room.ktx)
-  implementation(libs.androidx.room.runtime)
-  implementation(libs.coil.compose)
-  implementation(libs.firebase.firestore)
-  implementation(libs.firebase.auth)
-  implementation(libs.androidx.credentials)
-  implementation(libs.androidx.credentials.play.services)
-  implementation(libs.googleid)
-  implementation(libs.play.services.auth)
-  implementation(libs.play.services.base)
-  implementation(libs.kotlinx.coroutines.android)
-  implementation(libs.kotlinx.coroutines.core)
-  implementation(libs.androidx.work.runtime.ktx)
-  implementation(libs.okhttp)
-  implementation("com.google.code.gson:gson:2.11.0")
-  
-  testImplementation(libs.androidx.compose.ui.test.junit4)
-  testImplementation(libs.androidx.core)
-  testImplementation(libs.androidx.junit)
-  testImplementation(libs.junit)
-  testImplementation(libs.kotlinx.coroutines.test)
-  testImplementation(libs.robolectric)
-  testImplementation(libs.roborazzi)
-  testImplementation(libs.roborazzi.compose)
-  testImplementation(libs.roborazzi.junit.rule)
-  
-  debugImplementation(libs.androidx.compose.ui.test.manifest)
-  debugImplementation(libs.androidx.compose.ui.tooling)
-  "ksp"(libs.androidx.room.compiler)
 }
