@@ -37,6 +37,7 @@ import com.bp.uunwlm.ui.components.WhatsAppHelplineButton
 import com.bp.uunwlm.ui.theme.*
 import com.bp.uunwlm.ui.viewmodel.BPWalletViewModel
 import com.bp.uunwlm.ui.viewmodel.ScreenType
+import com.airbnb.lottie.compose.*
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -229,126 +230,176 @@ fun UserDepositScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "2. Enter Deposit Details",
-                        fontSize = 18.sp,
+                        text = "Deposit via ${gw.name}",
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Slate900
                     )
-                    Text(
-                        text = "Step 2 of 2",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = BPGreenDark
-                    )
+                    IconButton(onClick = { viewModel.selectDepositGateway(null) }) {
+                        Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = Slate900)
+                    }
                 }
 
-                // Selected Gateway Card with Copy Button
+                // Selected Gateway Card (Pay To)
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = BPGreenLight)
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFDFF9EC)) // Light green matching image
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Selected Gateway: ${gw.name}",
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 15.sp,
-                                color = BPGreenDark
-                            )
-                            TextButton(onClick = { viewModel.selectDepositGateway(null) }) {
-                                Text("Change", color = Slate700, fontWeight = FontWeight.Bold)
-                            }
-                        }
+                        Text(
+                            text = "PAY TO",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = BPGreenDark,
+                            letterSpacing = 0.5.sp
+                        )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Account Title: ${gw.title}",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
+                            text = gw.title,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold,
                             color = Slate900
                         )
+                        Spacer(modifier = Modifier.height(8.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Account Number: ${gw.accountNumber}",
-                                fontSize = 15.sp,
+                                text = gw.accountNumber,
+                                fontSize = 20.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = Slate900
                             )
-                            IconButton(onClick = {
-                                viewModel.showSnack("Copied Account Number: ${gw.accountNumber}")
-                            }) {
-                                Icon(
-                                    imageVector = Icons.Default.ContentCopy,
-                                    contentDescription = "Copy",
-                                    tint = Slate700
-                                )
+                            Button(
+                                onClick = {
+                                    viewModel.showSnack("Copied: ${gw.accountNumber}")
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color.White,
+                                    contentColor = BPGreenDark
+                                ),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, BPGreenPrimary.copy(alpha = 0.3f)),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(36.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Copy", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                 }
 
-                OutlinedTextField(
-                    value = amountText,
-                    onValueChange = { amountText = it },
-                    label = { Text("Deposit Amount (${u.currency})") },
-                    placeholder = { Text("Min ${gw.minDeposit.toInt()} e.g. 1500") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = BPGreenPrimary,
-                        unfocusedBorderColor = Slate500
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Amount (${u.currency})",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Slate900
                     )
-                )
-
-                OutlinedTextField(
-                    value = senderAccount,
-                    onValueChange = { senderAccount = it },
-                    label = { Text("Your Sender Account / Mobile Number") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = BPGreenPrimary,
-                        unfocusedBorderColor = Slate500
+                    OutlinedTextField(
+                        value = amountText,
+                        onValueChange = { amountText = it },
+                        placeholder = { Text("Min ${gw.minDeposit.toInt()}") },
+                        prefix = { Text("Rs ", fontWeight = FontWeight.Bold, color = Slate900) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color(0xFFDFF9EC).copy(alpha = 0.5f),
+                            unfocusedContainerColor = Color(0xFFDFF9EC).copy(alpha = 0.5f),
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent
+                        )
                     )
-                )
 
-                OutlinedTextField(
-                    value = referenceText,
-                    onValueChange = { referenceText = it },
-                    label = { Text("Transaction Reference / Screenshot ID") },
-                    placeholder = { Text("e.g. EPX-9988776655") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = BPGreenPrimary,
-                        unfocusedBorderColor = Slate500
+                    // Amount Presets
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("+1k" to 1000, "+5k" to 5000, "+10k" to 10000, "+25k" to 25000, "+50k" to 50000).forEach { (label, value) ->
+                            OutlinedButton(
+                                onClick = {
+                                    val current = amountText.toDoubleOrNull() ?: 0.0
+                                    amountText = (current + value).toInt().toString()
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(0.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = BPGreenDark),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
+                            ) {
+                                Text(label, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Sender Name (Optional)",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Slate900
                     )
-                )
+                    OutlinedTextField(
+                        value = senderAccount,
+                        onValueChange = { senderAccount = it },
+                        leadingIcon = { Icon(imageVector = Icons.Default.PersonOutline, contentDescription = null, tint = Slate500) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color(0xFFDFF9EC).copy(alpha = 0.5f),
+                            unfocusedContainerColor = Color(0xFFDFF9EC).copy(alpha = 0.5f),
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent
+                        )
+                    )
+                }
 
-                // Screenshot Image Attachment Option
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Transaction Reference (Optional)",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Slate900
+                    )
+                    OutlinedTextField(
+                        value = referenceText,
+                        onValueChange = { referenceText = it },
+                        leadingIcon = { Icon(imageVector = Icons.Default.Tag, contentDescription = null, tint = Slate500) },
+                        placeholder = { Text("e.g. JC-882301 or Bank TID") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color(0xFFDFF9EC).copy(alpha = 0.5f),
+                            unfocusedContainerColor = Color(0xFFDFF9EC).copy(alpha = 0.5f),
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent
+                        )
+                    )
+                }
+
+                // Screenshot Image Attachment (Mandatory)
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { imagePickerLauncher.launch("image/*") },
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (screenshotUri.isNotBlank()) BPGreenLight else Slate100
+                        containerColor = if (screenshotUri.isNotBlank()) BPGreenLight else Color(0xFFFEECEB) // Light red if missing? Or just grey.
                     ),
                     border = androidx.compose.foundation.BorderStroke(
                         1.dp,
-                        if (screenshotUri.isNotBlank()) BPGreenPrimary else Slate300
+                        if (screenshotUri.isNotBlank()) BPGreenPrimary else Color(0xFFFFCDD2)
                     )
                 ) {
                     Row(
@@ -359,21 +410,30 @@ fun UserDepositScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = if (screenshotUri.isNotBlank()) Icons.Default.CheckCircle else Icons.Default.AddPhotoAlternate,
-                                contentDescription = "Screenshot",
-                                tint = if (screenshotUri.isNotBlank()) BPGreenPrimary else Slate700
-                            )
+                            if (screenshotUri.isNotBlank()) {
+                                val lottieComp by rememberLottieComposition(LottieCompositionSpec.Url("https://assets10.lottiefiles.com/packages/lf20_aw7isvun.json"))
+                                LottieAnimation(
+                                    composition = lottieComp,
+                                    iterations = 1,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.AddPhotoAlternate,
+                                    contentDescription = "Screenshot",
+                                    tint = Color(0xFFD32F2F)
+                                )
+                            }
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = if (screenshotUri.isNotBlank()) "Screenshot Attached" else "Upload Payment Screenshot (Optional)",
+                                    text = if (screenshotUri.isNotBlank()) "Screenshot Attached" else "Attach Payment Screenshot (Required)",
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Slate900
+                                    color = if (screenshotUri.isNotBlank()) Slate900 else Color(0xFFD32F2F)
                                 )
                                 Text(
-                                    text = if (screenshotUri.isNotBlank()) "Tap to replace screenshot proof" else "Tap to select image from gallery",
+                                    text = if (screenshotUri.isNotBlank()) "Tap to replace proof" else "Screenshot is mandatory for approval",
                                     fontSize = 11.sp,
                                     color = Slate500
                                 )
@@ -393,8 +453,17 @@ fun UserDepositScreen(
 
                 Button(
                     onClick = {
-                        isSubmitting = true
                         val amt = amountText.toDoubleOrNull() ?: 0.0
+                        if (amt < gw.minDeposit) {
+                            viewModel.showSnack("Minimum deposit is ${u.currency} ${gw.minDeposit.toInt()}")
+                            return@Button
+                        }
+                        if (screenshotUri.isBlank()) {
+                            viewModel.showSnack("Please attach payment screenshot proof!")
+                            return@Button
+                        }
+
+                        isSubmitting = true
                         viewModel.submitDepositRequest(
                             amount = amt,
                             reference = referenceText.ifBlank { "TRX-${System.currentTimeMillis()}" },
@@ -405,26 +474,29 @@ fun UserDepositScreen(
                     enabled = !isSubmitting,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(14.dp),
+                        .height(56.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = BPGreenPrimary,
+                        containerColor = Color(0xFF00B16A), // Emerald green matching image
                         contentColor = Color.White
                     )
                 ) {
                     if (isSubmitting) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            modifier = Modifier.size(22.dp),
-                            strokeWidth = 2.5.dp
+                        val loadingComp by rememberLottieComposition(LottieCompositionSpec.Url("https://assets9.lottiefiles.com/packages/lf20_p8bfn5to.json"))
+                        LottieAnimation(
+                            composition = loadingComp,
+                            iterations = LottieConstants.IterateForever,
+                            modifier = Modifier.size(40.dp)
                         )
+                    } else {
+                        Icon(imageVector = Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Submit Deposit in ${u.currency}",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
-                    Text(
-                        text = if (isSubmitting) "SUBMITTING..." else "SUBMIT DEPOSIT REQUEST",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
                 }
             }
 

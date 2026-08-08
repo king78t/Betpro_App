@@ -42,8 +42,6 @@ import androidx.compose.ui.unit.sp
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.CustomCredential
-import com.google.android.gms.common.GoogleApiAvailability
-import com.google.android.gms.common.ConnectionResult
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlin.math.roundToInt
@@ -404,82 +402,6 @@ fun LoginScreen(
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
-
-                    // PHONE LOGIN OPTION
-                    Text(
-                        text = "Or continue with",
-                        fontSize = 12.sp,
-                        color = Slate500,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Surface(
-                            onClick = { 
-                                triggerGoogleSignIn(
-                                    context = context,
-                                    scope = scope,
-                                    onNeedPicker = { showGooglePicker = true },
-                                    onTokenReceived = { email, name, idToken ->
-                                        viewModel.signInWithGoogle(email, name, idToken)
-                                    }
-                                )
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(16.dp),
-                            color = Color.White,
-                            border = BorderStroke(1.dp, Slate200),
-                            interactionSource = remember { MutableInteractionSource() }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(vertical = 12.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.AccountCircle,
-                                    contentDescription = "Google",
-                                    tint = Color(0xFF4285F4),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Google", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-
-                        Surface(
-                            onClick = { 
-                                val activity = context as? android.app.Activity
-                                if (activity != null) {
-                                    viewModel.startPhoneLogin(emailOrPhone, activity)
-                                } else {
-                                    viewModel.showSnack("Could not start phone login: Activity context missing")
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(16.dp),
-                            color = Color.White,
-                            border = BorderStroke(1.dp, Slate200)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(vertical = 12.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.PhoneAndroid,
-                                    contentDescription = "Phone",
-                                    tint = BPGreenDark,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Phone", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
 
                 } else {
                     // ADMIN LOGIN FIELDS
@@ -1260,14 +1182,6 @@ fun triggerGoogleSignIn(
 ) {
     scope.launch {
         try {
-            val availability = GoogleApiAvailability.getInstance()
-            val resultStatus = availability.isGooglePlayServicesAvailable(context)
-            if (resultStatus != ConnectionResult.SUCCESS) {
-                android.util.Log.w("GoogleSignIn", "Play Services not available: $resultStatus")
-                onNeedPicker()
-                return@launch
-            }
-
             val credentialManager = CredentialManager.create(context)
             val webClientId = try {
                 BuildConfig.WEB_CLIENT_ID

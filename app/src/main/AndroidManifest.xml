@@ -8,13 +8,10 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     
     <queries>
-        <package android:name="com.google.android.gms" />
-        <package android:name="com.android.vending" />
-        <package android:name="com.google.android.gms.auth" />
-        <package android:name="com.google.android.apps.messaging" />
         <intent>
             <action android:name="com.google.android.gms.auth.api.signin.SERVICE" />
         </intent>
@@ -39,7 +36,20 @@
         <meta-data
             android:name="com.google.android.gms.version"
             android:value="@integer/google_play_services_version" />
-        
+
+        <meta-data
+            android:name="firebase_analytics_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="firebase_performance_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="google_analytics_adid_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="google_analytics_ssaid_collection_enabled"
+            android:value="false" />
+
         <uses-library
             android:name="org.apache.http.legacy"
             android:required="false" />

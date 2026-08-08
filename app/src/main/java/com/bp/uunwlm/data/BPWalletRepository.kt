@@ -26,50 +26,31 @@ import java.util.UUID
 
 object BPWalletRepository {
     private const val TAG = "BPWalletRepo"
-    private fun isPlayServicesAvailable(): Boolean {
-        val ctx = appContext ?: return false
-        return try {
-            val availability = com.google.android.gms.common.GoogleApiAvailability.getInstance()
-            val resultCode = availability.isGooglePlayServicesAvailable(ctx)
-            resultCode == com.google.android.gms.common.ConnectionResult.SUCCESS
-        } catch (t: Throwable) {
-            false
-        }
-    }
 
     private var _firestoreInstance: FirebaseFirestore? = null
     private val firestore: FirebaseFirestore?
         get() {
             return try {
-                if (!isPlayServicesAvailable()) {
-                    Log.w(TAG, "Firestore initialization skipped: Play Services not available")
-                    null
-                } else {
-                    if (_firestoreInstance == null) {
+                if (_firestoreInstance == null) {
+                    try {
+                        val db = FirebaseFirestore.getInstance()
                         try {
-                            val db = FirebaseFirestore.getInstance()
-                            try {
-                                val settings = FirebaseFirestoreSettings.Builder()
-                                    .setLocalCacheSettings(PersistentCacheSettings.newBuilder()
-                                        .setSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
-                                        .build())
-                                    .build()
-                                db.firestoreSettings = settings
-                                Log.d(TAG, "Firestore offline persistence enabled successfully")
-                            } catch (e: Exception) {
-                                Log.w(TAG, "Note: Firestore settings already initialized or offline fallback: ${e.message}")
-                            }
-                            _firestoreInstance = db
-                        } catch (se: SecurityException) {
-                            Log.e(TAG, "SecurityException while getting Firestore: ${se.message}")
-                            return null
+                            val settings = FirebaseFirestoreSettings.Builder()
+                                .setLocalCacheSettings(PersistentCacheSettings.newBuilder()
+                                    .setSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                                    .build())
+                                .build()
+                            db.firestoreSettings = settings
                         } catch (e: Exception) {
-                            Log.e(TAG, "Exception while getting Firestore: ${e.message}")
-                            return null
+                            Log.w(TAG, "Note: Firestore settings already initialized or offline fallback: ${e.message}")
                         }
+                        _firestoreInstance = db
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Exception while getting Firestore: ${e.message}")
+                        return null
                     }
-                    _firestoreInstance
                 }
+                _firestoreInstance
             } catch (t: Throwable) {
                 Log.e(TAG, "Critical error obtaining Firestore: ${t.message}")
                 null
@@ -79,12 +60,7 @@ object BPWalletRepository {
     private val auth: FirebaseAuth?
         get() {
             return try {
-                if (!isPlayServicesAvailable()) {
-                    Log.w(TAG, "FirebaseAuth initialization skipped: Play Services not available")
-                    null
-                } else {
-                    FirebaseAuth.getInstance()
-                }
+                FirebaseAuth.getInstance()
             } catch (t: Throwable) {
                 Log.e(TAG, "Critical error obtaining FirebaseAuth: ${t.message}")
                 null

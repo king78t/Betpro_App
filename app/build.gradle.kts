@@ -104,7 +104,7 @@ dependencies {
   implementation(libs.coil.compose)
   implementation(libs.firebase.firestore)
   implementation(libs.firebase.auth)
-  implementation(libs.firebase.analytics)
+  // implementation(libs.firebase.analytics)
   implementation(libs.androidx.credentials)
   implementation(libs.androidx.credentials.play.services)
   implementation(libs.googleid)
@@ -113,6 +113,7 @@ dependencies {
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.androidx.work.runtime.ktx)
+  implementation(libs.lottie.compose)
   implementation(libs.okhttp)
   implementation("com.google.code.gson:gson:2.11.0")
   
