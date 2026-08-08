@@ -16,7 +16,7 @@ android {
   compileSdk = 35
 
   defaultConfig {
-    applicationId = "com.aistudio.bpwallet.vkpmxr"
+    applicationId = "com.bp.uunwlm"
     minSdk = 24
     targetSdk = 34
     versionCode = 1
