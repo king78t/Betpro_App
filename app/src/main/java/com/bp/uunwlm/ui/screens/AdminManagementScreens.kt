@@ -95,9 +95,16 @@ fun AdminUsersCrmScreen(
         normalUsers.filter { u -> u.country.equals(currentUser?.country, true) || u.currency.equals(currentUser?.currency, true) }
     }
     val filteredUsers = countryScopedUsers.filter { u ->
-        val matchesSearch = search.isEmpty() || u.fullName.contains(search, true) ||
-                u.email.contains(search, true) || u.mobileNumber.contains(search, true) ||
-                u.betproUsername.contains(search, true)
+        val matchesSearch = search.isBlank() ||
+                u.fullName.contains(search, true) ||
+                u.email.contains(search, true) ||
+                u.mobileNumber.contains(search, true) ||
+                u.betproUsername.contains(search, true) ||
+                u.masterAgentName.contains(search, true) ||
+                u.assignedMasterId.contains(search, true) ||
+                u.country.contains(search, true) ||
+                u.currency.contains(search, true) ||
+                u.id.contains(search, true)
         val matchesCurr = currFilter == "All Curr" || u.currency.equals(currFilter, true)
         val matchesStatus = statusFilter == "All Status" ||
                 (statusFilter == "Active" && u.betproIdStatus == "Active") ||
@@ -107,6 +114,9 @@ fun AdminUsersCrmScreen(
     }
 
     var showDrawer by remember { mutableStateOf(false) }
+    var showNotifications by remember { mutableStateOf(false) }
+
+    val pendingTxCount = viewModel.allTransactions.collectAsState().value.count { it.status == "Pending" }
 
     if (selectedUserForCreds != null) {
         SetBetProCredsDialog(
@@ -127,6 +137,8 @@ fun AdminUsersCrmScreen(
                     subtitle = "User Management CRM",
                     currentUser = currentUser,
                     onOpenDrawer = { showDrawer = true },
+                    onNotificationClick = { showNotifications = true },
+                    unreadNotificationsCount = if (pendingTxCount > 0) pendingTxCount else 2,
                     onLogout = { viewModel.logout() }
                 )
             }
@@ -161,20 +173,37 @@ fun AdminUsersCrmScreen(
                 StatusBadge(status = "${countryScopedUsers.size} Users")
             }
 
-            // Search input
-            OutlinedTextField(
-                value = search,
-                onValueChange = { viewModel.setCrmSearchQuery(it) },
-                placeholder = { Text("Search user, phone, BP ID, master...") },
-                leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = "Search", tint = Slate500) },
+            // Search input (Professional White Card Style)
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = BPGreenPrimary,
-                    unfocusedBorderColor = Slate500
+                shape = RoundedCornerShape(14.dp),
+                color = Color.White,
+                shadowElevation = 2.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+            ) {
+                OutlinedTextField(
+                    value = search,
+                    onValueChange = { viewModel.setCrmSearchQuery(it) },
+                    placeholder = { Text("Search user, phone, BP ID, master...", fontSize = 13.sp, color = Slate500) },
+                    leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = "Search", tint = BPGreenDark) },
+                    trailingIcon = {
+                        if (search.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.setCrmSearchQuery("") }) {
+                                Icon(imageVector = Icons.Default.Close, contentDescription = "Clear Search", tint = Slate500)
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = BPGreenPrimary,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White
+                    )
                 )
-            )
+            }
 
             // Currency Pill Filter: All Curr | PKR | AED | SAR
             Row(
@@ -187,9 +216,18 @@ fun AdminUsersCrmScreen(
                         selected = sel,
                         onClick = { viewModel.setCrmCurrencyFilter(c) },
                         label = { Text(c, fontWeight = FontWeight.Bold, fontSize = 11.sp) },
+                        shape = RoundedCornerShape(20.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = BPGreenPrimary,
-                            selectedLabelColor = Color.White
+                            selectedLabelColor = Color.White,
+                            containerColor = Color.White,
+                            labelColor = Slate700
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = sel,
+                            borderColor = Color(0xFFE2E8F0),
+                            selectedBorderColor = BPGreenPrimary
                         )
                     )
                 }
@@ -206,9 +244,18 @@ fun AdminUsersCrmScreen(
                         selected = sel,
                         onClick = { viewModel.setCrmStatusFilter(st) },
                         label = { Text(st, fontWeight = FontWeight.Bold, fontSize = 11.sp) },
+                        shape = RoundedCornerShape(20.dp),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Slate700,
-                            selectedLabelColor = Color.White
+                            selectedContainerColor = Slate800,
+                            selectedLabelColor = Color.White,
+                            containerColor = Color.White,
+                            labelColor = Slate700
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = sel,
+                            borderColor = Color(0xFFE2E8F0),
+                            selectedBorderColor = Slate800
                         )
                     )
                 }
@@ -216,8 +263,38 @@ fun AdminUsersCrmScreen(
 
             // Users list
             if (filteredUsers.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No users found matching filters", color = Slate500)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FilterListOff,
+                            contentDescription = "No users",
+                            tint = Slate500,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Text(
+                            text = if (search.isNotEmpty()) "No users matching \"$search\"" else "No users found matching current filters",
+                            color = Slate700,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                        Button(
+                            onClick = { viewModel.resetCrmFilters() },
+                            colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Refresh, contentDescription = "Reset", modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("CLEAR ALL FILTERS & SHOW ALL USERS", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
                 }
             } else {
                 LazyColumn(
@@ -242,6 +319,14 @@ fun AdminUsersCrmScreen(
             onNavigate = { viewModel.setScreen(it) },
             currentUser = currentUser,
             onLogout = { viewModel.logout() }
+        )
+
+        AdminNotificationRightDrawer(
+            showDrawer = showNotifications,
+            onDismiss = { showNotifications = false },
+            pendingTxCount = if (pendingTxCount > 0) pendingTxCount else 1,
+            onNavigateToTx = { viewModel.setScreen(ScreenType.ADMIN_TRANSACTIONS) },
+            onNavigateToCrm = { viewModel.setScreen(ScreenType.ADMIN_USERS_CRM) }
         )
     }
 }

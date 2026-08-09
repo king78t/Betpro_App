@@ -120,6 +120,7 @@ dependencies {
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.androidx.biometric)
+  implementation(libs.androidx.security.crypto)
   implementation(libs.androidx.fragment.ktx)
   implementation(libs.lottie.compose)
   implementation(libs.okhttp)

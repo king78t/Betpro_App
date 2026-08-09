@@ -143,4 +143,13 @@ data class UserWithdrawalAccount(
     val bankName: String = ""
 )
 
+data class CelebrationEvent(
+    val title: String,
+    val subtitle: String,
+    val amount: Double,
+    val currency: String,
+    val transactionType: String, // "DEPOSIT" or "WITHDRAW"
+    val referenceOrDetails: String = ""
+)
+
 

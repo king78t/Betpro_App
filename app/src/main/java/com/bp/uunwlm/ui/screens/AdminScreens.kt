@@ -1,5 +1,6 @@
 package com.bp.uunwlm.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,15 +19,20 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bp.uunwlm.R
 import com.bp.uunwlm.model.MasterAgent
 import com.bp.uunwlm.model.PaymentGateway
 import com.bp.uunwlm.model.TransactionRequest
 import com.bp.uunwlm.model.UserAccount
+import com.bp.uunwlm.ui.components.BPLogoIcon
 import com.bp.uunwlm.ui.components.ShimmerDashboardSkeleton
 import com.bp.uunwlm.ui.components.StatusBadge
 import com.bp.uunwlm.ui.theme.*
@@ -68,6 +74,7 @@ fun AdminDashboardScreen(
     var broadcastMessage by remember { mutableStateOf("") }
 
     var showDrawer by remember { mutableStateOf(false) }
+    var showNotifications by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
         Scaffold(
@@ -78,6 +85,8 @@ fun AdminDashboardScreen(
                     subtitle = "Executive Overview",
                     currentUser = currentUser,
                     onOpenDrawer = { showDrawer = true },
+                    onNotificationClick = { showNotifications = true },
+                    unreadNotificationsCount = if (pendingDeposits + pendingPayouts > 0) pendingDeposits + pendingPayouts else 1,
                     onLogout = { viewModel.logout() }
                 )
             }
@@ -279,6 +288,14 @@ fun AdminDashboardScreen(
             onNavigate = { viewModel.setScreen(it) },
             currentUser = currentUser,
             onLogout = { viewModel.logout() }
+        )
+
+        AdminNotificationRightDrawer(
+            showDrawer = showNotifications,
+            onDismiss = { showNotifications = false },
+            pendingTxCount = if (pendingDeposits + pendingPayouts > 0) pendingDeposits + pendingPayouts else 1,
+            onNavigateToTx = { viewModel.setScreen(ScreenType.ADMIN_TRANSACTIONS) },
+            onNavigateToCrm = { viewModel.setScreen(ScreenType.ADMIN_USERS_CRM) }
         )
     }
 }
@@ -625,21 +642,8 @@ fun AdminEnterpriseDrawer(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(BPGreenLight),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Security,
-                                    contentDescription = "BP",
-                                    tint = BPGreenDark,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
+                            BPLogoIcon(sizeDp = 38)
+                            Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
                                     text = "BP ENTERPRISE",
@@ -676,16 +680,6 @@ fun AdminEnterpriseDrawer(
                         selected = currentScreen == ScreenType.ADMIN_DASHBOARD,
                         onClick = {
                             onNavigate(ScreenType.ADMIN_DASHBOARD)
-                            onDismiss()
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    AdminDrawerItem(
-                        label = "Live Control",
-                        icon = Icons.Default.FlashOn,
-                        selected = currentScreen == ScreenType.ADMIN_LIVE_CONTROL,
-                        onClick = {
-                            onNavigate(ScreenType.ADMIN_LIVE_CONTROL)
                             onDismiss()
                         }
                     )
@@ -829,6 +823,8 @@ fun AdminTopBar(
     subtitle: String,
     currentUser: UserAccount? = null,
     onOpenDrawer: () -> Unit = {},
+    onNotificationClick: () -> Unit = {},
+    unreadNotificationsCount: Int = 3,
     onLogout: () -> Unit
 ) {
     Surface(
@@ -903,10 +899,10 @@ fun AdminTopBar(
                     }
                 }
 
-                // Bell notification button with red 1 badge
+                // Bell notification button with badge
                 Box {
                     IconButton(
-                        onClick = { },
+                        onClick = onNotificationClick,
                         modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
@@ -916,21 +912,23 @@ fun AdminTopBar(
                             modifier = Modifier.size(20.dp)
                         )
                     }
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 4.dp, end = 4.dp)
-                            .size(16.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFEF4444)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "1",
-                            color = Color.White,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                    if (unreadNotificationsCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 4.dp, end = 4.dp)
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFEF4444)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "$unreadNotificationsCount",
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
 
@@ -950,6 +948,270 @@ fun AdminTopBar(
                         fontSize = 13.sp
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminNotificationRightDrawer(
+    showDrawer: Boolean,
+    onDismiss: () -> Unit,
+    pendingTxCount: Int = 1,
+    onNavigateToTx: () -> Unit = {},
+    onNavigateToCrm: () -> Unit = {}
+) {
+    if (showDrawer) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.45f))
+                .clickable(
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    indication = null
+                ) { onDismiss() },
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(0.68f)
+                    .clickable(enabled = false) {}, // absorb clicks inside
+                color = Color.White,
+                shape = RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp),
+                shadowElevation = 16.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(18.dp)
+                ) {
+                    // Drawer Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(BPGreenLight),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.NotificationsActive,
+                                    contentDescription = "Notifications",
+                                    tint = BPGreenDark,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Alerts Center",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 16.sp,
+                                    color = Slate900
+                                )
+                                Text(
+                                    text = "Real-time updates",
+                                    fontSize = 11.sp,
+                                    color = Slate500
+                                )
+                            }
+                        }
+
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Slate700,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = Slate100)
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Notifications List
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        item {
+                            NotificationCardItem(
+                                title = "Pending Transactions",
+                                desc = "$pendingTxCount deposit/payout request(s) awaiting approval",
+                                time = "Just now",
+                                icon = Icons.AutoMirrored.Filled.ReceiptLong,
+                                iconColor = Color(0xFFE65100),
+                                iconBg = Color(0xFFFFF3E0),
+                                actionLabel = "Review Txs",
+                                onClick = {
+                                    onDismiss()
+                                    onNavigateToTx()
+                                }
+                            )
+                        }
+
+                        item {
+                            NotificationCardItem(
+                                title = "BetPro Credentials",
+                                desc = "Users requesting BetPro ID credential setup",
+                                time = "10m ago",
+                                icon = Icons.Default.VpnKey,
+                                iconColor = BPGreenPrimary,
+                                iconBg = BPGreenLight,
+                                actionLabel = "Open CRM",
+                                onClick = {
+                                    onDismiss()
+                                    onNavigateToCrm()
+                                }
+                            )
+                        }
+
+                        item {
+                            NotificationCardItem(
+                                title = "New Account Alert",
+                                desc = "New user registered in PKR & AED regions",
+                                time = "1h ago",
+                                icon = Icons.Default.PersonAdd,
+                                iconColor = Color(0xFF2563EB),
+                                iconBg = Color(0xFFDBEAFE),
+                                actionLabel = "View CRM",
+                                onClick = {
+                                    onDismiss()
+                                    onNavigateToCrm()
+                                }
+                            )
+                        }
+
+                        item {
+                            NotificationCardItem(
+                                title = "System Audit Passed",
+                                desc = "Enterprise ledger state verified healthy",
+                                time = "Today",
+                                icon = Icons.Default.Shield,
+                                iconColor = BPGreenDark,
+                                iconBg = BPGreenLight,
+                                actionLabel = "Dismiss",
+                                onClick = { onDismiss() }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(42.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Slate700)
+                    ) {
+                        Text("CLOSE PANEL", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun NotificationCardItem(
+    title: String,
+    desc: String,
+    time: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconColor: Color,
+    iconBg: Color,
+    actionLabel: String,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(iconBg),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = iconColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = title,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = Slate900
+                        )
+                        Text(
+                            text = time,
+                            fontSize = 10.sp,
+                            color = Slate500
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = desc,
+                fontSize = 11.sp,
+                color = Slate700,
+                lineHeight = 15.sp
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Surface(
+                modifier = Modifier.clickable { onClick() },
+                shape = RoundedCornerShape(8.dp),
+                color = iconBg
+            ) {
+                Text(
+                    text = actionLabel,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = iconColor,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
             }
         }
     }

@@ -72,7 +72,7 @@ fun LoginScreen(
 
     var emailOrPhone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var adminUsername by remember { mutableStateOf("Book") }
+    var adminUsername by remember { mutableStateOf("Admin") }
     var adminPassword by remember { mutableStateOf("") }
     var rememberMe by remember { mutableStateOf(true) }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -114,160 +114,78 @@ fun LoginScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC)),
-        contentAlignment = Alignment.Center
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFFE0F2F1), // Light mint top
+                        Color(0xFFF1FDF7)  // Very light green bottom
+                    )
+                )
+            )
     ) {
-        // Decorative background hero banner at the top
-        Image(
-            painter = painterResource(id = R.drawable.bp_wallet_hero_banner_1786021234535),
-            contentDescription = "BP Wallet Hero Banner",
+        // Decorative soft circles
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(280.dp)
-                .align(Alignment.TopCenter)
-                .alpha(0.6f),
-            contentScale = ContentScale.Crop
+                .size(380.dp)
+                .align(Alignment.TopStart)
+                .offset(x = (-100).dp, y = (-60).dp)
+                .background(Color(0xFFD1F2EB).copy(alpha = 0.4f), CircleShape)
+        )
+        Box(
+            modifier = Modifier
+                .size(300.dp)
+                .align(Alignment.TopEnd)
+                .offset(x = 80.dp, y = 40.dp)
+                .background(Color(0xFFE8F8F5).copy(alpha = 0.5f), CircleShape)
         )
 
-        // Decorative background pastel glassmorphism circles from image
-        Box(
+        Column(
             modifier = Modifier
-                .size(310.dp)
-                .align(Alignment.TopStart)
-                .offset(x = (-80).dp, y = (-70).dp)
-                .background(
-                    color = Color(0xFFD1F4E0).copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(1000.dp)
-                )
-        )
-        Box(
-            modifier = Modifier
-                .size(330.dp)
-                .align(Alignment.TopEnd)
-                .offset(x = 100.dp, y = (-50).dp)
-                .background(
-                    color = Color(0xFFDCEEFE).copy(alpha = 0.8f),
-                    shape = RoundedCornerShape(1000.dp)
-                )
-        )
-        Box(
-            modifier = Modifier
-                .size(280.dp)
-                .align(Alignment.BottomStart)
-                .offset(x = (-70).dp, y = 140.dp)
-                .background(
-                    color = Color(0xFFDCEEFE).copy(alpha = 0.75f),
-                    shape = RoundedCornerShape(1000.dp)
-                )
-        )
-        Box(
-            modifier = Modifier
-                .size(340.dp)
-                .align(Alignment.BottomEnd)
-                .offset(x = 110.dp, y = 160.dp)
-                .background(
-                    color = Color(0xFFD1F4E0).copy(alpha = 0.85f),
-                    shape = RoundedCornerShape(1000.dp)
-                )
-        )
-        // Two floating frosted rounded squares behind card
-        Box(
-            modifier = Modifier
-                .size(110.dp)
-                .align(Alignment.TopStart)
-                .offset(x = 36.dp, y = 60.dp)
-                .background(
-                    color = Color.White.copy(alpha = 0.65f),
-                    shape = RoundedCornerShape(24.dp)
-                )
-        )
-        Box(
-            modifier = Modifier
-                .size(130.dp)
-                .align(Alignment.TopEnd)
-                .offset(x = (-30).dp, y = 80.dp)
-                .background(
-                    color = Color.White.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(26.dp)
-                )
-        )
-
-        // Main Frosted Glass Card
-        Card(
-            modifier = Modifier
-                .offset { IntOffset(x = shakeOffsetX.value.roundToInt(), y = 0) }
-                .fillMaxWidth()
-                .widthIn(max = 440.dp)
-                .padding(horizontal = 16.dp, vertical = 24.dp)
+                .fillMaxSize()
+                .statusBarsPadding()
                 .verticalScroll(rememberScrollState()),
-            shape = RoundedCornerShape(32.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFFAFDFB).copy(alpha = 0.90f)
-            ),
-            border = BorderStroke(1.5.dp, Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // HEADER TABS (User / Admin)
+            BPTabSwitcher(
+                isUserTab = isUserTab,
+                onTabChange = { viewModel.setLoginTab(it) },
+                modifier = Modifier
+                    .width(220.dp)
+                    .height(46.dp)
+            )
+
+            Spacer(modifier = Modifier.height(36.dp))
+
+            // BP WALLET SHIELD LOGO
+            BPWalletLogo(sizeDp = 90, showSubtitle = true)
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // Main Content Area
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 28.dp, vertical = 34.dp),
+                    .padding(horizontal = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (!isUserTab) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 12.dp),
-                        horizontalArrangement = Arrangement.Start
-                    ) {
-                        Surface(
-                            onClick = { viewModel.setLoginTab(true) },
-                            shape = RoundedCornerShape(12.dp),
-                            color = Slate100,
-                            border = BorderStroke(1.dp, Slate200),
-                            modifier = Modifier.height(34.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 12.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Back to User Login",
-                                    tint = BPGreenDark,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Back to User Login",
-                                    color = BPGreenDark,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Logo & Title
-                BPWalletLogo(sizeDp = 72, showSubtitle = isUserTab)
-
-                Spacer(modifier = Modifier.height(24.dp))
-
                 Text(
-                    text = if (isUserTab) "Welcome Back" else "Admin Portal Login",
-                    fontSize = 28.sp,
+                    text = if (isUserTab) "Welcome Back" else "Admin Portal",
+                    fontSize = 34.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Slate900
+                    color = Color(0xFF1A1A1A),
+                    letterSpacing = (-1).sp
                 )
-                Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = if (isUserTab) "Please login to continue" else "Enter admin credentials to continue",
+                    text = "Please login to continue",
                     fontSize = 15.sp,
-                    color = Slate500
+                    color = Color(0xFF757575),
+                    modifier = Modifier.padding(top = 4.dp)
                 )
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(22.dp))
 
                 if (isUserTab) {
                     // USER LOGIN FIELDS
@@ -275,24 +193,34 @@ fun LoginScreen(
                         value = emailOrPhone,
                         onValueChange = { emailOrPhone = it },
                         placeholder = "Mobile Number or Email",
-                        leadingIcon = Icons.Default.Person
+                        leadingIcon = Icons.Default.Person,
+                        testTag = "login_email_input"
                     )
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Text(
+                        text = "Password",
+                        modifier = Modifier.align(Alignment.Start).padding(bottom = 6.dp, start = 4.dp),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF424242)
+                    )
 
                     GlassInputField(
                         value = password,
                         onValueChange = { password = it },
-                        placeholder = "Password",
+                        placeholder = "••••••••",
                         leadingIcon = Icons.Default.Lock,
                         isPassword = true,
                         passwordVisible = passwordVisible,
-                        onPasswordToggle = { passwordVisible = !passwordVisible }
+                        onPasswordToggle = { passwordVisible = !passwordVisible },
+                        testTag = "login_password_input"
                     )
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
 
-                    // Remember Me & Forgot Password?
+                    // Remember Me & Forgot Password
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -305,95 +233,130 @@ fun LoginScreen(
                             Checkbox(
                                 checked = rememberMe,
                                 onCheckedChange = { rememberMe = it },
-                                colors = CheckboxDefaults.colors(
-                                    checkedColor = Color(0xFF10B981)
-                                ),
-                                modifier = Modifier.size(20.dp)
+                                colors = CheckboxDefaults.colors(checkedColor = Color(0xFF2196F3)),
+                                modifier = Modifier.size(24.dp).testTag("remember_me_checkbox")
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "Remember Me",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = Slate700
+                                fontSize = 14.sp,
+                                color = Color(0xFF616161),
+                                fontWeight = FontWeight.Medium
                             )
                         }
 
                         Text(
                             text = "Forgot Password?",
-                            fontSize = 13.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF059669),
+                            color = Color(0xFF00C853),
                             modifier = Modifier.clickable {
-                                viewModel.showSnack("Please contact WhatsApp Helpline for instant password reset.")
+                                viewModel.showSnack("Please contact WhatsApp Helpline for password recovery.")
                             }
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Green Login Button (same exact design style as image!)
-                    GlassLoginButton(
-                        text = "Login",
-                        onClick = {
-                            viewModel.loginUser(emailOrPhone, password)
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // CREATE NEW ACCOUNT Button
-                    GlassCreateAccountButton(
-                        text = "CREATE NEW ACCOUNT",
-                        onClick = { viewModel.setScreen(ScreenType.REGISTER) }
-                    )
-
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // ADMIN LOGIN BUTTON BELOW CREATE NEW ACCOUNT
-                    Surface(
-                        onClick = { viewModel.setLoginTab(false) },
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color(0xFFF1F5F9),
-                        border = BorderStroke(1.dp, Slate200),
-                        modifier = Modifier.fillMaxWidth()
+                    // Login Button (Gradient)
+                    Button(
+                        onClick = { viewModel.loginUser(emailOrPhone, password) },
+                        modifier = Modifier
+                            .width(160.dp)
+                            .height(52.dp)
+                            .shadow(8.dp, RoundedCornerShape(26.dp), spotColor = Color(0xFF00C853).copy(alpha = 0.5f))
+                            .testTag("login_button"),
+                        shape = RoundedCornerShape(26.dp),
+                        contentPadding = PaddingValues(0.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
                     ) {
-                        Row(
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 12.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(Color(0xFF00E676), Color(0xFF00A344))
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.AdminPanelSettings,
-                                contentDescription = "Admin Login",
-                                tint = Slate700,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Admin",
-                                color = Slate900,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Login",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
+                    // OR Divider
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        HorizontalDivider(modifier = Modifier.weight(1f), thickness = 0.5.dp, color = Color(0xFFE0E0E0))
+                        Surface(
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            shape = CircleShape,
+                            color = Color(0xFFF5F5F5),
+                            border = BorderStroke(0.5.dp, Color(0xFFE0E0E0))
+                        ) {
+                            Text(
+                                text = "OR",
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                color = Color(0xFF9E9E9E),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        HorizontalDivider(modifier = Modifier.weight(1f), thickness = 0.5.dp, color = Color(0xFFE0E0E0))
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // CREATE NEW ACCOUNT Button
+                    OutlinedButton(
+                        onClick = { viewModel.setScreen(ScreenType.REGISTER) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp)
+                            .testTag("create_account_button"),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
+                        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White)
+                    ) {
+                        Text(
+                            text = "CREATE NEW ACCOUNT",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF212121),
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(40.dp))
                 } else {
-                    // ADMIN LOGIN FIELDS
+                    // ADMIN LOGIN
                     GlassInputField(
                         value = adminUsername,
                         onValueChange = { adminUsername = it },
                         placeholder = "Admin Username",
-                        leadingIcon = Icons.Default.AdminPanelSettings
+                        leadingIcon = Icons.Default.AdminPanelSettings,
+                        testTag = "admin_username_input"
                     )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
+                    Spacer(modifier = Modifier.height(20.dp))
                     GlassInputField(
                         value = adminPassword,
                         onValueChange = { adminPassword = it },
@@ -401,18 +364,39 @@ fun LoginScreen(
                         leadingIcon = Icons.Default.Lock,
                         isPassword = true,
                         passwordVisible = passwordVisible,
-                        onPasswordToggle = { passwordVisible = !passwordVisible }
+                        onPasswordToggle = { passwordVisible = !passwordVisible },
+                        testTag = "admin_password_input"
                     )
-
-                    Spacer(modifier = Modifier.height(28.dp))
-
-                    // Exactly the SAME COLOR and STYLE green button as User Login page!
-                    GlassLoginButton(
-                        text = "Admin Login",
-                        onClick = {
-                            viewModel.loginAdmin(adminUsername, adminPassword)
+                    Spacer(modifier = Modifier.height(34.dp))
+                    Button(
+                        onClick = { viewModel.loginAdmin(adminUsername, adminPassword) },
+                        modifier = Modifier
+                            .width(180.dp)
+                            .height(54.dp)
+                            .shadow(8.dp, RoundedCornerShape(27.dp), spotColor = Color(0xFF00C853).copy(alpha = 0.5f))
+                            .testTag("admin_login_button"),
+                        shape = RoundedCornerShape(27.dp),
+                        contentPadding = PaddingValues(0.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(Color(0xFF00E676), Color(0xFF00A344))
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Admin Login",
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White
+                            )
                         }
-                    )
+                    }
                 }
             }
         }
@@ -428,7 +412,8 @@ fun GlassInputField(
     modifier: Modifier = Modifier,
     isPassword: Boolean = false,
     passwordVisible: Boolean = false,
-    onPasswordToggle: () -> Unit = {}
+    onPasswordToggle: () -> Unit = {},
+    testTag: String = ""
 ) {
     OutlinedTextField(
         value = value,
@@ -436,16 +421,16 @@ fun GlassInputField(
         placeholder = {
             Text(
                 text = placeholder,
-                color = Slate500,
-                fontSize = 14.sp
+                color = Slate400,
+                fontSize = 15.sp
             )
         },
         leadingIcon = {
             Icon(
                 imageVector = leadingIcon,
                 contentDescription = placeholder,
-                tint = Slate500,
-                modifier = Modifier.size(20.dp)
+                tint = Slate400,
+                modifier = Modifier.size(22.dp)
             )
         },
         trailingIcon = if (isPassword) {
@@ -454,23 +439,23 @@ fun GlassInputField(
                     Icon(
                         imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                         contentDescription = "Toggle password",
-                        tint = Slate500,
-                        modifier = Modifier.size(20.dp)
+                        tint = Slate400,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
         } else null,
         visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        modifier = modifier.fillMaxWidth().testTag(testTag),
+        shape = RoundedCornerShape(16.dp),
         singleLine = true,
         keyboardOptions = if (isPassword) KeyboardOptions(keyboardType = KeyboardType.Password) else KeyboardOptions.Default,
         colors = OutlinedTextFieldDefaults.colors(
-            unfocusedContainerColor = Color(0xFFF1F5F9),
-            focusedContainerColor = Color(0xFFF1F5F9),
-            unfocusedBorderColor = Color.Transparent,
-            focusedBorderColor = Color(0xFF10B981),
-            cursorColor = Color(0xFF10B981),
+            unfocusedContainerColor = Color.White.copy(alpha = 0.5f),
+            focusedContainerColor = Color.White,
+            unfocusedBorderColor = Slate200,
+            focusedBorderColor = Color(0xFF00C853),
+            cursorColor = Color(0xFF00C853),
             focusedTextColor = Slate900,
             unfocusedTextColor = Slate900
         )
@@ -570,284 +555,285 @@ fun RegisterScreen(
     viewModel: BPWalletViewModel,
     modifier: Modifier = Modifier
 ) {
-    // Note: All OTP / SMS verification modals are 100% removed.
-    // Completing registration navigates directly to UserHomeScreen (dashboard).
-    val errorShakeTrigger by viewModel.errorShakeTrigger.collectAsState()
-    val shakeOffsetX = remember { Animatable(0f) }
-
-    LaunchedEffect(errorShakeTrigger) {
-        if (errorShakeTrigger > 0) {
-            for (i in 0..2) {
-                shakeOffsetX.animateTo(24f, animationSpec = tween(50, easing = LinearEasing))
-                shakeOffsetX.animateTo(-24f, animationSpec = tween(50, easing = LinearEasing))
-            }
-            shakeOffsetX.animateTo(0f, animationSpec = tween(50, easing = LinearEasing))
-        }
-    }
-
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
-    var selectedCurrency by remember { mutableStateOf("PKR") }
-    var selectedPrefix by remember { mutableStateOf("+92") }
+    var selectedCurrency by remember { mutableStateOf("SAR") }
+    var selectedPrefix by remember { mutableStateOf("+966") }
     var mobileNumber by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Slate50)
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFFE0F2F1),
+                        Color(0xFFF1FDF7)
+                    )
+                )
+            )
     ) {
-        Card(
+        // Decorative blobs
+        Box(
             modifier = Modifier
-                .offset { IntOffset(x = shakeOffsetX.value.roundToInt(), y = 0) }
-                .fillMaxWidth()
-                .widthIn(max = 460.dp)
+                .size(350.dp)
+                .align(Alignment.TopEnd)
+                .offset(x = 100.dp, y = (-40).dp)
+                .background(Color(0xFFD1F2EB).copy(alpha = 0.4f), CircleShape)
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
                 .verticalScroll(rememberScrollState()),
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Tabs
+            BPTabSwitcher(
+                isUserTab = true,
+                onTabChange = { if (!it) viewModel.setScreen(ScreenType.LOGIN) },
+                modifier = Modifier
+                    .width(220.dp)
+                    .height(46.dp)
+            )
+
+            Spacer(modifier = Modifier.height(30.dp))
+
+            BPWalletLogo(sizeDp = 85, showSubtitle = true)
+
+            Spacer(modifier = Modifier.height(36.dp))
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 28.dp),
+                    .padding(horizontal = 32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Logo & Title
-                BPWalletLogo(sizeDp = 68, showSubtitle = true)
-
-                Spacer(modifier = Modifier.height(20.dp))
-
                 Text(
                     text = "Create Account",
-                    fontSize = 24.sp,
+                    fontSize = 32.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Slate900
+                    color = Color(0xFF1A1A1A),
+                    letterSpacing = (-1).sp
                 )
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Join BP Wallet for instant 24/7 payouts",
-                    fontSize = 13.sp,
-                    color = Slate500
+                    fontSize = 15.sp,
+                    color = Color(0xFF757575),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Full Name
+                Text(
+                    text = "Full Name",
+                    modifier = Modifier.align(Alignment.Start).padding(bottom = 6.dp, start = 4.dp),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF424242)
+                )
+                GlassInputField(
+                    value = fullName,
+                    onValueChange = { fullName = it },
+                    placeholder = "e.g. Hamza Malik",
+                    leadingIcon = Icons.Default.Person
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Email Address
+                Text(
+                    text = "Email Address",
+                    modifier = Modifier.align(Alignment.Start).padding(bottom = 6.dp, start = 4.dp),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF424242)
+                )
+                GlassInputField(
+                    value = email,
+                    onValueChange = { email = it },
+                    placeholder = "hamza@bpexch.com",
+                    leadingIcon = Icons.Default.Email
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Full Name
-                OutlinedTextField(
-                    value = fullName,
-                    onValueChange = { fullName = it },
-                    label = { Text("Full Name") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Full Name",
-                            tint = Slate500
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = BPGreenPrimary,
-                        unfocusedBorderColor = Slate500
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Email Address
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("Email Address") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Email,
-                            contentDescription = "Email",
-                            tint = Slate500
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = BPGreenPrimary,
-                        unfocusedBorderColor = Slate500
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                // Select Country & Currency label
+                // Country & Currency Section
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Start
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Icon(
+                        imageVector = Icons.Default.Public,
+                        contentDescription = null,
+                        tint = Color(0xFF00C853),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Select Country & Currency",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = Slate700
+                        fontSize = 14.sp,
+                        color = Color(0xFF424242)
                     )
                 }
-                Spacer(modifier = Modifier.height(10.dp))
 
-                // 3 Cards: PKR, AED, SAR
+                Spacer(modifier = Modifier.height(12.dp))
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    CurrencyCard(
-                        code = "PKR",
-                        prefix = "+92",
-                        country = "Pakistan",
-                        isSelected = selectedCurrency == "PKR",
-                        onClick = {
-                            selectedCurrency = "PKR"
-                            selectedPrefix = "+92"
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                    CurrencyCard(
-                        code = "AED",
-                        prefix = "+971",
-                        country = "UAE",
-                        isSelected = selectedCurrency == "AED",
-                        onClick = {
-                            selectedCurrency = "AED"
-                            selectedPrefix = "+971"
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                    CurrencyCard(
-                        code = "SAR",
-                        prefix = "+966",
-                        country = "Saudi Arabia",
-                        isSelected = selectedCurrency == "SAR",
-                        onClick = {
-                            selectedCurrency = "SAR"
-                            selectedPrefix = "+966"
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
+                    listOf(
+                        Triple("PKR", "+92", "Pakistan"),
+                        Triple("AED", "+971", "UAE"),
+                        Triple("SAR", "+966", "Saudi Arabia")
+                    ).forEach { (code, prefix, country) ->
+                        CurrencyCard(
+                            code = code,
+                            prefix = prefix,
+                            country = country,
+                            isSelected = selectedCurrency == code,
+                            onClick = {
+                                selectedCurrency = code
+                                selectedPrefix = prefix
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                // WhatsApp / Mobile Number label
+                // Mobile Number Section
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Start
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = "WhatsApp / Mobile Number",
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Slate700
+                        color = Color(0xFF424242)
                     )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Flag, // Use a generic flag icon or image if available
+                            contentDescription = null,
+                            tint = Color(0xFF388E3C),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (selectedCurrency == "SAR") "Saudi Arabia (+966)" else if (selectedCurrency == "PKR") "Pakistan (+92)" else "UAE (+971)",
+                            fontSize = 11.sp,
+                            color = Color(0xFF388E3C),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                OutlinedTextField(
-                    value = mobileNumber,
-                    onValueChange = { mobileNumber = it },
-                    leadingIcon = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Prefix Card
+                    Surface(
+                        modifier = Modifier
+                            .width(85.dp)
+                            .height(54.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.White.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, Color(0xFFE0E0E0))
+                    ) {
                         Row(
+                            modifier = Modifier.fillMaxSize(),
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 12.dp)
+                            horizontalArrangement = Arrangement.Center
                         ) {
+                            Icon(
+                                imageVector = Icons.Default.Chat,
+                                contentDescription = null,
+                                tint = Color(0xFF00C853),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = selectedPrefix,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = BPGreenDark,
-                                fontSize = 14.sp
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = Color(0xFF1A1A1A)
                             )
                         }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = BPGreenPrimary,
-                        unfocusedBorderColor = Slate500
-                    )
-                )
+                    }
 
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Choose Password
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Choose Password") },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = "Password",
-                            tint = Slate500
-                        )
-                    },
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                contentDescription = "Toggle password",
-                                tint = Slate500
-                            )
-                        }
-                    },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = BPGreenPrimary,
-                        unfocusedBorderColor = Slate500
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(26.dp))
-
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Premium3DButton(
-                        text = "Complete Register",
-                        onClick = {
-                            viewModel.registerUser(
-                                fullName = fullName,
-                                email = email,
-                                currency = selectedCurrency,
-                                mobileNumber = "$selectedPrefix $mobileNumber",
-                                pass = password
-                            )
-                        }
+                    // Mobile Input
+                    GlassInputField(
+                        value = mobileNumber,
+                        onValueChange = { mobileNumber = it },
+                        placeholder = "501234567",
+                        leadingIcon = Icons.Default.Phone,
+                        modifier = Modifier.weight(1f)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = "Locked to ${if (selectedCurrency == "SAR") "Saudi Arabia" else if (selectedCurrency == "PKR") "Pakistan" else "UAE"}. Enter local number (e.g. 501234567).",
+                    fontSize = 11.sp,
+                    color = Color(0xFF9E9E9E),
+                    modifier = Modifier.align(Alignment.Start).padding(top = 8.dp, start = 4.dp)
+                )
 
-                TextButton(
-                    onClick = { viewModel.setScreen(ScreenType.LOGIN) }
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Complete Register Button
+                Button(
+                    onClick = {
+                        viewModel.registerUser(
+                            fullName = fullName,
+                            email = email,
+                            currency = selectedCurrency,
+                            mobileNumber = "$selectedPrefix $mobileNumber",
+                            pass = password
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .shadow(8.dp, RoundedCornerShape(28.dp), spotColor = Color(0xFF00C853).copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00C853))
                 ) {
+                    Text(
+                        text = "Complete Register",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                TextButton(onClick = { viewModel.setScreen(ScreenType.LOGIN) }) {
                     Text(
                         text = "Already registered? Login here",
                         fontWeight = FontWeight.Bold,
-                        color = BPGreenDark,
-                        fontSize = 14.sp
+                        color = Color(0xFF00C853),
+                        fontSize = 15.sp
                     )
                 }
+
+                Spacer(modifier = Modifier.height(40.dp))
             }
         }
     }

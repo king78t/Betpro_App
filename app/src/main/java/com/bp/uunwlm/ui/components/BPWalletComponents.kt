@@ -1,6 +1,7 @@
 package com.bp.uunwlm.ui.components
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -32,7 +33,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bp.uunwlm.R
+import com.bp.uunwlm.model.CelebrationEvent
 import com.bp.uunwlm.ui.theme.*
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.airbnb.lottie.compose.*
 
 @Composable
 fun BPLogoIcon(
@@ -155,30 +160,34 @@ fun BPLogoIcon(
 @Composable
 fun BPWalletLogo(
     modifier: Modifier = Modifier,
-    sizeDp: Int = 80,
+    sizeDp: Int = 90,
     showSubtitle: Boolean = true
 ) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Main Logo Image (Mint Green Squircle with Black Italic 'b')
         BPLogoIcon(sizeDp = sizeDp)
-        Spacer(modifier = Modifier.height(10.dp))
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
         Text(
             text = "BP WALLET",
             fontWeight = FontWeight.ExtraBold,
-            fontSize = 20.sp,
-            color = Slate900,
-            letterSpacing = 1.sp
+            fontSize = 26.sp,
+            color = Color(0xFF00C853),
+            letterSpacing = (-0.5).sp
         )
+        
         if (showSubtitle) {
-            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = "OFFICIAL WALLET & DEPOSIT SERVICE",
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = Slate500,
-                letterSpacing = 0.8.sp
+                letterSpacing = 0.8.sp,
+                modifier = Modifier.padding(top = 4.dp)
             )
         }
     }
@@ -192,67 +201,62 @@ fun BPTabSwitcher(
 ) {
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(50.dp))
-            .background(Slate100)
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color.White.copy(alpha = 0.6f))
             .padding(4.dp),
         horizontalArrangement = Arrangement.Center
     ) {
-        // User Tab Button
-        Box(
+        // User Tab
+        Surface(
+            onClick = { onTabChange(true) },
             modifier = Modifier
                 .weight(1f)
-                .clip(RoundedCornerShape(50.dp))
-                .background(if (isUserTab) Color.White else Color.Transparent)
-                .clickable { onTabChange(true) }
-                .padding(vertical = 10.dp),
-            contentAlignment = Alignment.Center
+                .fillMaxHeight(),
+            shape = RoundedCornerShape(20.dp),
+            color = if (isUserTab) Color.White else Color.Transparent,
+            shadowElevation = if (isUserTab) 4.dp else 0.dp
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxSize()
             ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "User",
-                    tint = if (isUserTab) BPGreenDark else Slate500,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "User",
-                    fontWeight = if (isUserTab) FontWeight.Bold else FontWeight.Medium,
+                    fontWeight = FontWeight.ExtraBold,
                     color = if (isUserTab) Slate900 else Slate500,
-                    fontSize = 14.sp
+                    fontSize = 15.sp
                 )
             }
         }
 
-        // Admin Tab Button
-        Box(
+        // Admin Tab
+        Surface(
+            onClick = { onTabChange(false) },
             modifier = Modifier
                 .weight(1f)
-                .clip(RoundedCornerShape(50.dp))
-                .background(if (!isUserTab) Color.White else Color.Transparent)
-                .clickable { onTabChange(false) }
-                .padding(vertical = 10.dp),
-            contentAlignment = Alignment.Center
+                .fillMaxHeight(),
+            shape = RoundedCornerShape(20.dp),
+            color = if (!isUserTab) Color.White else Color.Transparent,
+            shadowElevation = if (!isUserTab) 4.dp else 0.dp
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxSize()
             ) {
                 Icon(
-                    imageVector = Icons.Default.AdminPanelSettings,
-                    contentDescription = "Admin",
-                    tint = if (!isUserTab) BPGreenDark else Slate500,
+                    imageVector = Icons.Default.Security,
+                    contentDescription = null,
+                    tint = if (!isUserTab) Color(0xFF00C853) else Slate400,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "Admin",
-                    fontWeight = if (!isUserTab) FontWeight.Bold else FontWeight.Medium,
+                    fontWeight = FontWeight.ExtraBold,
                     color = if (!isUserTab) Slate900 else Slate500,
-                    fontSize = 14.sp
+                    fontSize = 15.sp
                 )
             }
         }
@@ -268,44 +272,60 @@ fun CurrencyCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    Surface(
+        onClick = onClick,
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onClick() }
-            .border(
-                width = if (isSelected) 2.dp else 1.dp,
-                color = if (isSelected) BPGreenPrimary else Slate200,
-                shape = RoundedCornerShape(12.dp)
+            .height(78.dp)
+            .shadow(
+                elevation = if (isSelected) 6.dp else 2.dp,
+                shape = RoundedCornerShape(16.dp),
+                spotColor = if (isSelected) Color(0xFF00C853).copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.1f)
             ),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) BPGreenPrimary else Color.White
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isSelected) 4.dp else 0.dp
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        border = BorderStroke(
+            width = if (isSelected) 2.dp else 1.dp,
+            color = if (isSelected) Color(0xFF00C853) else Color(0xFFEEEEEE)
         )
     ) {
         Column(
-            modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.Flag,
-                contentDescription = country,
-                tint = if (isSelected) Color.White else BPGreenDark,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
+            // Flag indicator (Simplified circle with text or generic icon)
+            Box(
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(if (isSelected) Color(0xFFE8F5E9) else Color(0xFFF5F5F5)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = when(code) {
+                        "PKR" -> "🇵🇰"
+                        "AED" -> "🇦🇪"
+                        "SAR" -> "🇸🇦"
+                        else -> "🏳️"
+                    },
+                    fontSize = 12.sp
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(6.dp))
+            
             Text(
                 text = code,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 15.sp,
-                color = if (isSelected) Color.White else Slate900
+                color = if (isSelected) Color(0xFF00C853) else Color(0xFF424242)
             )
+            
             Text(
                 text = prefix,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color = if (isSelected) Color.White.copy(alpha = 0.85f) else Slate500
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isSelected) Color(0xFF00C853).copy(alpha = 0.7f) else Color(0xFF9E9E9E)
             )
         }
     }
@@ -589,4 +609,145 @@ fun ShimmerWithdrawSkeleton(modifier: Modifier = Modifier) {
         )
     }
 }
+
+@Composable
+fun TransactionCelebrationDialog(
+    event: CelebrationEvent,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val composition by rememberLottieComposition(
+        LottieCompositionSpec.RawRes(R.raw.celebration_confetti)
+    )
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Surface(
+            modifier = modifier
+                .fillMaxWidth(0.9f)
+                .padding(16.dp)
+                .shadow(24.dp, RoundedCornerShape(28.dp)),
+            shape = RoundedCornerShape(28.dp),
+            color = Color.White
+        ) {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Lottie Animation Container
+                    Box(
+                        modifier = Modifier
+                            .size(180.dp)
+                            .clip(CircleShape)
+                            .background(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        BPGreenLight,
+                                        Color.White
+                                    )
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        LottieAnimation(
+                            composition = composition,
+                            iterations = LottieConstants.IterateForever,
+                            modifier = Modifier.size(180.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = event.title,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Slate900,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Amount Pill
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = BPGreenLight,
+                        border = BorderStroke(1.dp, BPGreenPrimary.copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            text = "${event.currency} ${event.amount.toInt()}",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            color = BPGreenDark,
+                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = event.subtitle,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Slate500,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 18.sp
+                    )
+
+                    if (event.referenceOrDetails.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = event.referenceOrDetails,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Slate500,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = BPGreenPrimary,
+                            contentColor = Color.White
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "CONTINUE",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 

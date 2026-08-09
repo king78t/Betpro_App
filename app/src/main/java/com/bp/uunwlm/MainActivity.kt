@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.bp.uunwlm.ui.components.*
 import com.bp.uunwlm.ui.screens.*
 import com.bp.uunwlm.ui.theme.*
 import com.bp.uunwlm.ui.viewmodel.BPWalletViewModel
@@ -155,6 +156,7 @@ fun BPWalletApp(
     val snackMessage by viewModel.snackMessage.collectAsState()
     val broadcast by viewModel.recentBroadcast.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val celebrationEvent by viewModel.celebrationEvent.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -246,8 +248,7 @@ fun BPWalletApp(
                 ScreenType.USER_WITHDRAW -> UserWithdrawScreen(viewModel = viewModel)
                 ScreenType.USER_HISTORY -> UserHistoryScreen(viewModel = viewModel)
                 ScreenType.USER_PROFILE -> UserProfileScreen(viewModel = viewModel)
-                ScreenType.ADMIN_DASHBOARD -> AdminDashboardScreen(viewModel = viewModel)
-                ScreenType.ADMIN_LIVE_CONTROL -> AdminLiveControlScreen(viewModel = viewModel)
+                ScreenType.ADMIN_DASHBOARD, ScreenType.ADMIN_LIVE_CONTROL -> AdminDashboardScreen(viewModel = viewModel)
                 ScreenType.ADMIN_USERS_CRM -> AdminUsersCrmScreen(viewModel = viewModel)
                 ScreenType.ADMIN_MASTER_AGENTS -> AdminMasterAgentsScreen(viewModel = viewModel)
                 ScreenType.ADMIN_TRANSACTIONS -> AdminTransactionsScreen(viewModel = viewModel)
@@ -263,6 +264,13 @@ fun BPWalletApp(
                 ) {
                     CircularProgressIndicator(color = BPGreenPrimary)
                 }
+            }
+
+            celebrationEvent?.let { event ->
+                TransactionCelebrationDialog(
+                    event = event,
+                    onDismiss = { viewModel.clearCelebration() }
+                )
             }
         }
     }

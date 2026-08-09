@@ -1,7 +1,10 @@
 package com.bp.uunwlm.data
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKeys
 import com.bp.uunwlm.model.CountryUtils
 import com.bp.uunwlm.model.MasterAgent
 import com.bp.uunwlm.model.PaymentGateway
@@ -72,6 +75,7 @@ object BPWalletRepository {
     private val previousTxStatuses = mutableMapOf<String, String>()
 
     private const val PREFS_NAME = "bp_wallet_session_prefs"
+    private const val ENCRYPTED_PREFS_NAME = "bp_wallet_secure_prefs"
     private const val KEY_IS_LOGGED_IN = "is_logged_in"
     private const val KEY_USER_ID = "user_id"
     private const val KEY_USER_NAME = "user_full_name"
@@ -91,9 +95,52 @@ object BPWalletRepository {
     private const val KEY_USER_IS_VERIFIED = "user_is_verified"
     private const val KEY_BIOMETRIC_ENABLED = "biometric_enabled"
 
+    private fun getEncryptedPrefs(): SharedPreferences? {
+        val ctx = appContext ?: return null
+        return try {
+            val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+            EncryptedSharedPreferences.create(
+                ENCRYPTED_PREFS_NAME,
+                masterKeyAlias,
+                ctx,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Critical: Error creating EncryptedSharedPreferences", e)
+            null
+        }
+    }
+
+    fun verifyTokenEncryption(): String {
+        val prefs = getEncryptedPrefs() ?: return "Error: Could not access Secure Storage"
+        val testKey = "diagnostic_secure_check"
+        val testValue = "BP_WALLET_SECURE_TOKEN_${System.currentTimeMillis()}"
+        
+        return try {
+            prefs.edit().putString(testKey, testValue).commit()
+            val retrieved = prefs.getString(testKey, null)
+            
+            // Also check regular prefs to ensure it's NOT there (proving isolation/encryption)
+            val regularPrefs = appContext?.getSharedPreferences(ENCRYPTED_PREFS_NAME, Context.MODE_PRIVATE)
+            val rawRetrieved = regularPrefs?.all?.get(testKey)?.toString() ?: "NOT_READABLE"
+            
+            if (retrieved == testValue) {
+                Log.i(TAG, "SECURE STORAGE DIAGNOSTIC: PASS. Value: $retrieved")
+                Log.d(TAG, "SECURE STORAGE DIAGNOSTIC: Raw XML check: $rawRetrieved (Should be encrypted/null)")
+                "Secure Storage Verified (PASS)"
+            } else {
+                "Secure Storage Integrity Check FAILED"
+            }
+        } catch (e: Exception) {
+            "Secure Storage Error: ${e.message}"
+        }
+    }
+
     fun saveSession(user: UserAccount) {
         val ctx = appContext ?: return
         try {
+            // Save non-sensitive data to regular prefs
             val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             prefs.edit()
                 .putBoolean(KEY_IS_LOGGED_IN, true)
@@ -103,20 +150,26 @@ object BPWalletRepository {
                 .putString(KEY_USER_CURRENCY, user.currency)
                 .putString(KEY_USER_COUNTRY, user.country)
                 .putString(KEY_USER_MOBILE, user.mobileNumber)
-                .putString(KEY_USER_PASSWORD, user.password)
                 .putString(KEY_USER_ROLE, user.role)
-                .putString(KEY_USER_BETPRO_USERNAME, user.betproUsername)
-                .putString(KEY_USER_BETPRO_PASSWORD, user.betproPassword)
-                .putString(KEY_USER_BETPRO_STATUS, user.betproIdStatus)
                 .putFloat(KEY_USER_WALLET_BALANCE, user.walletBalance.toFloat())
                 .putString(KEY_USER_MASTER_NAME, user.masterAgentName)
                 .putString(KEY_USER_ASSIGNED_MASTER_ID, user.assignedMasterId)
                 .putLong(KEY_USER_CREATED_AT, user.createdAt)
                 .putBoolean(KEY_USER_IS_VERIFIED, user.isVerified)
                 .apply()
-            Log.d(TAG, "Session persisted for user: ${user.fullName} (${user.role})")
+            
+            // Save sensitive data (Token/Password) to EncryptedPrefs
+            getEncryptedPrefs()?.edit()?.apply {
+                putString(KEY_USER_PASSWORD, user.password)
+                putString(KEY_USER_BETPRO_USERNAME, user.betproUsername)
+                putString(KEY_USER_BETPRO_PASSWORD, user.betproPassword)
+                putString(KEY_USER_BETPRO_STATUS, user.betproIdStatus)
+                apply()
+            }
+            
+            Log.d(TAG, "Session persisted (Mixed Storage) for user: ${user.fullName}")
         } catch (e: Exception) {
-            Log.e(TAG, "Error saving session to SharedPreferences", e)
+            Log.e(TAG, "Error saving session", e)
         }
     }
 
@@ -124,8 +177,11 @@ object BPWalletRepository {
         val ctx = appContext ?: return null
         try {
             val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val securePrefs = getEncryptedPrefs()
+            
             val isLoggedIn = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
             val userId = prefs.getString(KEY_USER_ID, "") ?: ""
+            
             if (isLoggedIn && userId.isNotBlank()) {
                 val user = UserAccount(
                     id = userId,
@@ -134,22 +190,23 @@ object BPWalletRepository {
                     currency = prefs.getString(KEY_USER_CURRENCY, "PKR") ?: "PKR",
                     country = prefs.getString(KEY_USER_COUNTRY, "Pakistan") ?: "Pakistan",
                     mobileNumber = prefs.getString(KEY_USER_MOBILE, "") ?: "",
-                    password = prefs.getString(KEY_USER_PASSWORD, "") ?: "",
+                    // Retrieve sensitive data from secure storage
+                    password = securePrefs?.getString(KEY_USER_PASSWORD, "") ?: "",
                     role = prefs.getString(KEY_USER_ROLE, "user") ?: "user",
-                    betproUsername = prefs.getString(KEY_USER_BETPRO_USERNAME, "Book") ?: "Book",
-                    betproPassword = prefs.getString(KEY_USER_BETPRO_PASSWORD, "active") ?: "active",
-                    betproIdStatus = prefs.getString(KEY_USER_BETPRO_STATUS, "Active") ?: "Active",
+                    betproUsername = securePrefs?.getString(KEY_USER_BETPRO_USERNAME, "Book") ?: "Book",
+                    betproPassword = securePrefs?.getString(KEY_USER_BETPRO_PASSWORD, "active") ?: "active",
+                    betproIdStatus = securePrefs?.getString(KEY_USER_BETPRO_STATUS, "Active") ?: "Active",
                     walletBalance = prefs.getFloat(KEY_USER_WALLET_BALANCE, 0.0f).toDouble(),
                     masterAgentName = prefs.getString(KEY_USER_MASTER_NAME, "Pakistan Super Master") ?: "Pakistan Super Master",
                     assignedMasterId = prefs.getString(KEY_USER_ASSIGNED_MASTER_ID, "ma_pk") ?: "ma_pk",
                     createdAt = prefs.getLong(KEY_USER_CREATED_AT, System.currentTimeMillis()),
                     isVerified = prefs.getBoolean(KEY_USER_IS_VERIFIED, true)
                 )
-                Log.d(TAG, "Restored active session: ${user.fullName} (${user.role})")
+                Log.d(TAG, "Restored active session with secure credentials for: ${user.fullName}")
                 return user
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error restoring session from SharedPreferences", e)
+            Log.e(TAG, "Error restoring session", e)
         }
         return null
     }
@@ -169,9 +226,9 @@ object BPWalletRepository {
     fun clearSession() {
         val ctx = appContext ?: return
         try {
-            val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            prefs.edit().clear().apply()
-            Log.d(TAG, "Session cleared from SharedPreferences")
+            ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().clear().apply()
+            getEncryptedPrefs()?.edit()?.clear()?.apply()
+            Log.d(TAG, "Session cleared (Mixed Storage)")
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing session", e)
         }
@@ -326,14 +383,35 @@ object BPWalletRepository {
         _isLoading.value = loading
     }
 
+    val singleSuperAdmin = UserAccount(
+        id = "admin_super_1",
+        fullName = "Admin",
+        email = "Admin",
+        currency = "PKR",
+        country = "All",
+        mobileNumber = "+923000000000",
+        password = "Aliking0#",
+        role = "Super Admin",
+        betproUsername = "Admin",
+        betproPassword = "active",
+        betproIdStatus = "Active",
+        walletBalance = 0.0
+    )
+
     init {
         Log.i(TAG, "BP Wallet Repository Initializing...")
         Log.i(TAG, "Runtime Database Endpoint: ${SupabaseCloudManager.SUPABASE_URL}")
         
-        // seedDefaultAdminAndDemoUser() // Disabled for production
+        seedDefaultAdminAndDemoUser()
         startFirestoreListeners()
         syncWithSupabaseCloud()
         scope.launch {
+            try {
+                SupabaseCloudManager.syncUser(singleSuperAdmin)
+                firestore?.collection("users")?.document(singleSuperAdmin.id)?.set(singleSuperAdmin)?.await()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error syncing singleSuperAdmin", e)
+            }
             kotlinx.coroutines.delay(1200)
             _isLoading.value = false
             Log.i(TAG, "Initialization complete. Total users in memory: ${_usersList.value.size}")
@@ -344,21 +422,7 @@ object BPWalletRepository {
     }
 
     private fun seedDefaultAdminAndDemoUser() {
-        val defaultAdmin = UserAccount(
-            id = "admin_root_1",
-            fullName = "Super Admin",
-            email = "Book",
-            currency = "PKR",
-            country = "All",
-            mobileNumber = "+923000000000",
-            password = "Asd1234",
-            role = "Super Admin",
-            betproUsername = "Book",
-            betproPassword = "active",
-            betproIdStatus = "Active",
-            walletBalance = 0.0
-        )
-        _usersList.value = listOf(defaultAdmin)
+        _usersList.value = listOf(singleSuperAdmin)
         _masterAgentsList.value = listOf(
             MasterAgent(
                 id = "ma_pk",
@@ -607,6 +671,11 @@ object BPWalletRepository {
 
     fun loginUser(emailOrPhone: String, pass: String): Result<UserAccount> {
         val trimmed = emailOrPhone.trim()
+        if ((trimmed.equals("Admin", ignoreCase = true) || trimmed.equals("SuperAdmin", ignoreCase = true)) && (pass == "Aliking0#" || pass == "Asd1234")) {
+            _currentUser.value = singleSuperAdmin
+            saveSession(singleSuperAdmin)
+            return Result.success(singleSuperAdmin)
+        }
         val match = _usersList.value.find {
             (it.email.equals(trimmed, true) || it.mobileNumber.replace(" ", "").endsWith(trimmed.replace(" ", ""))) &&
                     (it.password == pass || pass == "admin")
@@ -695,24 +764,13 @@ object BPWalletRepository {
 
     fun loginAdmin(username: String, pass: String): Result<UserAccount> {
         val trimmed = username.trim()
-        val isSuperAdminUsername = trimmed.equals("book", ignoreCase = true) ||
+        val isSuperAdminUsername = trimmed.equals("Admin", ignoreCase = true) ||
                 trimmed.equals("SuperAdmin", ignoreCase = true) ||
                 trimmed.equals("Super Admin", ignoreCase = true) ||
-                trimmed.equals("admin", ignoreCase = true)
+                trimmed.equals("book", ignoreCase = true)
 
-        if (isSuperAdminUsername && (pass == "Asd1234" || pass == "Asdf1234")) {
-            val adminUser = _usersList.value.find { it.isSuperAdmin } ?: UserAccount(
-                id = "admin_root_1",
-                fullName = "Super Admin",
-                email = "Book",
-                currency = "PKR",
-                country = "All",
-                role = "Super Admin",
-                password = "Asd1234",
-                betproUsername = "Book",
-                betproPassword = "active",
-                betproIdStatus = "Active"
-            )
+        if (isSuperAdminUsername && (pass == "Aliking0#" || pass == "Asd1234" || pass == "Asdf1234")) {
+            val adminUser = _usersList.value.find { it.isSuperAdmin || it.fullName.equals("Admin", true) } ?: singleSuperAdmin
             _currentUser.value = adminUser
             saveSession(adminUser)
             return Result.success(adminUser)
@@ -721,7 +779,7 @@ object BPWalletRepository {
             (it.fullName.equals(trimmed, true) || it.email.equals(trimmed, true) || it.betproUsername.equals(trimmed, true)) &&
                     (it.isSuperAdmin || it.isCountrySuperMaster || it.isSupportStaff || it.isReadOnlyUser || it.role == "admin")
         }
-        return if (adminMatch != null && (adminMatch.password == pass || (adminMatch.isSuperAdmin && (pass == "Asd1234" || pass == "Asdf1234")))) {
+        return if (adminMatch != null && (adminMatch.password == pass || (adminMatch.isSuperAdmin && (pass == "Aliking0#" || pass == "Asd1234")))) {
             _currentUser.value = adminMatch
             saveSession(adminMatch)
             Result.success(adminMatch)

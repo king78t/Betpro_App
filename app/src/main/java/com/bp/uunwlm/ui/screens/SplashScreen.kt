@@ -38,7 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.bp.uunwlm.R
+import com.bp.uunwlm.ui.components.BPLogoIcon
 import com.bp.uunwlm.ui.viewmodel.BPWalletViewModel
 import kotlinx.coroutines.delay
 import kotlin.math.cos
@@ -433,15 +433,8 @@ fun FloatingLogo(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            // Uploaded BP Wallet 3D Premium Logo
-            Image(
-                painter = painterResource(id = R.drawable.bp_3d_premium_logo_1785552840586),
-                contentDescription = "BP Wallet 3D Logo",
-                modifier = Modifier
-                    .size(108.dp)
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop
-            )
+            // Uploaded BP Wallet Logo (Mint Green Squircle with Black Italic 'b')
+            BPLogoIcon(sizeDp = 108)
 
             // High-End Glass Reflection / Shimmer Overlay
             Box(

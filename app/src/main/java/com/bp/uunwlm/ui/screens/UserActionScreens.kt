@@ -477,7 +477,7 @@ fun UserDepositScreen(
                     enabled = !isSubmitting,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
+                        .height(50.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF00B16A), // Emerald green matching image
@@ -669,8 +669,8 @@ fun UserWithdrawScreen(
                 enabled = !isSubmitting,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(14.dp),
+                    .height(50.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Slate900,
                     contentColor = Color.White

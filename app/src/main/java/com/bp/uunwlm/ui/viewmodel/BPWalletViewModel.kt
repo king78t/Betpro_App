@@ -3,6 +3,7 @@ package com.bp.uunwlm.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bp.uunwlm.data.BPWalletRepository
+import com.bp.uunwlm.model.CelebrationEvent
 import com.bp.uunwlm.model.MasterAgent
 import com.bp.uunwlm.model.PaymentGateway
 import com.bp.uunwlm.model.TransactionRequest
@@ -136,6 +137,18 @@ class BPWalletViewModel : ViewModel() {
 
     fun triggerErrorShake() {
         _errorShakeTrigger.value += 1
+    }
+
+    // Celebratory Lottie Animation Event State
+    private val _celebrationEvent = MutableStateFlow<CelebrationEvent?>(null)
+    val celebrationEvent: StateFlow<CelebrationEvent?> = _celebrationEvent.asStateFlow()
+
+    fun triggerCelebration(event: CelebrationEvent) {
+        _celebrationEvent.value = event
+    }
+
+    fun clearCelebration() {
+        _celebrationEvent.value = null
     }
 
     // Deposit flow state
@@ -433,6 +446,16 @@ class BPWalletViewModel : ViewModel() {
             handleResult(result, onSuccess = {
                 showSnack("Deposit Request of $curr ${amount.toInt()} submitted! Awaiting Admin approval.")
                 _selectedDepositGateway.value = null
+                triggerCelebration(
+                    CelebrationEvent(
+                        title = "Deposit Submitted! 🎉",
+                        subtitle = "Your deposit request of $curr ${amount.toInt()} via ${gw.name} has been received and sent for verification.",
+                        amount = amount,
+                        currency = curr,
+                        transactionType = "DEPOSIT",
+                        referenceOrDetails = "Ref: $refToSave"
+                    )
+                )
                 setScreen(ScreenType.USER_HOME)
             })
         }
@@ -454,6 +477,16 @@ class BPWalletViewModel : ViewModel() {
         val curr = currentUser.value?.currency ?: "PKR"
         handleResult(result, onSuccess = {
             showSnack("Withdrawal Request of $curr ${amount.toInt()} submitted successfully!")
+            triggerCelebration(
+                CelebrationEvent(
+                    title = "Withdrawal Requested! 💰",
+                    subtitle = "Your payout request of $curr ${amount.toInt()} to $accountTitle ($gatewayName) is processing.",
+                    amount = amount,
+                    currency = curr,
+                    transactionType = "WITHDRAW",
+                    referenceOrDetails = "$gatewayName • $accountNumberOrIban"
+                )
+            )
             setScreen(ScreenType.USER_HOME)
         })
     }
@@ -465,6 +498,16 @@ class BPWalletViewModel : ViewModel() {
         BPWalletRepository.setLoading(false)
         handleResult(res, onSuccess = { tx ->
             showSnack("${tx.type} approved successfully!")
+            triggerCelebration(
+                CelebrationEvent(
+                    title = "${tx.type} Approved! ✨",
+                    subtitle = "Transaction of ${tx.currency} ${tx.amount.toInt()} has been successfully approved and completed.",
+                    amount = tx.amount,
+                    currency = tx.currency,
+                    transactionType = tx.type,
+                    referenceOrDetails = "Transaction ID: ${tx.id}"
+                )
+            )
         })
     }
 
@@ -600,9 +643,15 @@ class BPWalletViewModel : ViewModel() {
         _selectedMasterForDetails.value = null
     }
 
+    fun resetCrmFilters() {
+        _crmSearchQuery.value = ""
+        _crmCurrencyFilter.value = "All Curr"
+        _crmStatusFilter.value = "All Status"
+    }
+
     fun filterCrmByMaster(agent: MasterAgent) {
         _crmSearchQuery.value = agent.name
-        _crmCurrencyFilter.value = agent.currency
+        _crmCurrencyFilter.value = "All Curr"
         closeMasterDetails()
         setScreen(ScreenType.ADMIN_USERS_CRM)
     }
@@ -725,6 +774,10 @@ class BPWalletViewModel : ViewModel() {
         handleResult(result, onSuccess = {
             showSnack("Your password was updated successfully!")
         })
+    }
+
+    fun verifySecurityStorage(): String {
+        return BPWalletRepository.verifyTokenEncryption()
     }
 
     fun updateExchangeWebsiteUrl(url: String) {
