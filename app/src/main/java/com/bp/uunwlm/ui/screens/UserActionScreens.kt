@@ -409,19 +409,22 @@ fun UserDepositScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                             if (screenshotUri.isNotBlank()) {
-                                val lottieComp by rememberLottieComposition(LottieCompositionSpec.Url("https://assets10.lottiefiles.com/packages/lf20_aw7isvun.json"))
-                                LottieAnimation(
-                                    composition = lottieComp,
-                                    iterations = 1,
-                                    modifier = Modifier.size(32.dp)
+                                coil.compose.AsyncImage(
+                                    model = screenshotUri,
+                                    contentDescription = "Preview",
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(8.dp)),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
                                 )
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.AddPhotoAlternate,
                                     contentDescription = "Screenshot",
-                                    tint = Color(0xFFD32F2F)
+                                    tint = Color(0xFFD32F2F),
+                                    modifier = Modifier.size(32.dp)
                                 )
                             }
                             Spacer(modifier = Modifier.width(12.dp))
@@ -881,21 +884,50 @@ fun UserProfileScreen(
 
     var editableFullName by remember(u.fullName) { mutableStateOf(u.fullName) }
     var editableMobileNumber by remember(u.mobileNumber) { mutableStateOf(u.mobileNumber) }
+    var editableCountry by remember(u.country) { mutableStateOf(u.country) }
     var newPassword by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-
-    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    val whatsappNumber by viewModel.whatsappHelplineNumber.collectAsState()
+    val biometricEnabled by viewModel.isBiometricEnabled.collectAsState()
 
     BetProWebViewDialogHandler(viewModel = viewModel)
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        containerColor = Color(0xFFF8F9FA),
         topBar = {
-            UserTopBar(
-                user = u,
-                onLogout = { viewModel.logout() },
-                onProfileClick = { viewModel.setScreen(ScreenType.USER_PROFILE) }
-            )
+            Surface(
+                color = Color.White,
+                shadowElevation = 0.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { viewModel.setScreen(ScreenType.USER_HOME) },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Slate50)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Slate900,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = "Profile",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Slate900
+                    )
+                }
+            }
         },
         bottomBar = {
             UserBottomNavBar(
@@ -913,269 +945,120 @@ fun UserProfileScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Profile Header Card
+            // User Info Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clip(CircleShape)
-                            .background(BPGreenLight),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = u.fullName.take(1).uppercase(),
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = BPGreenDark
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = u.fullName,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Slate900
-                    )
-                    Text(
-                        text = u.email,
-                        fontSize = 13.sp,
-                        color = Slate500
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        StatusBadge(status = "${u.currency} VERIFIED WALLET")
-                        
-                        // Registered Country Badge
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = Slate100
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Place,
-                                    contentDescription = "Country",
-                                    tint = Slate700,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Text(
-                                    text = u.country,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Slate800
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // User / Agent Unique ID Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = BPGreenLight),
-                border = androidx.compose.foundation.BorderStroke(1.dp, BPGreenPrimary.copy(alpha = 0.3f))
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(BPGreenPrimary),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = u.fullName,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate900
+                        )
+                        Text(
+                            text = u.email,
+                            fontSize = 13.sp,
+                            color = Slate500
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(BPGreenPrimary),
-                            contentAlignment = Alignment.Center
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(BPGreenLight)
+                                .border(1.dp, BPGreenPrimary.copy(alpha = 0.2f), RoundedCornerShape(20.dp))
+                                .padding(horizontal = 10.dp, vertical = 3.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Badge,
-                                contentDescription = "User/Agent ID",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
+                                imageVector = Icons.Default.Shield,
+                                contentDescription = null,
+                                tint = BPGreenDark,
+                                modifier = Modifier.size(12.dp)
                             )
-                        }
-                        Column {
                             Text(
-                                text = "Unique User / Agent ID",
+                                text = "${u.id} · ${u.currency}",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = BPGreenDark
                             )
-                            Text(
-                                text = u.id,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Slate900
-                            )
                         }
-                    }
-
-                    IconButton(
-                        onClick = {
-                            clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(u.id))
-                            viewModel.showSnack("User/Agent ID copied to clipboard!")
-                        },
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .background(Color.White)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ContentCopy,
-                            contentDescription = "Copy ID",
-                            tint = BPGreenDark,
-                            modifier = Modifier.size(18.dp)
-                        )
                     }
                 }
             }
 
-            // Manage Account Details Card
+            // Personal Details Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Manage Account Details",
-                            tint = BPGreenDark,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Column {
-                            Text(
-                                text = "Manage Account Details",
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 15.sp,
-                                color = Slate900
-                            )
-                            Text(
-                                text = "Update your full name and mobile phone number",
-                                fontSize = 12.sp,
-                                color = Slate500
-                            )
-                        }
-                    }
-
-                    OutlinedTextField(
-                        value = editableFullName,
-                        onValueChange = { editableFullName = it },
-                        label = { Text("Full Name") },
-                        leadingIcon = {
-                            Icon(imageVector = Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
-                        },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
+                    Text(
+                        text = "Personal details",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Slate900
                     )
 
-                    OutlinedTextField(
-                        value = editableMobileNumber,
-                        onValueChange = { editableMobileNumber = it },
-                        label = { Text("Mobile Number") },
-                        leadingIcon = {
-                            Icon(imageVector = Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(18.dp))
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
-                    )
+                    ProfileInputField(label = "Full name", value = editableFullName, onValueChange = { editableFullName = it })
+                    ProfileInputField(label = "Mobile", value = editableMobileNumber, onValueChange = { editableMobileNumber = it })
+                    ProfileInputField(label = "Country", value = editableCountry, onValueChange = { editableCountry = it })
+                    ProfileInputField(label = "Currency (locked)", value = u.currency, onValueChange = {}, readOnly = true)
 
                     Button(
                         onClick = {
                             viewModel.updateUserProfile(editableFullName, editableMobileNumber)
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(26.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Save Profile Changes",
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+                        Text(text = "Save changes", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
-                }
-            }
-
-            // Info Overview Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text(
-                        text = "Account Overview & Attributes",
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 14.sp,
-                        color = Slate900
-                    )
-                    ProfileRowItem(label = "Unique User / Agent ID", valText = u.id)
-                    HorizontalDivider(color = Slate100)
-                    ProfileRowItem(label = "Registered Country", valText = u.country)
-                    HorizontalDivider(color = Slate100)
-                    ProfileRowItem(label = "Account Currency", valText = "${u.currency} (${currencyName(u.currency)})")
-                    HorizontalDivider(color = Slate100)
-                    ProfileRowItem(label = "Assigned Master Agent", valText = u.masterAgentName)
-                    HorizontalDivider(color = Slate100)
-                    ProfileRowItem(label = "BetPro Exchange Username", valText = u.betproUsername)
-                    HorizontalDivider(color = Slate100)
-                    ProfileRowItem(label = "BetPro ID Status", valText = u.betproIdStatus)
                 }
             }
 
             // Change Password Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(18.dp),
+                    modifier = Modifier.padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Row(
@@ -1183,91 +1066,204 @@ fun UserProfileScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = "Change Password",
+                            imageVector = Icons.Default.Key,
+                            contentDescription = null,
                             tint = BPGreenDark,
                             modifier = Modifier.size(20.dp)
                         )
-                        Column {
-                            Text(
-                                text = "Change Account Password",
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 15.sp,
-                                color = Slate900
-                            )
-                            Text(
-                                text = "Update your wallet login password securely",
-                                fontSize = 12.sp,
-                                color = Slate500
-                            )
-                        }
+                        Text(
+                            text = "Change password",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate900
+                        )
                     }
 
-                    OutlinedTextField(
-                        value = newPassword,
-                        onValueChange = { newPassword = it },
-                        label = { Text("New Password") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
-                    )
+                    ProfileInputField(label = "", value = newPassword, onValueChange = { newPassword = it }, placeholder = "New password")
 
-                    OutlinedTextField(
-                        value = confirmPassword,
-                        onValueChange = { confirmPassword = it },
-                        label = { Text("Confirm New Password") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
-                    )
-
-                    Button(
+                    OutlinedButton(
                         onClick = {
-                            if (newPassword != confirmPassword) {
-                                viewModel.showSnack("Passwords do not match!")
-                            } else {
+                            if (newPassword.isNotBlank()) {
                                 viewModel.updateUserPassword(newPassword)
                                 newPassword = ""
-                                confirmPassword = ""
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(26.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Slate900)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Update Password",
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
+                        Text(text = "Update password", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    }
+                }
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Fingerprint,
+                                contentDescription = null,
+                                tint = BPGreenDark,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "Biometric Lock",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Slate900
+                                )
+                                Text(
+                                    text = "Fingerprint or Face Unlock",
+                                    fontSize = 12.sp,
+                                    color = Slate500
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = biometricEnabled,
+                            onCheckedChange = { viewModel.setBiometricEnabled(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = BPGreenPrimary,
+                                uncheckedThumbColor = Slate200,
+                                uncheckedTrackColor = Slate50
+                            )
                         )
                     }
                 }
             }
 
-            Button(
+            // Support Card
+            val context = androidx.compose.ui.platform.LocalContext.current
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Support",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Slate900
+                    )
+                    Text(
+                        text = "24/7 Support · Member since ${formatFullDate(u.createdAt)}",
+                        fontSize = 12.sp,
+                        color = Slate500
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            viewModel.openWhatsAppSupport(context)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(26.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ChatBubbleOutline,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = "Chat with support on WhatsApp", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    }
+                }
+            }
+
+            // Logout Button
+            OutlinedButton(
                 onClick = { viewModel.logout() },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFD32F2F),
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(12.dp)
+                    .height(52.dp),
+                shape = RoundedCornerShape(26.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFE5E5)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F))
             ) {
-                Icon(imageVector = Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout")
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "Log Out of BP Wallet", fontWeight = FontWeight.Bold)
+                Text(text = "Logout", fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
+            
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
+
+@Composable
+fun ProfileInputField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String = "",
+    readOnly: Boolean = false
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (label.isNotBlank()) {
+            Text(
+                text = label,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Slate700
+            )
+        }
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            placeholder = { if (placeholder.isNotBlank()) Text(placeholder) },
+            readOnly = readOnly,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(26.dp),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                unfocusedBorderColor = Slate100,
+                focusedBorderColor = BPGreenPrimary,
+                unfocusedContainerColor = Slate50,
+                focusedContainerColor = Slate50,
+                unfocusedTextColor = if (readOnly) Slate500 else Slate900,
+                focusedTextColor = Slate900
+            )
+        )
+    }
+}
+
+fun formatFullDate(timestamp: Long): String {
+    val sdf = SimpleDateFormat("MMM dd, yyyy, hh:mm a", Locale.getDefault())
+    return sdf.format(Date(timestamp))
+}
+
 
 @Composable
 fun ProfileRowItem(label: String, valText: String) {

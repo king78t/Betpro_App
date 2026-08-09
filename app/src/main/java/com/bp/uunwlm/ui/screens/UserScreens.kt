@@ -348,9 +348,10 @@ fun UserHomeScreen(
             }
 
             // WhatsApp Helpline Button
+            val context = LocalContext.current
             WhatsAppHelplineButton(
                 onClick = {
-                    viewModel.showSnack("Connecting to Official BP Wallet WhatsApp Support at $whatsappNumber...")
+                    viewModel.openWhatsAppSupport(context)
                 }
             )
 

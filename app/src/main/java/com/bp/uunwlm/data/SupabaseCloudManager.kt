@@ -41,9 +41,9 @@ object SupabaseCloudManager {
 
     val SUPABASE_ANON_KEY: String = try {
         val key = BuildConfig.SUPABASE_ANON_KEY
-        if (key.isNotBlank()) key else "sb_publishable__fRb6fc87bNBTxr3SBEEtQ_NR8RHpzx"
+        if (key.isNotBlank()) key else ""
     } catch (e: Exception) {
-        "sb_publishable__fRb6fc87bNBTxr3SBEEtQ_NR8RHpzx"
+        ""
     }
 
     private val gson: Gson = GsonBuilder().create()
@@ -309,6 +309,38 @@ object SupabaseCloudManager {
     // ==========================================
     // SYNC METHODS FOR ALL ENTITIES
     // ==========================================
+
+    /**
+     * Upload an image to Supabase Storage.
+     * Bucket "proofs" must be created in Supabase with public access.
+     */
+    suspend fun uploadImage(fileName: String, byteArray: ByteArray): String? = withContext(Dispatchers.IO) {
+        try {
+            val url = "$SUPABASE_URL/storage/v1/object/proofs/$fileName"
+            val requestBody = byteArray.toRequestBody("image/*".toMediaType())
+            val request = Request.Builder()
+                .url(url)
+                .header("apikey", SUPABASE_ANON_KEY)
+                .header("Authorization", "Bearer $SUPABASE_ANON_KEY")
+                .header("Content-Type", "image/*")
+                .post(requestBody)
+                .build()
+
+            okHttpClient.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val publicUrl = "$SUPABASE_URL/storage/v1/object/public/proofs/$fileName"
+                    Log.d(TAG, "Successfully uploaded image: $publicUrl")
+                    publicUrl
+                } else {
+                    Log.w(TAG, "Supabase Storage upload failed: ${response.code} - ${response.body?.string()}")
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error uploading image to Supabase: ${e.message}")
+            null
+        }
+    }
 
     suspend fun syncUser(user: UserAccount) {
         upsertRow("users", user.id, user)

@@ -39,14 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.credentials.CredentialManager
-import androidx.credentials.GetCredentialRequest
-import androidx.credentials.CustomCredential
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlin.math.roundToInt
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import com.bp.uunwlm.ui.components.BPTabSwitcher
 import com.bp.uunwlm.ui.components.BPWalletLogo
 import com.bp.uunwlm.ui.components.CurrencyCard
@@ -83,7 +76,6 @@ fun LoginScreen(
     var adminPassword by remember { mutableStateOf("") }
     var rememberMe by remember { mutableStateOf(true) }
     var passwordVisible by remember { mutableStateOf(false) }
-    var showGooglePicker by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -116,16 +108,6 @@ fun LoginScreen(
                 }
             },
             confirmButton = {}
-        )
-    }
-
-    if (showGooglePicker) {
-        GoogleSignInAccountPickerModal(
-            onDismiss = { showGooglePicker = false },
-            onAccountSelected = { em, name ->
-                showGooglePicker = false
-                viewModel.signInWithGoogle(em, name, null)
-            }
         )
     }
 
@@ -358,9 +340,7 @@ fun LoginScreen(
                         }
                     )
 
-                    Spacer(modifier = Modifier.height(22.dp))
-
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // CREATE NEW ACCOUNT Button
                     GlassCreateAccountButton(
@@ -507,20 +487,21 @@ fun GlassLoginButton(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .height(50.dp)
             .shadow(
-                elevation = 8.dp,
-                shape = RoundedCornerShape(28.dp),
-                spotColor = Color(0xFF10B981).copy(alpha = 0.4f)
+                elevation = 6.dp,
+                shape = RoundedCornerShape(25.dp),
+                spotColor = Color(0xFF10B981).copy(alpha = 0.35f)
             ),
-        shape = RoundedCornerShape(28.dp),
-        color = Color(0xFF10B981)
+        shape = RoundedCornerShape(25.dp),
+        color = Color(0xFF10B981),
+        border = BorderStroke(1.dp, Color(0xFF059669))
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
-                    Brush.horizontalGradient(
+                    Brush.verticalGradient(
                         colors = listOf(
                             Color(0xFF10B981),
                             Color(0xFF059669)
@@ -532,9 +513,9 @@ fun GlassLoginButton(
             Text(
                 text = text,
                 color = Color.White,
-                fontSize = 17.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.5.sp
+                letterSpacing = 0.4.sp
             )
         }
     }
@@ -550,21 +531,35 @@ fun GlassCreateAccountButton(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .height(54.dp),
-        shape = RoundedCornerShape(27.dp),
-        color = Color(0xFFE4F2EE),
+            .height(48.dp)
+            .shadow(
+                elevation = 2.dp,
+                shape = RoundedCornerShape(24.dp),
+                spotColor = Color(0xFFBAE6DA).copy(alpha = 0.2f)
+            ),
+        shape = RoundedCornerShape(24.dp),
+        color = Color.White,
         border = BorderStroke(1.5.dp, Color(0xFFBAE6DA))
     ) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White,
+                            Color(0xFFF1F8F6)
+                        )
+                    )
+                ),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = text,
                 color = Color(0xFF065F46),
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.8.sp
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp
             )
         }
     }
@@ -877,13 +872,13 @@ fun Premium3DButton(
         onClick = onClick,
         modifier = modifier
             .widthIn(min = 140.dp)
-            .height(48.dp)
+            .height(50.dp)
             .shadow(
                 elevation = 6.dp,
-                shape = RoundedCornerShape(24.dp),
-                spotColor = backgroundColor.copy(alpha = 0.4f)
+                shape = RoundedCornerShape(25.dp),
+                spotColor = backgroundColor.copy(alpha = 0.3f)
             ),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(25.dp),
         color = containerCol,
         border = BorderStroke(if (isOutlined) 1.5.dp else 2.dp, borderCol)
     ) {
@@ -914,7 +909,7 @@ fun Premium3DButton(
                 Text(
                     text = text,
                     color = textCol,
-                    fontSize = 14.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 0.5.sp
                 )
@@ -932,300 +927,7 @@ fun Premium3DButton(
     }
 }
 
-@Composable
-fun GoogleSignInButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(14.dp),
-        color = Color.White,
-        border = BorderStroke(1.5.dp, Color(0xFFE2E8F0)),
-        modifier = modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .testTag("google_sign_in_button")
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Surface(
-                shape = CircleShape,
-                color = Color(0xFFF1F5F9),
-                modifier = Modifier.size(28.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "G",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Black,
-                        color = Color(0xFF4285F4)
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = "Continue with Google",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = Slate800
-            )
-        }
-    }
-}
 
-@Composable
-fun GoogleSignInAccountPickerModal(
-    onDismiss: () -> Unit,
-    onAccountSelected: (email: String, name: String) -> Unit
-) {
-    val context = LocalContext.current
-    val deviceAccounts = emptyList<Pair<String, String>>()
-
-    var customEmail by remember { mutableStateOf("") }
-    var customName by remember { mutableStateOf("") }
-    var errorMessage by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = Color(0xFFE3F2FD),
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "G",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color(0xFF4285F4)
-                        )
-                    }
-                }
-                Column {
-                    Text(
-                        text = "Sign in with Google",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Slate900
-                    )
-                    Text(
-                        text = "Connect your real Google Account",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Slate500
-                    )
-                }
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                if (deviceAccounts.isNotEmpty()) {
-                    Text(
-                        text = "Google Accounts on this device:",
-                        fontSize = 13.sp,
-                        color = Slate700,
-                        fontWeight = FontWeight.Bold
-                    )
-                    deviceAccounts.forEach { (email, name) ->
-                        Surface(
-                            onClick = { onAccountSelected(email, name) },
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFFF8FAFC),
-                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("google_account_$email")
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color(0xFF4285F4),
-                                    modifier = Modifier.size(38.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Text(
-                                            text = name.take(1).uppercase(),
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 16.sp
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = name,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp,
-                                        color = Slate900
-                                    )
-                                    Text(
-                                        text = email,
-                                        fontWeight = FontWeight.Normal,
-                                        fontSize = 12.sp,
-                                        color = Slate500
-                                    )
-                                }
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = "Select Account",
-                                    tint = Color(0xFF4285F4),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
-
-                Text(
-                    text = "Enter your Google account email to connect:",
-                    fontSize = 13.sp,
-                    color = Slate700,
-                    fontWeight = FontWeight.Bold
-                )
-
-                OutlinedTextField(
-                    value = customEmail,
-                    onValueChange = {
-                        customEmail = it
-                        errorMessage = ""
-                    },
-                    label = { Text("Google Email Address") },
-                    placeholder = { Text("yourname@gmail.com") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF4285F4),
-                        unfocusedBorderColor = Slate300
-                    )
-                )
-
-                OutlinedTextField(
-                    value = customName,
-                    onValueChange = { customName = it },
-                    label = { Text("Full Name (Optional)") },
-                    placeholder = { Text("e.g. John Doe") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF4285F4),
-                        unfocusedBorderColor = Slate300
-                    )
-                )
-
-                if (errorMessage.isNotEmpty()) {
-                    Text(
-                        text = errorMessage,
-                        color = Color.Red,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val email = customEmail.trim()
-                    if (email.isEmpty() || !email.contains("@")) {
-                        errorMessage = "Please enter a valid Google email address"
-                        return@Button
-                    }
-                    val name = customName.trim().ifEmpty {
-                        email.substringBefore("@").replace(".", " ").replaceFirstChar { c -> c.uppercase() }
-                    }
-                    onAccountSelected(email, name)
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4285F4)),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text("Connect Google Account", color = Color.White, fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Slate500, fontWeight = FontWeight.Bold)
-            }
-        },
-        shape = RoundedCornerShape(20.dp),
-        containerColor = Color.White
-    )
-}
-
-fun triggerGoogleSignIn(
-    context: Context,
-    scope: CoroutineScope,
-    onNeedPicker: () -> Unit,
-    onTokenReceived: (email: String, name: String, idToken: String?) -> Unit
-) {
-    scope.launch {
-        try {
-            val credentialManager = CredentialManager.create(context)
-            val webClientId = try {
-                BuildConfig.WEB_CLIENT_ID
-            } catch (e: Exception) {
-                ""
-            }
-            
-            if (webClientId.isEmpty() || webClientId.contains("example")) {
-                android.util.Log.w("GoogleSignIn", "WEB_CLIENT_ID is not configured or is a placeholder.")
-                onNeedPicker()
-                return@launch
-            }
-            
-            val googleIdOption = GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false)
-                .setServerClientId(webClientId)
-                .setAutoSelectEnabled(true)
-                .build()
-
-            val request = GetCredentialRequest.Builder()
-                .addCredentialOption(googleIdOption)
-                .build()
-
-            val result = credentialManager.getCredential(context, request)
-            val credential = result.credential
-            if (credential is CustomCredential &&
-                credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
-            ) {
-                val googleIdTokenCredential =
-                    GoogleIdTokenCredential.createFrom(credential.data)
-                val email = googleIdTokenCredential.id
-                val name = googleIdTokenCredential.displayName ?: email.substringBefore("@")
-                onTokenReceived(email, name, googleIdTokenCredential.idToken)
-            } else {
-                android.util.Log.w("GoogleSignIn", "Unexpected credential type: ${credential.type}")
-                onNeedPicker()
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("GoogleSignIn", "Error during sign in", e)
-            // If it's a SecurityException or other common GMS error, we definitely want the fallback picker
-            onNeedPicker()
-        }
-    }
-}
 
 
 

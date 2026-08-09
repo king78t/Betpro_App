@@ -39,6 +39,29 @@ class BPWalletViewModel : ViewModel() {
     val exchangeWebsiteUrl = BPWalletRepository.exchangeWebsiteUrl
     val isLoading = BPWalletRepository.isLoading
 
+    private val _isBiometricEnabled = MutableStateFlow(BPWalletRepository.isBiometricEnabled())
+    val isBiometricEnabled: StateFlow<Boolean> = _isBiometricEnabled.asStateFlow()
+
+    fun setBiometricEnabled(enabled: Boolean) {
+        BPWalletRepository.setBiometricEnabled(enabled)
+        _isBiometricEnabled.value = enabled
+    }
+
+    private val _isBiometricAuthenticated = MutableStateFlow(false)
+    val isBiometricAuthenticated: StateFlow<Boolean> = _isBiometricAuthenticated.asStateFlow()
+
+    private val _lastActivityTime = MutableStateFlow(System.currentTimeMillis())
+    val lastActivityTime: StateFlow<Long> = _lastActivityTime.asStateFlow()
+
+    fun recordUserActivity() {
+        _lastActivityTime.value = System.currentTimeMillis()
+    }
+
+    fun setBiometricAuthenticated(authenticated: Boolean) {
+        _isBiometricAuthenticated.value = authenticated
+        if (authenticated) recordUserActivity()
+    }
+
     private fun getInitialScreen(): ScreenType {
         val user = currentUser.value
         return if (user != null) {
@@ -211,6 +234,7 @@ class BPWalletViewModel : ViewModel() {
         val result = BPWalletRepository.loginUser(emailOrPhone, pass)
         BPWalletRepository.setLoading(false)
         handleResult(result, onSuccess = { user ->
+            recordUserActivity()
             showSnack("Welcome Back, ${user.fullName}!")
             if (user.isAdminRole) {
                 setScreen(ScreenType.ADMIN_DASHBOARD)
@@ -232,6 +256,7 @@ class BPWalletViewModel : ViewModel() {
         val result = BPWalletRepository.loginAdmin(username, pass)
         BPWalletRepository.setLoading(false)
         handleResult(result, onSuccess = { admin ->
+            recordUserActivity()
             showSnack("Admin logged in successfully! Welcome ${admin.fullName}")
             if (admin.isAdminRole) {
                 setScreen(ScreenType.ADMIN_DASHBOARD)
@@ -283,6 +308,7 @@ class BPWalletViewModel : ViewModel() {
             )
             BPWalletRepository.setLoading(false)
             handleResult(result, onSuccess = { user ->
+                recordUserActivity()
                 showSnack("Account created successfully! Welcome to BP Wallet, ${user.fullName}.")
                 setScreen(ScreenType.USER_HOME)
             }, onError = {
@@ -388,15 +414,28 @@ class BPWalletViewModel : ViewModel() {
             showSnack("Minimum deposit for ${gw.name} is $curr ${gw.minDeposit.toInt()}")
             return
         }
+        if (screenshotUri.isBlank()) {
+            showSnack("Please attach payment screenshot proof!")
+            return
+        }
+
         val refToSave = if (reference.isBlank()) "PROOF_UPLOADED" else reference
-        BPWalletRepository.setLoading(true)
-        val result = BPWalletRepository.createDepositRequest(amount, gw.name, refToSave, screenshotUri)
-        BPWalletRepository.setLoading(false)
-        handleResult(result, onSuccess = {
-            showSnack("Deposit Request of $curr ${amount.toInt()} submitted! Awaiting Admin approval.")
-            _selectedDepositGateway.value = null
-            setScreen(ScreenType.USER_HOME)
-        })
+        
+        viewModelScope.launch {
+            BPWalletRepository.setLoading(true)
+            // 1. Upload screenshot to Supabase Storage
+            val publicUrl = BPWalletRepository.uploadProofScreenshot(screenshotUri)
+            
+            // 2. Create the deposit request with the public URL
+            val result = BPWalletRepository.createDepositRequest(amount, gw.name, refToSave, publicUrl)
+            BPWalletRepository.setLoading(false)
+            
+            handleResult(result, onSuccess = {
+                showSnack("Deposit Request of $curr ${amount.toInt()} submitted! Awaiting Admin approval.")
+                _selectedDepositGateway.value = null
+                setScreen(ScreenType.USER_HOME)
+            })
+        }
     }
 
     fun submitWithdrawalRequest(
@@ -412,8 +451,9 @@ class BPWalletViewModel : ViewModel() {
         BPWalletRepository.setLoading(true)
         val result = BPWalletRepository.createWithdrawalRequest(amount, gatewayName, accountTitle, accountNumberOrIban)
         BPWalletRepository.setLoading(false)
+        val curr = currentUser.value?.currency ?: "PKR"
         handleResult(result, onSuccess = {
-            showSnack("Withdrawal Request of Rs ${amount.toInt()} submitted successfully!")
+            showSnack("Withdrawal Request of $curr ${amount.toInt()} submitted successfully!")
             setScreen(ScreenType.USER_HOME)
         })
     }
@@ -624,10 +664,12 @@ class BPWalletViewModel : ViewModel() {
     }
 
     // Quick seed demo deposit for testing
+    /*
     fun seedDemoDepositRequest() {
         BPWalletRepository.createDepositRequest(1500.0, "EasyPaisa", "EPX-99881122")
         showSnack("Demo Deposit request created!")
     }
+    */
 
     fun updateAdminPassword(newPassword: String) {
         if (newPassword.isBlank() || newPassword.length < 4) {
@@ -693,6 +735,26 @@ class BPWalletViewModel : ViewModel() {
             showSnack("Exchange URL updated to $it")
         }.onFailure {
             showSnack("Failed to update Exchange URL: ${it.message}")
+        }
+    }
+
+    fun openWhatsAppSupport(context: android.content.Context) {
+        val user = currentUser.value ?: return
+        val number = whatsappHelplineNumber.value
+        if (number.isBlank()) {
+            showSnack("Support number not configured")
+            return
+        }
+        
+        val message = "Hello Support, I need help with my BP Wallet account.\n\nAccount Details:\n- Name: ${user.fullName}\n- User ID: ${user.id}\n- Country: ${user.country}\n\nPlease assist me."
+        val url = "https://api.whatsapp.com/send?phone=$number&text=${java.net.URLEncoder.encode(message, "UTF-8")}"
+        
+        try {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
+            intent.data = android.net.Uri.parse(url)
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            showSnack("Could not open WhatsApp. Please make sure it's installed.")
         }
     }
 }

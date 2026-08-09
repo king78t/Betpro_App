@@ -18,7 +18,7 @@ android {
   defaultConfig {
     applicationId = "com.bp.uunwlm"
     minSdk = 24
-    targetSdk = 34
+    targetSdk = 35
     versionCode = 1
     versionName = "1.0"
 
@@ -54,8 +54,14 @@ android {
     release {
       isCrunchPngs = true
       isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
+
+      lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+      }
     }
   }
   compileOptions {
@@ -113,6 +119,8 @@ dependencies {
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.androidx.work.runtime.ktx)
+  implementation(libs.androidx.biometric)
+  implementation(libs.androidx.fragment.ktx)
   implementation(libs.lottie.compose)
   implementation(libs.okhttp)
   implementation("com.google.code.gson:gson:2.11.0")

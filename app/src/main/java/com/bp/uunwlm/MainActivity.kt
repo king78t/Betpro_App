@@ -4,7 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,13 +36,112 @@ import com.bp.uunwlm.ui.viewmodel.BPWalletViewModel
 import com.bp.uunwlm.ui.viewmodel.ScreenType
 import kotlinx.coroutines.flow.*
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
+    private val viewModel: BPWalletViewModel by lazy {
+        androidx.lifecycle.ViewModelProvider(this)[BPWalletViewModel::class.java]
+    }
+
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        viewModel.recordUserActivity()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
-                BPWalletApp()
+                val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
+                val isBiometricAuthenticated by viewModel.isBiometricAuthenticated.collectAsState()
+                val currentUser by viewModel.currentUser.collectAsState()
+                val lastActivityTime by viewModel.lastActivityTime.collectAsState()
+
+                val biometricAuthenticator = remember { com.bp.uunwlm.util.BiometricAuthenticator(this) }
+                
+                // Session Timeout Check (25 Minutes)
+                LaunchedEffect(lastActivityTime, isBiometricAuthenticated, currentUser, isBiometricEnabled) {
+                    if (currentUser != null) {
+                        while (true) {
+                            val elapsed = System.currentTimeMillis() - lastActivityTime
+                            if (elapsed >= 25 * 60 * 1000) { // 25 Minutes
+                                if (isBiometricEnabled) {
+                                    viewModel.setBiometricAuthenticated(false)
+                                } else {
+                                    viewModel.logout()
+                                }
+                                break
+                            }
+                            kotlinx.coroutines.delay(30000) // Check every 30 seconds
+                        }
+                    }
+                }
+
+                LaunchedEffect(currentUser) {
+                    if (currentUser != null && isBiometricEnabled && !isBiometricAuthenticated) {
+                        if (biometricAuthenticator.isBiometricAvailable()) {
+                            biometricAuthenticator.promptBiometricAuth(
+                                activity = this@MainActivity,
+                                onSuccess = {
+                                    viewModel.setBiometricAuthenticated(true)
+                                },
+                                onError = { _, _ ->
+                                    // Handle error (maybe logout if required or just show snackbar)
+                                },
+                                onFailed = {
+                                    // Handle failure
+                                }
+                            )
+                        } else {
+                            // Biometric was enabled but hardware is gone or removed? 
+                            // Just allow access or warn
+                            viewModel.setBiometricAuthenticated(true)
+                        }
+                    } else if (currentUser == null) {
+                        viewModel.setBiometricAuthenticated(false)
+                    }
+                }
+
+                if (currentUser != null && isBiometricEnabled && !isBiometricAuthenticated) {
+                    // Show a blurred or lock screen if desired, or just wait for biometric
+                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "Wallet Locked",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 20.sp
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Please authenticate to access your wallet",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Button(onClick = {
+                                biometricAuthenticator.promptBiometricAuth(
+                                    activity = this@MainActivity,
+                                    onSuccess = { viewModel.setBiometricAuthenticated(true) },
+                                    onError = { _, _ -> },
+                                    onFailed = { }
+                                )
+                            }) {
+                                Text("Unlock with Biometrics")
+                            }
+                        }
+                    }
+                } else {
+                    BPWalletApp(viewModel)
+                }
             }
         }
     }
@@ -49,7 +149,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun BPWalletApp(
-    viewModel: BPWalletViewModel = viewModel()
+    viewModel: BPWalletViewModel
 ) {
     val currentScreen by viewModel.currentScreen.collectAsState()
     val snackMessage by viewModel.snackMessage.collectAsState()

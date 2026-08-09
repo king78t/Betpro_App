@@ -89,6 +89,7 @@ object BPWalletRepository {
     private const val KEY_USER_ASSIGNED_MASTER_ID = "user_assigned_master_id"
     private const val KEY_USER_CREATED_AT = "user_created_at"
     private const val KEY_USER_IS_VERIFIED = "user_is_verified"
+    private const val KEY_BIOMETRIC_ENABLED = "biometric_enabled"
 
     fun saveSession(user: UserAccount) {
         val ctx = appContext ?: return
@@ -151,6 +152,18 @@ object BPWalletRepository {
             Log.e(TAG, "Error restoring session from SharedPreferences", e)
         }
         return null
+    }
+
+    fun isBiometricEnabled(): Boolean {
+        val ctx = appContext ?: return false
+        val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_BIOMETRIC_ENABLED, false)
+    }
+
+    fun setBiometricEnabled(enabled: Boolean) {
+        val ctx = appContext ?: return
+        val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean(KEY_BIOMETRIC_ENABLED, enabled).apply()
     }
 
     fun clearSession() {
@@ -317,7 +330,7 @@ object BPWalletRepository {
         Log.i(TAG, "BP Wallet Repository Initializing...")
         Log.i(TAG, "Runtime Database Endpoint: ${SupabaseCloudManager.SUPABASE_URL}")
         
-        seedDefaultAdminAndDemoUser()
+        // seedDefaultAdminAndDemoUser() // Disabled for production
         startFirestoreListeners()
         syncWithSupabaseCloud()
         scope.launch {
@@ -881,6 +894,22 @@ object BPWalletRepository {
             auth?.signOut()
         } catch (e: Exception) {
             Log.w(TAG, "Firebase signout note: ${e.message}")
+        }
+    }
+
+    suspend fun uploadProofScreenshot(uriString: String): String {
+        if (uriString.isBlank() || uriString.startsWith("http")) return uriString
+        val ctx = appContext ?: return uriString
+        return try {
+            val uri = android.net.Uri.parse(uriString)
+            val inputStream = ctx.contentResolver.openInputStream(uri)
+            val bytes = inputStream?.readBytes() ?: return uriString
+            val fileName = "proof_${UUID.randomUUID().toString().take(8)}.jpg"
+            val publicUrl = SupabaseCloudManager.uploadImage(fileName, bytes)
+            publicUrl ?: uriString
+        } catch (e: Exception) {
+            Log.e(TAG, "Error reading image bytes: ${e.message}")
+            uriString
         }
     }
 
