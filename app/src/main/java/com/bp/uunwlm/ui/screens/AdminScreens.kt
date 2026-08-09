@@ -106,7 +106,7 @@ fun AdminDashboardScreen(
                 AdminStatCard(
                     title = "USERS",
                     value = "${countryUsers.size}",
-                    subtitle = "↗ +12.4% vs last week",
+                    subtitle = "Real-time Registered Users",
                     icon = Icons.Default.Group,
                     iconTint = Color(0xFF2563EB),
                     iconBg = Color(0xFFDBEAFE),
@@ -116,7 +116,7 @@ fun AdminDashboardScreen(
                 // 2. USER CIRCULATION (Full width card)
                 AdminStatCard(
                     title = "USER CIRCULATION",
-                    value = "PKR ${totalBalanceSum.toInt()}",
+                    value = "${currentUser?.currency ?: "PKR"} ${totalBalanceSum.toInt()}",
                     subtitle = "Across ${countryUsers.size} Active Wallets",
                     icon = Icons.Default.AccountBalanceWallet,
                     iconTint = BPGreenPrimary,
@@ -127,26 +127,15 @@ fun AdminDashboardScreen(
                 // 3. NET PLATFORM P&L (Full width card)
                 AdminStatCard(
                     title = "NET PLATFORM P&L",
-                    value = "PKR ${totalBalanceSum.toInt()}",
-                    subtitle = "↗ Net Positive Reserve",
+                    value = "${currentUser?.currency ?: "PKR"} ${totalBalanceSum.toInt()}",
+                    subtitle = "Current Net Reserve",
                     icon = Icons.Default.AttachMoney,
                     iconTint = BPGreenPrimary,
                     iconBg = BPGreenLight,
                     subtitleColor = BPGreenDark
                 )
 
-                // 4. MASTER AGENTS (Full width card)
-                AdminStatCard(
-                    title = "MASTER AGENTS",
-                    value = "${masters.size} Masters",
-                    subtitle = "PKR • AED • SAR Regions",
-                    icon = Icons.Default.Bolt,
-                    iconTint = Color(0xFFF97316),
-                    iconBg = Color(0xFFFFEDD5),
-                    subtitleColor = Slate500
-                )
-
-                // 5. PENDING DEPOSITS (Full width card)
+                // 4. PENDING DEPOSITS (Full width card)
                 AdminStatCard(
                     title = "PENDING DEPOSITS",
                     value = "$pendingDeposits",
@@ -168,13 +157,7 @@ fun AdminDashboardScreen(
                     subtitleColor = Slate500
                 )
 
-                // 7. USER ACQUISITION CHART CARD
-                UserAcquisitionChartCard(
-                    usersCount = countryUsers.size,
-                    activeTradersCount = 1
-                )
-
-                // 8. REAL-TIME PUSH BROADCAST TOOL
+                // 7. REAL-TIME PUSH BROADCAST TOOL
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
@@ -690,16 +673,6 @@ fun AdminEnterpriseDrawer(
                         selected = currentScreen == ScreenType.ADMIN_USERS_CRM,
                         onClick = {
                             onNavigate(ScreenType.ADMIN_USERS_CRM)
-                            onDismiss()
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    AdminDrawerItem(
-                        label = "Master Agents",
-                        icon = Icons.Default.Security,
-                        selected = currentScreen == ScreenType.ADMIN_MASTER_AGENTS,
-                        onClick = {
-                            onNavigate(ScreenType.ADMIN_MASTER_AGENTS)
                             onDismiss()
                         }
                     )
@@ -1245,12 +1218,6 @@ fun AdminBottomNavBar(
                 icon = Icons.Default.People,
                 selected = currentScreen == ScreenType.ADMIN_USERS_CRM,
                 onClick = { onNavigate(ScreenType.ADMIN_USERS_CRM) }
-            )
-            AdminNavItem(
-                label = "Master Agents",
-                icon = Icons.Default.Security,
-                selected = currentScreen == ScreenType.ADMIN_MASTER_AGENTS,
-                onClick = { onNavigate(ScreenType.ADMIN_MASTER_AGENTS) }
             )
             AdminNavItem(
                 label = "Transactions",

@@ -382,8 +382,8 @@ fun CrmUserCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text(text = "MASTER AGENT", fontSize = 10.sp, color = Slate500, fontWeight = FontWeight.Bold)
-                    Text(text = user.masterAgentName, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate700)
+                    Text(text = "ASSIGNED TO", fontSize = 10.sp, color = Slate500, fontWeight = FontWeight.Bold)
+                    Text(text = "Super Admin", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate700)
                 }
 
                 Card(

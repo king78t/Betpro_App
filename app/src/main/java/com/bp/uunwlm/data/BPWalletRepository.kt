@@ -183,17 +183,24 @@ object BPWalletRepository {
             val userId = prefs.getString(KEY_USER_ID, "") ?: ""
             
             if (isLoggedIn && userId.isNotBlank()) {
+                val role = prefs.getString(KEY_USER_ROLE, "user") ?: "user"
+                val name = prefs.getString(KEY_USER_NAME, "") ?: ""
+                val email = prefs.getString(KEY_USER_EMAIL, "") ?: ""
+                if (role.equals("Super Admin", true) || userId == "admin_super_1" || userId == "admin_root_1" || name.equals("Super Admin", true) || email.equals("Book", true) || email.equals("Admin", true)) {
+                    Log.d(TAG, "Restored singleSuperAdmin active session")
+                    return singleSuperAdmin
+                }
                 val user = UserAccount(
                     id = userId,
-                    fullName = prefs.getString(KEY_USER_NAME, "") ?: "",
-                    email = prefs.getString(KEY_USER_EMAIL, "") ?: "",
+                    fullName = name,
+                    email = email,
                     currency = prefs.getString(KEY_USER_CURRENCY, "PKR") ?: "PKR",
                     country = prefs.getString(KEY_USER_COUNTRY, "Pakistan") ?: "Pakistan",
                     mobileNumber = prefs.getString(KEY_USER_MOBILE, "") ?: "",
                     // Retrieve sensitive data from secure storage
                     password = securePrefs?.getString(KEY_USER_PASSWORD, "") ?: "",
-                    role = prefs.getString(KEY_USER_ROLE, "user") ?: "user",
-                    betproUsername = securePrefs?.getString(KEY_USER_BETPRO_USERNAME, "Book") ?: "Book",
+                    role = role,
+                    betproUsername = securePrefs?.getString(KEY_USER_BETPRO_USERNAME, "Admin") ?: "Admin",
                     betproPassword = securePrefs?.getString(KEY_USER_BETPRO_PASSWORD, "active") ?: "active",
                     betproIdStatus = securePrefs?.getString(KEY_USER_BETPRO_STATUS, "Active") ?: "Active",
                     walletBalance = prefs.getFloat(KEY_USER_WALLET_BALANCE, 0.0f).toDouble(),
@@ -423,36 +430,22 @@ object BPWalletRepository {
 
     private fun seedDefaultAdminAndDemoUser() {
         _usersList.value = listOf(singleSuperAdmin)
-        _masterAgentsList.value = listOf(
-            MasterAgent(
-                id = "ma_pk",
-                name = "Pakistan Super Master",
-                currency = "PKR",
-                country = "Pakistan",
-                role = "Super Master",
-                creditLimit = 1000000.0,
-                marginShare = 90.0
-            ),
-            MasterAgent(
-                id = "ma_uae",
-                name = "UAE Super Master",
-                currency = "AED",
-                country = "UAE",
-                role = "Super Master",
-                creditLimit = 1000000.0,
-                marginShare = 90.0
-            ),
-            MasterAgent(
-                id = "ma_sar",
-                name = "Saudi Arabia Super Master",
-                currency = "SAR",
-                country = "Saudi Arabia",
-                role = "Super Master",
-                creditLimit = 1000000.0,
-                marginShare = 90.0
-            )
-        )
+        _masterAgentsList.value = emptyList()
         _transactionsList.value = emptyList()
+    }
+
+    private fun cleanUserList(users: List<UserAccount>): List<UserAccount> {
+        val valid = users.filter { u ->
+            u.id == singleSuperAdmin.id ||
+            u.fullName.equals("Admin", ignoreCase = true) ||
+            (u.id.startsWith("usr_") && !u.id.startsWith("demo_user") && !u.id.contains("demo") && !u.email.equals("Book", ignoreCase = true))
+        }
+        val hasAdmin = valid.any { it.id == singleSuperAdmin.id || it.fullName.equals("Admin", ignoreCase = true) }
+        return if (!hasAdmin) {
+            listOf(singleSuperAdmin) + valid
+        } else {
+            valid
+        }
     }
 
     private fun startFirestoreListeners() {
@@ -467,9 +460,7 @@ object BPWalletRepository {
                         .await()
                     val cachedUsers = cachedUsersSnapshot.documents.mapNotNull { it.toObject(UserAccount::class.java) }
                     if (cachedUsers.isNotEmpty()) {
-                        val seededAdmins = _usersList.value.filter { it.isSuperAdmin || it.isCountrySuperMaster || it.isSupportStaff || it.isReadOnlyUser || it.id.startsWith("demo_user") }
-                        val missingAdmins = seededAdmins.filter { sa -> cachedUsers.none { it.id == sa.id } }
-                        val fullList = cachedUsers + missingAdmins
+                        val fullList = cleanUserList(cachedUsers)
                         _usersList.value = fullList
                         _currentUser.value?.let { curr ->
                             fullList.find { it.id == curr.id }?.let { updatedCurr ->
@@ -488,9 +479,7 @@ object BPWalletRepository {
                         .await()
                     val cachedTxs = cachedTxsSnapshot.documents.mapNotNull { it.toObject(TransactionRequest::class.java) }
                     if (cachedTxs.isNotEmpty()) {
-                        val currentDemoTxs = _transactionsList.value.filter { it.id.startsWith("tx_demo") }
-                        val missingDemoTxs = currentDemoTxs.filter { dt -> cachedTxs.none { it.id == dt.id } }
-                        _transactionsList.value = cachedTxs + missingDemoTxs
+                        _transactionsList.value = cachedTxs
                     }
                 } catch (e: Exception) {
                     Log.d(TAG, "Offline cache transactions read note: ${e.message}")
@@ -504,14 +493,14 @@ object BPWalletRepository {
                     val firestoreUsers = snapshot.documents.mapNotNull { it.toObject(UserAccount::class.java) }
                     if (firestoreUsers.isNotEmpty()) {
                         val currentList = _usersList.value
-                        // Merge: Priority to Firestore data if present, otherwise keep current (which might be from Supabase)
                         val mergedMap = currentList.associateBy { it.id }.toMutableMap()
                         firestoreUsers.forEach { mergedMap[it.id] = it }
                         
-                        _usersList.value = mergedMap.values.toList()
+                        val clean = cleanUserList(mergedMap.values.toList())
+                        _usersList.value = clean
                         _isLoading.value = false
                         _currentUser.value?.let { curr ->
-                            mergedMap[curr.id]?.let { updatedCurr ->
+                            clean.find { it.id == curr.id }?.let { updatedCurr ->
                                 _currentUser.value = updatedCurr
                             }
                         }
@@ -594,7 +583,7 @@ object BPWalletRepository {
             val localUsers = _usersList.value
             Log.d(TAG, "Local users before merge: ${localUsers.size}")
             val mergedUsersMap = (localUsers + cloudUsers).associateBy { it.id }
-            val mergedUsersList = mergedUsersMap.values.toList()
+            val mergedUsersList = cleanUserList(mergedUsersMap.values.toList())
             _usersList.value = mergedUsersList
             
             // Proactively sync missing local users to cloud

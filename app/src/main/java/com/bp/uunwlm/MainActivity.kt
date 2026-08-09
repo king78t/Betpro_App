@@ -49,6 +49,27 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // One-time Purge of Local Data for Migration/Clean Audit
+        val auditPrefs = getSharedPreferences("audit_reset", android.content.Context.MODE_PRIVATE)
+        val isResetDone = auditPrefs.getBoolean("v2_reset_done", false)
+        if (!isResetDone) {
+            // Clear standard session prefs
+            getSharedPreferences("bp_wallet_prefs", android.content.Context.MODE_PRIVATE).edit().clear().apply()
+            // Clear secure prefs if any (using same name as in Repo if possible, or just targeting common names)
+            getSharedPreferences("bp_secure_prefs", android.content.Context.MODE_PRIVATE).edit().clear().apply()
+            
+            // Attempt to clear Firestore cache
+            try {
+                com.google.firebase.firestore.FirebaseFirestore.getInstance().clearPersistence()
+            } catch (e: Exception) {
+                android.util.Log.e("MainActivity", "Firestore cache clear failed", e)
+            }
+            
+            auditPrefs.edit().putBoolean("v2_reset_done", true).apply()
+            android.util.Log.i("MainActivity", "Completed One-Time Factory Reset for Audit")
+        }
+
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
@@ -249,8 +270,7 @@ fun BPWalletApp(
                 ScreenType.USER_HISTORY -> UserHistoryScreen(viewModel = viewModel)
                 ScreenType.USER_PROFILE -> UserProfileScreen(viewModel = viewModel)
                 ScreenType.ADMIN_DASHBOARD, ScreenType.ADMIN_LIVE_CONTROL -> AdminDashboardScreen(viewModel = viewModel)
-                ScreenType.ADMIN_USERS_CRM -> AdminUsersCrmScreen(viewModel = viewModel)
-                ScreenType.ADMIN_MASTER_AGENTS -> AdminMasterAgentsScreen(viewModel = viewModel)
+                ScreenType.ADMIN_USERS_CRM, ScreenType.ADMIN_MASTER_AGENTS -> AdminUsersCrmScreen(viewModel = viewModel)
                 ScreenType.ADMIN_TRANSACTIONS -> AdminTransactionsScreen(viewModel = viewModel)
                 ScreenType.ADMIN_SETTINGS -> AdminSettingsScreen(viewModel = viewModel)
             }
