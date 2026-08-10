@@ -2,7 +2,10 @@ package com.bp.uunwlm.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,431 +23,625 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.bp.uunwlm.model.MasterAgent
-import com.bp.uunwlm.model.TransactionRequest
-import com.bp.uunwlm.model.UserAccount
-import com.bp.uunwlm.ui.components.StatusBadge
+import androidx.compose.ui.window.Dialog
+import coil.compose.AsyncImage
+import com.bp.uunwlm.model.*
 import com.bp.uunwlm.ui.theme.*
+import com.bp.uunwlm.ui.components.StatusBadge
 import com.bp.uunwlm.ui.viewmodel.BPWalletViewModel
 import com.bp.uunwlm.ui.viewmodel.ScreenType
+import com.bp.uunwlm.util.DateTimeUtils
 
 @Composable
-fun AdminScopeHeaderCard(currentUser: UserAccount?) {
-    val isSuperAdmin = currentUser?.isSuperAdmin == true || currentUser == null
-    val roleTitle = currentUser?.role ?: "Super Admin"
-    val scopeText = if (isSuperAdmin) {
-        "Unrestricted access to all countries, modules, and final withdrawal approvals."
-    } else {
-        "Assigned Country: ${currentUser?.country ?: "Pakistan"} (${currentUser?.currency ?: "PKR"}) • Can verify & approve deposits."
-    }
-
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSuperAdmin) BPGreenLight else Color(0xFFFFF3E0)
-        ),
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "ACTIVE ROLE: ${roleTitle.uppercase()}",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 11.sp,
-                    color = if (isSuperAdmin) BPGreenDark else Color(0xFFE65100)
-                )
-                Text(
-                    text = scopeText,
-                    fontSize = 11.sp,
-                    color = Slate700,
-                    lineHeight = 15.sp
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            StatusBadge(status = if (isSuperAdmin) "Global" else "${currentUser?.country ?: "PK"}")
-        }
-    }
-}
-
-@Composable
-fun AdminUsersCrmScreen(
+fun AdminManagementLayout(
+    title: String,
     viewModel: BPWalletViewModel,
-    modifier: Modifier = Modifier
+    content: @Composable (PaddingValues) -> Unit
 ) {
-    val users by viewModel.allUsers.collectAsState()
-    val currentUser by viewModel.currentUser.collectAsState()
-    val search by viewModel.crmSearchQuery.collectAsState()
-    val currFilter by viewModel.crmCurrencyFilter.collectAsState()
-    val statusFilter by viewModel.crmStatusFilter.collectAsState()
-    val selectedUserForCreds by viewModel.selectedUserForCreds.collectAsState()
-
-    val normalUsers = users.filter { !it.isSuperAdmin && !it.isCountrySuperMaster && !it.isSupportStaff && !it.isReadOnlyUser && it.role != "admin" }
-    val countryScopedUsers = if (currentUser?.isSuperAdmin == true || currentUser == null) {
-        normalUsers
-    } else {
-        normalUsers.filter { u -> u.country.equals(currentUser?.country, true) || u.currency.equals(currentUser?.currency, true) }
-    }
-    val filteredUsers = countryScopedUsers.filter { u ->
-        val matchesSearch = search.isBlank() ||
-                u.fullName.contains(search, true) ||
-                u.email.contains(search, true) ||
-                u.mobileNumber.contains(search, true) ||
-                u.betproUsername.contains(search, true) ||
-                u.masterAgentName.contains(search, true) ||
-                u.assignedMasterId.contains(search, true) ||
-                u.country.contains(search, true) ||
-                u.currency.contains(search, true) ||
-                u.id.contains(search, true)
-        val matchesCurr = currFilter == "All Curr" || u.currency.equals(currFilter, true)
-        val matchesStatus = statusFilter == "All Status" ||
-                (statusFilter == "Active" && u.betproIdStatus == "Active") ||
-                (statusFilter == "Pending" && u.betproIdStatus == "Pending") ||
-                (statusFilter == "Blocked" && u.betproIdStatus == "Blocked")
-        matchesSearch && matchesCurr && matchesStatus
-    }
-
     var showDrawer by remember { mutableStateOf(false) }
-    var showNotifications by remember { mutableStateOf(false) }
+    val currentUser by viewModel.currentUser.collectAsState()
 
-    val pendingTxCount = viewModel.allTransactions.collectAsState().value.count { it.status == "Pending" }
-
-    if (selectedUserForCreds != null) {
-        SetBetProCredsDialog(
-            user = selectedUserForCreds!!,
-            onDismiss = { viewModel.closeBetProCredsModal() },
-            onSave = { username, pass, status ->
-                viewModel.saveBetProCredentials(selectedUserForCreds!!.id, username, pass, status)
-            }
-        )
-    }
-
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF8FAFC))) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
+            containerColor = Color.Transparent,
             topBar = {
-                AdminTopBar(
-                    title = "ADMIN / USERS",
-                    subtitle = "User Management CRM",
-                    currentUser = currentUser,
+                AdminTopBarRedesigned(
+                    title = title,
+                    subtitle = "Enterprise Management",
                     onOpenDrawer = { showDrawer = true },
-                    onNotificationClick = { showNotifications = true },
-                    unreadNotificationsCount = if (pendingTxCount > 0) pendingTxCount else 2,
                     onLogout = { viewModel.logout() }
                 )
             }
         ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            AdminScopeHeaderCard(currentUser = currentUser)
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "User Management CRM",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Slate900
-                    )
-                    Text(
-                        text = "Manage user accounts, assign BetPro credentials, toggle access",
-                        fontSize = 12.sp,
-                        color = Slate500
-                    )
-                }
-                StatusBadge(status = "${countryScopedUsers.size} Users")
-            }
-
-            // Search input (Professional White Card Style)
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                color = Color.White,
-                shadowElevation = 2.dp,
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
-            ) {
-                OutlinedTextField(
-                    value = search,
-                    onValueChange = { viewModel.setCrmSearchQuery(it) },
-                    placeholder = { Text("Search user, phone, BP ID, master...", fontSize = 13.sp, color = Slate500) },
-                    leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = "Search", tint = BPGreenDark) },
-                    trailingIcon = {
-                        if (search.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.setCrmSearchQuery("") }) {
-                                Icon(imageVector = Icons.Default.Close, contentDescription = "Clear Search", tint = Slate500)
-                            }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = BPGreenPrimary,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White
-                    )
-                )
-            }
-
-            // Currency Pill Filter: All Curr | PKR | AED | SAR
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                listOf("All Curr", "PKR", "AED", "SAR").forEach { c ->
-                    val sel = currFilter == c
-                    FilterChip(
-                        selected = sel,
-                        onClick = { viewModel.setCrmCurrencyFilter(c) },
-                        label = { Text(c, fontWeight = FontWeight.Bold, fontSize = 11.sp) },
-                        shape = RoundedCornerShape(20.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = BPGreenPrimary,
-                            selectedLabelColor = Color.White,
-                            containerColor = Color.White,
-                            labelColor = Slate700
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = true,
-                            selected = sel,
-                            borderColor = Color(0xFFE2E8F0),
-                            selectedBorderColor = BPGreenPrimary
-                        )
-                    )
-                }
-            }
-
-            // Status Pill Filter: All Status | Active | Pending | Blocked
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                listOf("All Status", "Active", "Pending", "Blocked").forEach { st ->
-                    val sel = statusFilter == st
-                    FilterChip(
-                        selected = sel,
-                        onClick = { viewModel.setCrmStatusFilter(st) },
-                        label = { Text(st, fontWeight = FontWeight.Bold, fontSize = 11.sp) },
-                        shape = RoundedCornerShape(20.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Slate800,
-                            selectedLabelColor = Color.White,
-                            containerColor = Color.White,
-                            labelColor = Slate700
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = true,
-                            selected = sel,
-                            borderColor = Color(0xFFE2E8F0),
-                            selectedBorderColor = Slate800
-                        )
-                    )
-                }
-            }
-
-            // Users list
-            if (filteredUsers.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FilterListOff,
-                            contentDescription = "No users",
-                            tint = Slate500,
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Text(
-                            text = if (search.isNotEmpty()) "No users matching \"$search\"" else "No users found matching current filters",
-                            color = Slate700,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                        Button(
-                            onClick = { viewModel.resetCrmFilters() },
-                            colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.Refresh, contentDescription = "Reset", modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("CLEAR ALL FILTERS & SHOW ALL USERS", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
-                    }
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(filteredUsers, key = { it.id }) { u ->
-                        CrmUserCard(
-                            user = u,
-                            onAssignCreds = { viewModel.openBetProCredsModal(u) }
-                        )
-                    }
-                }
-            }
-        }
+            content(innerPadding)
         }
 
         AdminEnterpriseDrawer(
             showDrawer = showDrawer,
             onDismiss = { showDrawer = false },
-            currentScreen = ScreenType.ADMIN_USERS_CRM,
+            currentScreen = ScreenType.ADMIN_USERS_CRM, // Dynamic later
             onNavigate = { viewModel.setScreen(it) },
             currentUser = currentUser,
             onLogout = { viewModel.logout() }
         )
+    }
+}
 
-        AdminNotificationRightDrawer(
-            showDrawer = showNotifications,
-            onDismiss = { showNotifications = false },
-            pendingTxCount = if (pendingTxCount > 0) pendingTxCount else 1,
-            onNavigateToTx = { viewModel.setScreen(ScreenType.ADMIN_TRANSACTIONS) },
-            onNavigateToCrm = { viewModel.setScreen(ScreenType.ADMIN_USERS_CRM) }
+// 1. REDESIGNED USER MANAGEMENT CRM
+@Composable
+fun AdminUserManagementScreen(
+    viewModel: BPWalletViewModel,
+    modifier: Modifier = Modifier
+) {
+    val users by viewModel.allUsers.collectAsState()
+    val search by viewModel.crmSearchQuery.collectAsState()
+    val currFilter by viewModel.crmCurrencyFilter.collectAsState()
+    val statusFilter by viewModel.crmStatusFilter.collectAsState()
+    val selectedUserForCreds by viewModel.selectedUserForCreds.collectAsState()
+
+    val normalUsers = users.filter { !it.isSuperAdmin && it.role != "admin" }
+    
+    val filteredUsers = normalUsers.filter { u ->
+        val matchesSearch = search.isBlank() ||
+                u.fullName.contains(search, true) ||
+                u.email.contains(search, true) ||
+                u.mobileNumber.contains(search, true) ||
+                u.betproUsername.contains(search, true)
+        val matchesCurr = currFilter == "All Curr" || u.currency.equals(currFilter, true)
+        val matchesStatus = statusFilter == "All Status" || u.betproIdStatus == statusFilter
+        matchesSearch && matchesCurr && matchesStatus
+    }
+
+    if (selectedUserForCreds != null) {
+        SetBetProCredsDialog(
+            user = selectedUserForCreds!!,
+            onDismiss = { viewModel.closeBetProCredsModal() },
+            onConfirm = { username, pass, status ->
+                viewModel.saveBetProCredentials(selectedUserForCreds!!.id, username, pass, status)
+            }
+        )
+    }
+
+    AdminManagementLayout(title = "User Management", viewModel = viewModel) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Search & Filter Header
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = search,
+                        onValueChange = { viewModel.setCrmSearchQuery(it) },
+                        placeholder = { Text("Search users...") },
+                        leadingIcon = { Icon(Icons.Default.Search, null, tint = BPGreenPrimary) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = BPGreenPrimary)
+                    )
+                    
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterPill("All Curr", currFilter == "All Curr") { viewModel.setCrmCurrencyFilter("All Curr") }
+                        FilterPill("PKR", currFilter == "PKR") { viewModel.setCrmCurrencyFilter("PKR") }
+                        FilterPill("AED", currFilter == "AED") { viewModel.setCrmCurrencyFilter("AED") }
+                    }
+                }
+            }
+
+            // User List
+            if (filteredUsers.isEmpty()) {
+                EmptyState(message = "No users found matching filters")
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 20.dp)
+                ) {
+                    items(filteredUsers, key = { it.id }) { user ->
+                        RedesignedUserCard(
+                            user = user,
+                            onEdit = { viewModel.openBetProCredsModal(user) },
+                            onDelete = { viewModel.deleteUser(user.id) },
+                            onToggleStatus = { 
+                                val newStatus = if (user.betproIdStatus == "Active") "Suspended" else "Active"
+                                viewModel.updateUserStatus(user.id, newStatus)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RedesignedUserCard(
+    user: UserAccount,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onToggleStatus: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(BPGreenPrimary.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(user.fullName.take(1).uppercase(), fontWeight = FontWeight.Black, color = BPGreenPrimary)
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(user.fullName, fontWeight = FontWeight.Bold, color = Slate900)
+                    Text(user.email, fontSize = 12.sp, color = Slate500)
+                }
+                StatusBadge(status = user.betproIdStatus)
+            }
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text("Balance", fontSize = 10.sp, color = Slate400, fontWeight = FontWeight.Bold)
+                    Text("${user.currency} ${user.walletBalance.toInt()}", fontWeight = FontWeight.Black, color = BPGreenPrimary)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("Joined", fontSize = 10.sp, color = Slate400, fontWeight = FontWeight.Bold)
+                    Text(DateTimeUtils.formatDate(user.createdAt), fontSize = 12.sp, color = Slate700)
+                }
+            }
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onEdit,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Slate100, contentColor = Slate700)
+                ) {
+                    Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Manage ID", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+                IconButton(onClick = onToggleStatus) {
+                    Icon(
+                        imageVector = if (user.betproIdStatus == "Active") Icons.Default.Block else Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = if (user.betproIdStatus == "Active") Color.Red else BPGreenPrimary
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, null, tint = Slate400)
+                }
+            }
+        }
+    }
+}
+
+// 2. PROFESSIONAL DEPOSIT SCREEN
+@Composable
+fun AdminDepositsScreen(
+    viewModel: BPWalletViewModel,
+    modifier: Modifier = Modifier
+) {
+    val txs by viewModel.allTransactions.collectAsState()
+    val deposits = txs.filter { it.type == "DEPOSIT" }.sortedByDescending { it.timestamp }
+    val proofTx by viewModel.txForProofVerification.collectAsState()
+
+    if (proofTx != null) {
+        ProofVerificationDialog(
+            transaction = proofTx!!,
+            onDismiss = { viewModel.closeProofVerification() },
+            onApprove = { viewModel.approveTransaction(proofTx!!.id); viewModel.closeProofVerification() },
+            onReject = { viewModel.rejectTransaction(proofTx!!.id); viewModel.closeProofVerification() }
+        )
+    }
+
+    AdminManagementLayout(title = "Deposit Requests", viewModel = viewModel) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(deposits, key = { it.id }) { tx ->
+                AdminTransactionItem(
+                    tx = tx,
+                    onApprove = { viewModel.openProofVerification(tx) },
+                    onReject = { viewModel.rejectTransaction(tx.id) }
+                )
+            }
+        }
+    }
+}
+
+// 3. PROFESSIONAL WITHDRAWAL SCREEN
+@Composable
+fun AdminWithdrawalsScreen(
+    viewModel: BPWalletViewModel,
+    modifier: Modifier = Modifier
+) {
+    val txs by viewModel.allTransactions.collectAsState()
+    val withdrawals = txs.filter { it.type == "WITHDRAW" }.sortedByDescending { it.timestamp }
+
+    AdminManagementLayout(title = "Withdrawal Requests", viewModel = viewModel) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(withdrawals, key = { it.id }) { tx ->
+                AdminTransactionItem(
+                    tx = tx,
+                    onApprove = { viewModel.approveTransaction(tx.id) },
+                    onReject = { viewModel.rejectTransaction(tx.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminTransactionItem(
+    tx: TransactionRequest,
+    onApprove: () -> Unit,
+    onReject: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text(tx.userName, fontWeight = FontWeight.Bold, color = Slate900)
+                    Text(DateTimeUtils.formatDate(tx.timestamp), fontSize = 11.sp, color = Slate500)
+                }
+                StatusBadge(status = tx.status)
+            }
+            
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "${tx.currency} ${tx.amount.toInt()}",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    color = BPGreenPrimary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("via ${tx.gatewayName}", fontSize = 12.sp, color = Slate500)
+            }
+
+            if (tx.status == "Pending") {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = onApprove,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(if (tx.type == "DEPOSIT") "Verify Proof" else "Approve", fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = onReject,
+                        modifier = Modifier.weight(0.5f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE2E2), contentColor = Color(0xFFEF4444)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Reject", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// 4. BANK ACCOUNT MANAGEMENT
+@Composable
+fun AdminBankManagementScreen(
+    viewModel: BPWalletViewModel,
+    modifier: Modifier = Modifier
+) {
+    val gateways by viewModel.paymentGateways.collectAsState()
+
+    AdminManagementLayout(title = "Bank Accounts", viewModel = viewModel) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(gateways, key = { it.id }) { gw ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.size(40.dp).clip(CircleShape).background(BPGreenPrimary.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.AccountBalance, null, tint = BPGreenPrimary)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(gw.name, fontWeight = FontWeight.Bold, color = Slate900)
+                            Text(gw.accountNumber, fontSize = 12.sp, color = Slate500)
+                        }
+                        Switch(
+                            checked = gw.isEnabled,
+                            onCheckedChange = { viewModel.togglePaymentGatewayStatus(gw.id) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = BPGreenPrimary)
+                        )
+                    }
+                }
+            }
+            item {
+                Button(
+                    onClick = { /* Add New Gateway Modal */ },
+                    modifier = Modifier.fillMaxWidth().height(56.dp).padding(top = 8.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Slate900)
+                ) {
+                    Icon(Icons.Default.Add, null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Add New Bank Account", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+// 5. AUDIT LOGS SCREEN
+@Composable
+fun AdminAuditLogsScreen(
+    viewModel: BPWalletViewModel,
+    modifier: Modifier = Modifier
+) {
+    val logs by viewModel.auditLogs.collectAsState()
+
+    AdminManagementLayout(title = "Security Audit Logs", viewModel = viewModel) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(logs) { log ->
+                ActivityItem(log) // Reusing the one from AdminScreens.kt
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminNotificationsScreen(
+    viewModel: BPWalletViewModel,
+    modifier: Modifier = Modifier
+) {
+    var title by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf("") }
+    var type by remember { mutableStateOf("Alert") }
+    val notifications by viewModel.adminNotifications.collectAsState()
+
+    AdminManagementLayout(title = "Notification Center", viewModel = viewModel) { innerPadding ->
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Broadcast New Notification", fontWeight = FontWeight.Black, color = Slate900)
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text("Title") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    OutlinedTextField(
+                        value = message,
+                        onValueChange = { message = it },
+                        label = { Text("Message") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        minLines = 3
+                    )
+                    
+                    Text("Type", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Slate600)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterPill("Alert", type == "Alert") { type = "Alert" }
+                        FilterPill("Update", type == "Update") { type = "Update" }
+                        FilterPill("Promotion", type == "Promotion") { type = "Promotion" }
+                    }
+
+                    Button(
+                        onClick = { 
+                            viewModel.sendAdminNotification(title, message, type)
+                            title = ""; message = ""
+                        },
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
+                    ) {
+                        Text("Send Notification", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            Text("Sent History", fontWeight = FontWeight.Bold, color = Slate900)
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
+                items(notifications) { n ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(n.title, fontWeight = FontWeight.Bold, color = Slate900)
+                                StatusBadge(status = n.type)
+                            }
+                            Text(n.message, fontSize = 12.sp, color = Slate600)
+                            Text(DateTimeUtils.formatDate(n.timestamp), fontSize = 10.sp, color = Slate400, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminSettingsScreen(
+    viewModel: BPWalletViewModel,
+    modifier: Modifier = Modifier
+) {
+    val settings by viewModel.appSettings.collectAsState()
+    var appName by remember { mutableStateOf(settings.appName) }
+    var whatsapp by remember { mutableStateOf(settings.supportWhatsapp) }
+    var email by remember { mutableStateOf(settings.supportEmail) }
+    val context = LocalContext.current
+
+    LaunchedEffect(settings) {
+        appName = settings.appName
+        whatsapp = settings.supportWhatsapp
+        email = settings.supportEmail
+    }
+
+    AdminManagementLayout(title = "App Settings", viewModel = viewModel) { innerPadding ->
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text("General Configuration", fontWeight = FontWeight.Black, color = Slate900)
+                    
+                    OutlinedTextField(
+                        value = appName,
+                        onValueChange = { appName = it },
+                        label = { Text("Application Name") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = whatsapp,
+                        onValueChange = { whatsapp = it },
+                        label = { Text("Support WhatsApp Number") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = { Text("Support Email") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    Button(
+                        onClick = { 
+                            viewModel.saveAppSettings(settings.copy(appName = appName, supportWhatsapp = whatsapp, supportEmail = email))
+                        },
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
+                    ) {
+                        Text("Save Configurations", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // Support Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Need Help?",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Slate900
+                    )
+                    Text(
+                        text = "If you encounter any issues or have questions about the admin panel, please contact our technical support team.",
+                        fontSize = 13.sp,
+                        color = Slate600
+                    )
+                    
+                    Button(
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                data = Uri.parse("https://wa.me/${whatsapp.replace("+", "").replace(" ", "")}")
+                            }
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366))
+                    ) {
+                        Icon(imageVector = Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Contact Technical Support", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier.clickable { onClick() },
+        shape = RoundedCornerShape(20.dp),
+        color = if (selected) BPGreenPrimary else Color.Transparent,
+        border = if (selected) null else BorderStroke(1.dp, Slate200)
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = if (selected) Color.White else Slate600
         )
     }
 }
 
 @Composable
-fun CrmUserCard(
-    user: UserAccount,
-    onAssignCreds: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            // Top row: Avatar + Name + Email + Currency badge
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(BPGreenLight),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = user.fullName.take(1).uppercase(),
-                            color = BPGreenDark,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 16.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(text = user.fullName, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = Slate900)
-                        Text(text = user.email, fontSize = 11.sp, color = Slate500)
-                    }
-                }
-                StatusBadge(status = user.currency)
-            }
-
-            HorizontalDivider(color = Slate100)
-
-            // Middle row: Assigned Master & BetPro Credentials badge
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(text = "ASSIGNED TO", fontSize = 10.sp, color = Slate500, fontWeight = FontWeight.Bold)
-                    Text(text = "Super Admin", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate700)
-                }
-
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Slate100),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.clickable { onAssignCreds() }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(imageVector = Icons.Default.Key, contentDescription = "ID", tint = BPGreenDark, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Column {
-                            Text(text = user.betproUsername, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate900)
-                            Text(text = "Pass: ${user.betproPassword}", fontSize = 10.sp, color = Slate500)
-                        }
-                    }
-                }
-            }
-
-            HorizontalDivider(color = Slate100)
-
-            // Bottom Row: Wallet Balance, Status pill, Actions (Assign Creds button)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(text = "WALLET BALANCE", fontSize = 10.sp, color = Slate500, fontWeight = FontWeight.Bold)
-                    Text(
-                        text = "${user.currency} ${user.walletBalance.toInt()}",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Black,
-                        color = BPGreenDark
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusBadge(
-                        status = if (user.betproIdStatus == "Active") "Active ID" else "Pending ID"
-                    )
-
-                    Button(
-                        onClick = onAssignCreds,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = BPGreenPrimary,
-                            contentColor = Color.White
-                        ),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Icon(imageVector = Icons.Default.VpnKey, contentDescription = "Set", modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = "Assign ID", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-
+fun EmptyState(message: String) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(message, color = Slate400, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -452,897 +649,139 @@ fun CrmUserCard(
 fun SetBetProCredsDialog(
     user: UserAccount,
     onDismiss: () -> Unit,
-    onSave: (String, String, String) -> Unit
+    onConfirm: (String, String, String) -> Unit
 ) {
-    var username by remember { mutableStateOf(if (user.betproUsername == "Available Soon") "bpexch_${user.fullName.take(3).lowercase()}101" else user.betproUsername) }
-    var password by remember { mutableStateOf(if (user.betproPassword == "Wait for Admin") "pass4078" else user.betproPassword) }
-    var status by remember { mutableStateOf("Active") }
+    var betproUsername by remember { mutableStateOf(user.betproUsername) }
+    var betproPassword by remember { mutableStateOf(user.betproPassword) }
+    var status by remember { mutableStateOf(user.betproIdStatus) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "Set BetPro Exchange Credentials",
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 18.sp
-            )
-        },
+        title = { Text("Set BetPro Credentials") },
         text = {
-            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = "Assign official BetPro credentials for ${user.fullName}",
-                    fontSize = 13.sp,
-                    color = Slate500
-                )
-
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it },
+                    value = betproUsername,
+                    onValueChange = { betproUsername = it },
                     label = { Text("BetPro Username") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    shape = RoundedCornerShape(10.dp)
+                    modifier = Modifier.fillMaxWidth()
                 )
-
                 OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
+                    value = betproPassword,
+                    onValueChange = { betproPassword = it },
                     label = { Text("BetPro Password") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    shape = RoundedCornerShape(10.dp)
+                    modifier = Modifier.fillMaxWidth()
                 )
-
-                Text(text = "ID Status", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                
+                Text("Account Status", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Active", "Pending", "Blocked").forEach { st ->
-                        FilterChip(
-                            selected = status == st,
-                            onClick = { status = st },
-                            label = { Text(st, fontWeight = FontWeight.Bold) }
-                        )
-                    }
+                    FilterPill("Pending", status == "Pending") { status = "Pending" }
+                    FilterPill("Active", status == "Active") { status = "Active" }
                 }
             }
         },
         confirmButton = {
-            Button(
-                onClick = { onSave(username, password, status) },
-                colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
-            ) {
-                Text("Save Credentials & Notify User", fontWeight = FontWeight.Bold)
+            Button(onClick = { onConfirm(betproUsername, betproPassword, status) }) {
+                Text("Confirm")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Cancel")
             }
-        },
-        containerColor = Color.White
+        }
     )
-}
-
-@Composable
-fun AdminMasterAgentsScreen(
-    viewModel: BPWalletViewModel,
-    modifier: Modifier = Modifier
-) {
-    val masters by viewModel.masterAgents.collectAsState()
-    val showModal by viewModel.showCreateMasterModal.collectAsState()
-    val currentUser by viewModel.currentUser.collectAsState()
-    val selectedMasterForDetails by viewModel.selectedMasterForDetails.collectAsState()
-    val allUsers by viewModel.allUsers.collectAsState()
-
-    val countryScopedMasters = if (currentUser?.isSuperAdmin == true || currentUser == null) {
-        masters
-    } else {
-        masters.filter { m -> m.country.equals(currentUser?.country, true) || m.currency.equals(currentUser?.currency, true) }
-    }
-
-    var showDrawer by remember { mutableStateOf(false) }
-
-    if (showModal) {
-        CreateMasterDialog(
-            currentUser = currentUser,
-            onDismiss = { viewModel.closeCreateMasterModal() },
-            onCreate = { name, pass, curr, role, limit, share ->
-                viewModel.createMasterAgent(name, pass, curr, role, limit, share)
-            }
-        )
-    }
-
-    if (selectedMasterForDetails != null) {
-        MasterAgentDetailDialog(
-            agent = selectedMasterForDetails!!,
-            allUsers = allUsers,
-            onDismiss = { viewModel.closeMasterDetails() },
-            onFilterCrm = { viewModel.filterCrmByMaster(it) }
-        )
-    }
-
-    Box(modifier = modifier.fillMaxSize()) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            topBar = {
-                AdminTopBar(
-                    title = "ADMIN / MASTERS",
-                    subtitle = "Master Agents & Partners",
-                    currentUser = currentUser,
-                    onOpenDrawer = { showDrawer = true },
-                    onLogout = { viewModel.logout() }
-                )
-            }
-        ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            AdminScopeHeaderCard(currentUser = currentUser)
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Master Agents & Network Hierarchy",
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Slate900
-                    )
-                    Text(
-                        text = "Click any Master Agent to view assigned users and country details",
-                        fontSize = 12.sp,
-                        color = Slate500
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-                Button(
-                    onClick = { viewModel.openCreateMasterModal() },
-                    shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
-                ) {
-                    Text("+ Create Master", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            // Stats badge
-            Card(
-                colors = CardDefaults.cardColors(containerColor = BPGreenLight),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "ACTIVE MASTER ACCOUNTS", fontWeight = FontWeight.Bold, color = BPGreenDark, fontSize = 12.sp)
-                    Text(text = "${countryScopedMasters.size}", fontWeight = FontWeight.Black, color = Slate900, fontSize = 18.sp)
-                }
-            }
-
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(countryScopedMasters, key = { it.id }) { agent ->
-                    MasterAgentCard(
-                        agent = agent,
-                        onClick = { viewModel.openMasterDetails(agent) }
-                    )
-                }
-            }
-        }
-        }
-
-        AdminEnterpriseDrawer(
-            showDrawer = showDrawer,
-            onDismiss = { showDrawer = false },
-            currentScreen = ScreenType.ADMIN_MASTER_AGENTS,
-            onNavigate = { viewModel.setScreen(it) },
-            currentUser = currentUser,
-            onLogout = { viewModel.logout() }
-        )
-    }
-}
-
-@Composable
-fun MasterAgentCard(
-    agent: MasterAgent,
-    onClick: () -> Unit = {}
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(BPGreenLight),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Security,
-                        contentDescription = agent.role,
-                        tint = BPGreenDark,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = agent.name, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = Slate900)
-                    Text(text = "Role: ${agent.role} • ${agent.country}", fontSize = 12.sp, color = Slate500)
-                    Text(text = "Tap to view assigned users ->", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = BPGreenDark)
-                }
-            }
-
-            Column(horizontalAlignment = Alignment.End) {
-                StatusBadge(status = agent.currency)
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "Share: ${agent.marginShare.toInt()}%", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = BPGreenDark)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(imageVector = Icons.Default.ChevronRight, contentDescription = "Open", tint = Slate500, modifier = Modifier.size(18.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun CreateMasterDialog(
-    currentUser: UserAccount? = null,
-    onDismiss: () -> Unit,
-    onCreate: (String, String, String, String, Double, Double) -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("master123") }
-    var curr by remember { mutableStateOf(if (currentUser?.isSuperAdmin == false) currentUser.currency else "PKR") }
-    var role by remember { mutableStateOf("Master Agent") }
-    var creditLimit by remember { mutableStateOf("200000") }
-    var share by remember { mutableStateOf("80") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Create Master Agent", fontWeight = FontWeight.ExtraBold) },
-        text = {
-            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Agent / Agency Name") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Assign Master Password") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val currencies = if (currentUser?.isSuperAdmin == false) listOf(currentUser.currency) else listOf("PKR", "AED", "SAR")
-                    currencies.forEach { c ->
-                        FilterChip(
-                            selected = curr == c,
-                            onClick = { curr = c },
-                            label = { Text(c, fontWeight = FontWeight.Bold) }
-                        )
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("Super Master", "Master Agent", "Sub Agent").forEach { r ->
-                        FilterChip(
-                            selected = role == r,
-                            onClick = { role = r },
-                            label = { Text(r, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val limitNum = creditLimit.toDoubleOrNull() ?: 200000.0
-                    val shareNum = share.toDoubleOrNull() ?: 80.0
-                    onCreate(name, password, curr, role, limitNum, shareNum)
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
-            ) {
-                Text("Create Master ($curr)", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
-        containerColor = Color.White
-    )
-}
-
-@Composable
-fun AdminTransactionsScreen(
-    viewModel: BPWalletViewModel,
-    modifier: Modifier = Modifier
-) {
-    val allTxs by viewModel.allTransactions.collectAsState()
-    val currentUser by viewModel.currentUser.collectAsState()
-    val proofTx by viewModel.txForProofVerification.collectAsState()
-
-    val countryFilteredTxs = if (currentUser?.isSuperAdmin == true || currentUser == null) {
-        allTxs
-    } else {
-        allTxs.filter { tx ->
-            tx.country.equals(currentUser?.country, true) || tx.currency.equals(currentUser?.currency, true)
-        }
-    }
-
-    var showDrawer by remember { mutableStateOf(false) }
-
-    if (proofTx != null) {
-        ProofVerificationDialog(
-            tx = proofTx!!,
-            onDismiss = { viewModel.closeProofVerification() },
-            onApprove = {
-                viewModel.approveTransaction(proofTx!!.id)
-                viewModel.closeProofVerification()
-            },
-            onReject = {
-                viewModel.rejectTransaction(proofTx!!.id)
-                viewModel.closeProofVerification()
-            }
-        )
-    }
-
-    Box(modifier = modifier.fillMaxSize()) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            topBar = {
-                AdminTopBar(
-                    title = "ADMIN / TRANSACTIONS",
-                    subtitle = "Pending Deposits & Withdrawals",
-                    currentUser = currentUser,
-                    onOpenDrawer = { showDrawer = true },
-                    onLogout = { viewModel.logout() }
-                )
-            }
-        ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            AdminScopeHeaderCard(currentUser = currentUser)
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Financial Ledger",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Slate900
-                )
-                val pendingCnt = countryFilteredTxs.count { it.status == "Pending" }
-                StatusBadge(status = "$pendingCnt Pending")
-            }
-
-            if (countryFilteredTxs.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No transactions recorded yet.", color = Slate500)
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(countryFilteredTxs, key = { it.id }) { tx ->
-                        AdminTxCard(
-                            tx = tx,
-                            currentUser = currentUser,
-                            onApprove = { viewModel.approveTransaction(tx.id) },
-                            onReject = { viewModel.rejectTransaction(tx.id) },
-                            onForward = { viewModel.forwardWithdrawalToSuperAdmin(tx.id) },
-                            onViewProof = { viewModel.openProofVerification(tx) }
-                        )
-                    }
-                }
-            }
-        }
-        }
-
-        AdminEnterpriseDrawer(
-            showDrawer = showDrawer,
-            onDismiss = { showDrawer = false },
-            currentScreen = ScreenType.ADMIN_TRANSACTIONS,
-            onNavigate = { viewModel.setScreen(it) },
-            currentUser = currentUser,
-            onLogout = { viewModel.logout() }
-        )
-    }
-}
-
-@Composable
-fun AdminTxCard(
-    tx: TransactionRequest,
-    currentUser: UserAccount? = null,
-    onApprove: () -> Unit,
-    onReject: () -> Unit,
-    onForward: () -> Unit = {},
-    onViewProof: () -> Unit = {}
-) {
-    val isSuperAdminOrNull = currentUser?.isSuperAdmin == true || currentUser == null
-    val isCountryMaster = currentUser?.isCountrySuperMaster == true
-    val hasProof = tx.type == "DEPOSIT" || tx.screenshotUri.isNotBlank()
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        StatusBadge(status = tx.type)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "${tx.currency} ${tx.amount.toInt()}",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 16.sp,
-                            color = Slate900
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = "User: ${tx.userName} (${tx.userEmail})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate700)
-                    Text(text = "Gateway: ${tx.gatewayName} | Acc: ${tx.accountNumber}", fontSize = 11.sp, color = Slate500)
-                    Text(text = "Ref: ${tx.referenceNumber}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = BPGreenDark)
-                }
-
-                if (tx.status == "Pending") {
-                    if (tx.type == "WITHDRAW" && isCountryMaster) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Button(
-                                onClick = onForward,
-                                colors = ButtonDefaults.buttonColors(containerColor = BPGoldDark),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Text("Forward", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                            }
-                            IconButton(
-                                onClick = onReject,
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFD32F2F))
-                            ) {
-                                Icon(imageVector = Icons.Default.Close, contentDescription = "Reject", tint = Color.White)
-                            }
-                        }
-                    } else if (isSuperAdminOrNull || !isCountryMaster || tx.type != "WITHDRAW") {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            IconButton(
-                                onClick = {
-                                    if (tx.type == "DEPOSIT") {
-                                        onViewProof()
-                                    } else {
-                                        onApprove()
-                                    }
-                                },
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(CircleShape)
-                                    .background(BPGreenPrimary)
-                            ) {
-                                Icon(imageVector = Icons.Default.Check, contentDescription = "Approve", tint = Color.White)
-                            }
-                            IconButton(
-                                onClick = onReject,
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFD32F2F))
-                            ) {
-                                Icon(imageVector = Icons.Default.Close, contentDescription = "Reject", tint = Color.White)
-                            }
-                        }
-                    }
-                } else if (tx.status.equals("pending_super_admin", true)) {
-                    if (isSuperAdminOrNull) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            IconButton(
-                                onClick = {
-                                    if (tx.type == "DEPOSIT") {
-                                        onViewProof()
-                                    } else {
-                                        onApprove()
-                                    }
-                                },
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(CircleShape)
-                                    .background(BPGreenPrimary)
-                            ) {
-                                Icon(imageVector = Icons.Default.Check, contentDescription = "Approve", tint = Color.White)
-                            }
-                            IconButton(
-                                onClick = onReject,
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFD32F2F))
-                            ) {
-                                Icon(imageVector = Icons.Default.Close, contentDescription = "Reject", tint = Color.White)
-                            }
-                        }
-                    } else {
-                        StatusBadge(status = tx.status)
-                    }
-                } else {
-                    StatusBadge(status = tx.status)
-                }
-            }
-
-            if (tx.type == "DEPOSIT" || hasProof) {
-                Spacer(modifier = Modifier.height(10.dp))
-                OutlinedButton(
-                    onClick = onViewProof,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(36.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = BPGreenDark)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.RemoveRedEye,
-                        contentDescription = "View Screenshot",
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (tx.screenshotUri.isNotBlank()) "View Screenshot Proof (Attached)" else "View Deposit Proof Verification",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    }
 }
 
 @Composable
 fun ProofVerificationDialog(
-    tx: TransactionRequest,
+    transaction: TransactionRequest,
     onDismiss: () -> Unit,
     onApprove: () -> Unit,
     onReject: () -> Unit
 ) {
-    val context = LocalContext.current
-    val isPending = tx.status.equals("Pending", ignoreCase = true) || tx.status.equals("pending_super_admin", ignoreCase = true)
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Verified,
-                    contentDescription = "Verified Proof",
-                    tint = BPGreenPrimary,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Deposit Proof Verification",
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 18.sp
-                )
-            }
-        },
-        text = {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .padding(16.dp)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Slate100),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "Amount: ${tx.currency} ${tx.amount.toInt()}",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 16.sp,
-                            color = Slate900
-                        )
-                        Text(text = "User: ${tx.userName} (${tx.userEmail})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate700)
-                        Text(text = "Gateway: ${tx.gatewayName}", fontSize = 12.sp, color = Slate700)
-                        Text(text = "Reference / Trx ID: ${tx.referenceNumber}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = BPGreenDark)
-                        Text(text = "Country: ${tx.country}", fontSize = 11.sp, color = Slate500)
-                        Text(text = "Status: ${tx.status}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (isPending) BPGoldDark else BPGreenDark)
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "ATTACHED PAYMENT RECEIPT:",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                        color = Slate700
-                    )
-
-                    if (tx.screenshotUri.isNotBlank()) {
-                        IconButton(
-                            onClick = {
-                                try {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(tx.screenshotUri))
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    android.widget.Toast.makeText(context, "Cannot open image link", android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Download,
-                                contentDescription = "Download",
-                                tint = BPGreenPrimary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                }
-
-                if (tx.screenshotUri.isNotBlank()) {
+                Text(
+                    text = "Verify Proof of Payment",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Slate900
+                )
+                
+                if (transaction.screenshotUri.isNullOrBlank()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(280.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color.Black),
+                            .height(200.dp)
+                            .background(Slate100, RoundedCornerShape(8.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        coil.compose.AsyncImage(
-                            model = tx.screenshotUri,
-                            contentDescription = "Payment Screenshot",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = androidx.compose.ui.layout.ContentScale.Fit
-                        )
+                        Text("No Proof Image Provided", color = Slate500)
                     }
                 } else {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = BPGreenLight),
-                        shape = RoundedCornerShape(12.dp),
+                    AsyncImage(
+                        model = transaction.screenshotUri,
+                        contentDescription = "Payment Proof",
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(130.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
-                                contentDescription = "Receipt",
-                                tint = BPGreenDark,
-                                modifier = Modifier.size(36.dp)
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "Transaction Ref: ${tx.referenceNumber}",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = BPGreenDark
-                            )
-                            Text(
-                                text = "Digital Payment Verification Logged",
-                                fontSize = 11.sp,
-                                color = Slate700
-                            )
-                        }
-                    }
+                            .heightIn(max = 400.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Fit
+                    )
                 }
-            }
-        },
-        confirmButton = {
-            if (isPending) {
-                Button(
-                    onClick = onApprove,
-                    colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
+                
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(imageVector = Icons.Default.Check, contentDescription = "Approve", modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Approve Deposit", fontWeight = FontWeight.Bold)
-                }
-            }
-        },
-        dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (isPending) {
-                    OutlinedButton(
-                        onClick = onReject,
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFD32F2F))
-                    ) {
-                        Text("Reject", fontWeight = FontWeight.Bold)
-                    }
-                }
-                TextButton(onClick = onDismiss) {
-                    Text("Close", color = Slate700)
-                }
-            }
-        }
-    )
-}
-
-@Composable
-fun MasterAgentDetailDialog(
-    agent: MasterAgent,
-    allUsers: List<UserAccount>,
-    onDismiss: () -> Unit,
-    onFilterCrm: (MasterAgent) -> Unit
-) {
-    val assignedUsers = allUsers.filter { u ->
-        u.assignedMasterId == agent.id ||
-        u.masterAgentName.equals(agent.name, ignoreCase = true) ||
-        u.country.equals(agent.country, ignoreCase = true) ||
-        u.currency.equals(agent.currency, ignoreCase = true)
-    }
-    val totalBalance = assignedUsers.sumOf { it.walletBalance }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Security,
-                    contentDescription = agent.name,
-                    tint = BPGreenDark,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Column {
-                    Text(text = agent.name, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-                    Text(text = "${agent.role} (${agent.country} / ${agent.currency})", fontSize = 12.sp, color = Slate500)
-                }
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 420.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = BPGreenLight),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text("ASSIGNED NETWORK USERS", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = BPGreenDark)
-                            Text("${assignedUsers.size} Accounts", fontSize = 16.sp, fontWeight = FontWeight.Black, color = Slate900)
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("TOTAL WALLET BALANCE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = BPGreenDark)
-                            Text("${agent.currency} ${totalBalance.toInt()}", fontSize = 16.sp, fontWeight = FontWeight.Black, color = Slate900)
-                        }
-                    }
+                    Text("Transaction Details:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("Amount: ${transaction.amount} ${transaction.currency}", fontSize = 13.sp)
+                    Text("Method: ${transaction.gatewayName}", fontSize = 13.sp)
+                    Text("User ID: ${transaction.userId}", fontSize = 13.sp)
+                    Text("Status: ${transaction.status}", fontSize = 13.sp)
                 }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("Registered Users List:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Slate900)
-                    Text("Margin Share: ${agent.marginShare.toInt()}%", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = BPGreenDark)
-                }
-
-                if (assignedUsers.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                        Text("No users registered under this master agent yet.", fontSize = 12.sp, color = Slate500)
-                    }
-                } else {
-                    LazyColumn(
+                    OutlinedButton(
+                        onClick = onReject,
                         modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red),
+                        border = BorderStroke(1.dp, Color.Red),
+                        shape = RoundedCornerShape(10.dp)
                     ) {
-                        items(assignedUsers, key = { it.id }) { user ->
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = Slate100),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(10.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column {
-                                        Text(user.fullName, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Slate900)
-                                        Text("${user.email} • ${user.country}", fontSize = 11.sp, color = Slate500)
-                                    }
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Text("${user.currency} ${user.walletBalance.toInt()}", fontWeight = FontWeight.Black, fontSize = 13.sp, color = BPGreenDark)
-                                        StatusBadge(status = user.betproIdStatus)
-                                    }
-                                }
-                            }
-                        }
+                        Text("Reject")
+                    }
+                    Button(
+                        onClick = onApprove,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Approve")
                     }
                 }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onFilterCrm(agent) },
-                colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
-            ) {
-                Icon(imageVector = Icons.Default.FilterList, contentDescription = "CRM Filter", modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Open in CRM", fontWeight = FontWeight.Bold)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close", color = Slate700)
+                
+                TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                    Text("Close", color = Slate500)
+                }
             }
         }
-    )
+    }
 }

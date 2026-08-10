@@ -2,7 +2,7 @@ package com.bp.uunwlm.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val BPGreenPrimary = Color(0xFF00C853)
+val BPGreenPrimary = Color(0xFF22C55E)
 val BPGreenDark = Color(0xFF0A8F4D)
 val BPGreenLight = Color(0xFFE8F8F0)
 val BPGreenAccent = Color(0xFF00E676)

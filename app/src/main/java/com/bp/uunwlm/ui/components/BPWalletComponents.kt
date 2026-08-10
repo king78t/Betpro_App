@@ -176,7 +176,7 @@ fun BPWalletLogo(
             text = "BP WALLET",
             fontWeight = FontWeight.ExtraBold,
             fontSize = 26.sp,
-            color = Color(0xFF00C853),
+            color = BPGreenPrimary,
             letterSpacing = (-0.5).sp
         )
         
@@ -248,7 +248,7 @@ fun BPTabSwitcher(
                 Icon(
                     imageVector = Icons.Default.Security,
                     contentDescription = null,
-                    tint = if (!isUserTab) Color(0xFF00C853) else Slate400,
+                    tint = if (!isUserTab) BPGreenPrimary else Slate400,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -279,7 +279,7 @@ fun CurrencyCard(
             .shadow(
                 elevation = if (isSelected) 6.dp else 2.dp,
                 shape = RoundedCornerShape(16.dp),
-                spotColor = if (isSelected) Color(0xFF00C853).copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.1f)
+                spotColor = if (isSelected) BPGreenPrimary.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.1f)
             ),
         shape = RoundedCornerShape(16.dp),
         color = Color.White,
@@ -318,14 +318,14 @@ fun CurrencyCard(
                 text = code,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 15.sp,
-                color = if (isSelected) Color(0xFF00C853) else Color(0xFF424242)
+                color = if (isSelected) BPGreenPrimary else Color(0xFF424242)
             )
             
             Text(
                 text = prefix,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isSelected) Color(0xFF00C853).copy(alpha = 0.7f) else Color(0xFF9E9E9E)
+                color = if (isSelected) BPGreenPrimary.copy(alpha = 0.7f) else Color(0xFF9E9E9E)
             )
         }
     }

@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bp.uunwlm.data.BPWalletRepository
 import com.bp.uunwlm.model.CelebrationEvent
-import com.bp.uunwlm.model.MasterAgent
 import com.bp.uunwlm.model.PaymentGateway
 import com.bp.uunwlm.model.TransactionRequest
 import com.bp.uunwlm.model.UserAccount
@@ -15,6 +14,9 @@ enum class ScreenType {
     SPLASH,
     LOGIN,
     REGISTER,
+    FORGOT_PASSWORD,
+    RESET_PASSWORD,
+    VERIFY_EMAIL,
     USER_HOME,
     USER_DEPOSIT,
     USER_WITHDRAW,
@@ -22,8 +24,12 @@ enum class ScreenType {
     USER_PROFILE,
     ADMIN_DASHBOARD,
     ADMIN_USERS_CRM,
-    ADMIN_MASTER_AGENTS,
     ADMIN_TRANSACTIONS,
+    ADMIN_DEPOSITS,
+    ADMIN_WITHDRAWALS,
+    ADMIN_BANK_MANAGEMENT,
+    ADMIN_NOTIFICATIONS,
+    ADMIN_AUDIT_LOGS,
     ADMIN_LIVE_CONTROL,
     ADMIN_SETTINGS
 }
@@ -33,12 +39,14 @@ class BPWalletViewModel : ViewModel() {
     val currentUser = BPWalletRepository.currentUser
     val allUsers = BPWalletRepository.usersList
     val allTransactions = BPWalletRepository.transactionsList
-    val masterAgents = BPWalletRepository.masterAgentsList
     val paymentGateways = BPWalletRepository.paymentGateways
     val recentBroadcast = BPWalletRepository.recentBroadcast
     val whatsappHelplineNumber = BPWalletRepository.whatsappHelplineNumber
     val exchangeWebsiteUrl = BPWalletRepository.exchangeWebsiteUrl
     val isLoading = BPWalletRepository.isLoading
+    val auditLogs = BPWalletRepository.auditLogs
+    val appSettings = BPWalletRepository.appSettings
+    val adminNotifications = BPWalletRepository.adminNotificationsList
 
     private val _isBiometricEnabled = MutableStateFlow(BPWalletRepository.isBiometricEnabled())
     val isBiometricEnabled: StateFlow<Boolean> = _isBiometricEnabled.asStateFlow()
@@ -78,7 +86,7 @@ class BPWalletViewModel : ViewModel() {
     init {
         viewModelScope.launch {
             allUsers.collect { users ->
-                val normalUsers = users.filter { !it.isSuperAdmin && !it.isCountrySuperMaster && !it.isSupportStaff && !it.isReadOnlyUser && it.role != "admin" }
+                val normalUsers = users.filter { !it.isSuperAdmin && it.role != "admin" }
                 android.util.Log.i("BPWalletVM", "Users Update: Total=${users.size}, Normal (Displayed)=${normalUsers.size}")
                 users.forEach { u ->
                     android.util.Log.d("BPWalletVM", "  - User: ${u.fullName} (ID: ${u.id}, Role: ${u.role}, Admin: ${u.isSuperAdmin})")
@@ -109,8 +117,12 @@ class BPWalletViewModel : ViewModel() {
         return screen == ScreenType.ADMIN_DASHBOARD ||
                screen == ScreenType.ADMIN_LIVE_CONTROL ||
                screen == ScreenType.ADMIN_USERS_CRM ||
-               screen == ScreenType.ADMIN_MASTER_AGENTS ||
                screen == ScreenType.ADMIN_TRANSACTIONS ||
+               screen == ScreenType.ADMIN_DEPOSITS ||
+               screen == ScreenType.ADMIN_WITHDRAWALS ||
+               screen == ScreenType.ADMIN_BANK_MANAGEMENT ||
+               screen == ScreenType.ADMIN_NOTIFICATIONS ||
+               screen == ScreenType.ADMIN_AUDIT_LOGS ||
                screen == ScreenType.ADMIN_SETTINGS
     }
 
@@ -173,10 +185,6 @@ class BPWalletViewModel : ViewModel() {
     private val _crmSearchQuery = MutableStateFlow("")
     val crmSearchQuery: StateFlow<String> = _crmSearchQuery.asStateFlow()
 
-    // Selected Master Agent for detail modal/view
-    private val _selectedMasterForDetails = MutableStateFlow<MasterAgent?>(null)
-    val selectedMasterForDetails: StateFlow<MasterAgent?> = _selectedMasterForDetails.asStateFlow()
-
     // Transaction for Deposit Proof Screenshot Verification modal
     private val _txForProofVerification = MutableStateFlow<TransactionRequest?>(null)
     val txForProofVerification: StateFlow<TransactionRequest?> = _txForProofVerification.asStateFlow()
@@ -185,9 +193,8 @@ class BPWalletViewModel : ViewModel() {
     private val _showBetProExchangeModal = MutableStateFlow(false)
     val showBetProExchangeModal: StateFlow<Boolean> = _showBetProExchangeModal.asStateFlow()
 
-    // Dialog state for Create Master Agent modal
-    private val _showCreateMasterModal = MutableStateFlow(false)
-    val showCreateMasterModal: StateFlow<Boolean> = _showCreateMasterModal.asStateFlow()
+    private val _pendingVerificationEmail = MutableStateFlow("")
+    val pendingVerificationEmail: StateFlow<String> = _pendingVerificationEmail.asStateFlow()
 
     fun setScreen(screen: ScreenType) {
         _currentScreen.value = screen
@@ -231,32 +238,46 @@ class BPWalletViewModel : ViewModel() {
         result.onSuccess {
             onSuccess(it)
         }.onFailure { err ->
+            if (err.message == "PENDING_VERIFICATION") {
+                setScreen(ScreenType.VERIFY_EMAIL)
+                return@onFailure
+            }
             val message = com.bp.uunwlm.util.ErrorHandler.getErrorMessage(err)
             showSnack(message)
             onError?.invoke(err)
         }
     }
 
-    fun loginUser(emailOrPhone: String, pass: String) {
-        if (emailOrPhone.isBlank() || pass.isBlank()) {
+    fun loginUser(username: String, pass: String) {
+        if (username.isBlank() || pass.isBlank()) {
             triggerErrorShake()
-            showSnack("Please enter email/phone and password")
+            showSnack("Please enter username and password")
             return
         }
-        BPWalletRepository.setLoading(true)
-        val result = BPWalletRepository.loginUser(emailOrPhone, pass)
-        BPWalletRepository.setLoading(false)
-        handleResult(result, onSuccess = { user ->
-            recordUserActivity()
-            showSnack("Welcome Back, ${user.fullName}!")
-            if (user.isAdminRole) {
-                setScreen(ScreenType.ADMIN_DASHBOARD)
-            } else {
-                setScreen(ScreenType.USER_HOME)
+        viewModelScope.launch {
+            BPWalletRepository.setLoading(true)
+            val result = BPWalletRepository.loginUser(username, pass)
+            BPWalletRepository.setLoading(false)
+            result.onSuccess { user ->
+                recordUserActivity()
+                showSnack("Welcome Back, ${user.fullName}!")
+                if (user.isAdminRole) {
+                    setScreen(ScreenType.ADMIN_DASHBOARD)
+                } else {
+                    setScreen(ScreenType.USER_HOME)
+                }
+            }.onFailure { err ->
+                if (err.message == "PENDING_VERIFICATION") {
+                    val userEmail = BPWalletRepository.usersList.value.find { it.username.equals(username, true) }?.email ?: ""
+                    _pendingVerificationEmail.value = userEmail
+                    setScreen(ScreenType.VERIFY_EMAIL)
+                    return@onFailure
+                }
+                val message = com.bp.uunwlm.util.ErrorHandler.getErrorMessage(err)
+                showSnack(message)
+                triggerErrorShake()
             }
-        }, onError = {
-            triggerErrorShake()
-        })
+        }
     }
 
     fun loginAdmin(username: String, pass: String) {
@@ -265,20 +286,22 @@ class BPWalletViewModel : ViewModel() {
             showSnack("Please enter admin username and password")
             return
         }
-        BPWalletRepository.setLoading(true)
-        val result = BPWalletRepository.loginAdmin(username, pass)
-        BPWalletRepository.setLoading(false)
-        handleResult(result, onSuccess = { admin ->
-            recordUserActivity()
-            showSnack("Admin logged in successfully! Welcome ${admin.fullName}")
-            if (admin.isAdminRole) {
-                setScreen(ScreenType.ADMIN_DASHBOARD)
-            } else {
-                setScreen(ScreenType.USER_HOME)
-            }
-        }, onError = {
-            triggerErrorShake()
-        })
+        viewModelScope.launch {
+            BPWalletRepository.setLoading(true)
+            val result = BPWalletRepository.loginAdmin(username, pass)
+            BPWalletRepository.setLoading(false)
+            handleResult<UserAccount>(result, onSuccess = { user ->
+                recordUserActivity()
+                showSnack("Admin logged in successfully! Welcome ${user.fullName}")
+                if (user.isAdminRole) {
+                    setScreen(ScreenType.ADMIN_DASHBOARD)
+                } else {
+                    setScreen(ScreenType.USER_HOME)
+                }
+            }, onError = {
+                triggerErrorShake()
+            })
+        }
     }
 
     fun registerUser(
@@ -286,9 +309,10 @@ class BPWalletViewModel : ViewModel() {
         email: String,
         currency: String,
         mobileNumber: String,
-        pass: String
+        pass: String,
+        username: String
     ) {
-        if (fullName.isBlank() || email.isBlank() || mobileNumber.isBlank() || pass.isBlank()) {
+        if (fullName.isBlank() || email.isBlank() || mobileNumber.isBlank() || pass.isBlank() || username.isBlank()) {
             triggerErrorShake()
             showSnack("Please fill in all required fields.")
             return
@@ -297,12 +321,6 @@ class BPWalletViewModel : ViewModel() {
         if (!trimmedEmail.contains("@")) {
             triggerErrorShake()
             showSnack("Please enter a valid email address.")
-            return
-        }
-        val cleanPhone = mobileNumber.replace(Regex("[^0-9+]"), "")
-        if (cleanPhone.length < 5) {
-            triggerErrorShake()
-            showSnack("Please enter a valid phone number.")
             return
         }
         if (pass.length < 4) {
@@ -317,92 +335,77 @@ class BPWalletViewModel : ViewModel() {
                 email = trimmedEmail,
                 currency = currency,
                 mobileNumber = mobileNumber,
-                password = pass
+                password = pass,
+                username = username
             )
             BPWalletRepository.setLoading(false)
-            handleResult(result, onSuccess = { user ->
-                recordUserActivity()
-                showSnack("Account created successfully! Welcome to BP Wallet, ${user.fullName}.")
-                setScreen(ScreenType.USER_HOME)
+            handleResult<UserAccount>(result, onSuccess = {
+                _pendingVerificationEmail.value = trimmedEmail
+                showSnack("Verification code sent! Please check your email.")
+                setScreen(ScreenType.VERIFY_EMAIL)
             }, onError = {
                 triggerErrorShake()
             })
         }
     }
 
-    fun signInWithGoogle(email: String, displayName: String, idToken: String? = null) {
-        viewModelScope.launch {
-            BPWalletRepository.setLoading(true)
-            val result = BPWalletRepository.signInWithGoogle(email, displayName, idToken)
-            BPWalletRepository.setLoading(false)
-            handleResult(result, onSuccess = { user ->
-                showSnack("Welcome, ${user.fullName}! Signed in with Google via Firebase Auth.")
-                setScreen(ScreenType.USER_HOME)
-            }, onError = {
-                triggerErrorShake()
-            })
-        }
-    }
-
-    private val _phoneVerificationId = MutableStateFlow<String?>(null)
-    val phoneVerificationId: StateFlow<String?> = _phoneVerificationId.asStateFlow()
-
-    private val _showOtpDialog = MutableStateFlow(false)
-    val showOtpDialog: StateFlow<Boolean> = _showOtpDialog.asStateFlow()
-
-    fun startPhoneLogin(phoneNumber: String, activity: android.app.Activity) {
-        if (phoneNumber.isBlank() || phoneNumber.length < 8) {
-            showSnack("Please enter a valid phone number")
-            return
-        }
-        
-        BPWalletRepository.setLoading(true)
-        val callbacks = object : com.google.firebase.auth.PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
-            override fun onVerificationCompleted(credential: com.google.firebase.auth.PhoneAuthCredential) {
-                // Auto-verification handled in some cases
-                viewModelScope.launch {
-                    val res = BPWalletRepository.verifyPhoneCode(credential.smsCode ?: "", _phoneVerificationId.value ?: "")
-                    res.onSuccess { setScreen(ScreenType.USER_HOME) }
-                    BPWalletRepository.setLoading(false)
-                }
-            }
-
-            override fun onVerificationFailed(e: com.google.firebase.FirebaseException) {
-                BPWalletRepository.setLoading(false)
-                showSnack("Verification failed: ${e.message}")
-            }
-
-            override fun onCodeSent(verificationId: String, token: com.google.firebase.auth.PhoneAuthProvider.ForceResendingToken) {
-                BPWalletRepository.setLoading(false)
-                _phoneVerificationId.value = verificationId
-                _showOtpDialog.value = true
-                showSnack("Verification code sent to $phoneNumber")
-            }
-        }
-        
-        BPWalletRepository.startPhoneVerification(phoneNumber, activity, callbacks)
-    }
-
-    fun verifyOtp(code: String) {
-        val vid = _phoneVerificationId.value
-        if (vid == null) {
-            showSnack("Session expired. Please try again.")
+    fun verifyOtp(email: String, otp: String) {
+        if (otp.length < 6) {
+            showSnack("Please enter the 6-digit code.")
             return
         }
         viewModelScope.launch {
             BPWalletRepository.setLoading(true)
-            val res = BPWalletRepository.verifyPhoneCode(code, vid)
+            val result = BPWalletRepository.verifyOtp(email, otp)
             BPWalletRepository.setLoading(false)
-            handleResult(res, onSuccess = {
-                _showOtpDialog.value = false
-                showSnack("Phone verified! Welcome to BP Wallet.")
-                setScreen(ScreenType.USER_HOME)
+            handleResult(result, onSuccess = {
+                showSnack("Email verified successfully! You can now login.")
+                setScreen(ScreenType.LOGIN)
             })
         }
     }
 
-    fun closeOtpDialog() {
-        _showOtpDialog.value = false
+    fun resendVerification(email: String) {
+        viewModelScope.launch {
+            BPWalletRepository.setLoading(true)
+            val result = BPWalletRepository.resendVerification(email)
+            BPWalletRepository.setLoading(false)
+            handleResult(result, onSuccess = {
+                showSnack("New verification code sent!")
+            })
+        }
+    }
+
+    fun forgotPassword(email: String) {
+        if (email.isBlank() || !email.contains("@")) {
+            showSnack("Please enter a valid email")
+            return
+        }
+        viewModelScope.launch {
+            BPWalletRepository.setLoading(true)
+            val result = BPWalletRepository.forgotPassword(email)
+            BPWalletRepository.setLoading(false)
+            handleResult(result, onSuccess = {
+                showSnack("Password reset email sent! Check your inbox.")
+                setScreen(ScreenType.LOGIN)
+            })
+        }
+    }
+
+    fun resetPassword(newPass: String) {
+        if (newPass.length < 4) {
+            showSnack("Password must be at least 4 characters")
+            return
+        }
+        viewModelScope.launch {
+            BPWalletRepository.setLoading(true)
+            val result = BPWalletRepository.resetPassword(newPass)
+            BPWalletRepository.setLoading(false)
+            handleResult(result, onSuccess = {
+                showSnack("Password updated! You can now login.")
+                setScreen(ScreenType.LOGIN)
+            })
+        }
     }
 
     fun logout() {
@@ -520,15 +523,6 @@ class BPWalletViewModel : ViewModel() {
         })
     }
 
-    fun forwardWithdrawalToSuperAdmin(txId: String) {
-        BPWalletRepository.setLoading(true)
-        val res = BPWalletRepository.forwardWithdrawalToSuperAdmin(txId)
-        BPWalletRepository.setLoading(false)
-        handleResult(res, onSuccess = {
-            showSnack("Withdrawal forwarded to Super Admin for payment release.")
-        })
-    }
-
     fun addPaymentGateway(
         name: String,
         currency: String,
@@ -635,25 +629,10 @@ class BPWalletViewModel : ViewModel() {
         _crmStatusFilter.value = status
     }
 
-    fun openMasterDetails(agent: MasterAgent) {
-        _selectedMasterForDetails.value = agent
-    }
-
-    fun closeMasterDetails() {
-        _selectedMasterForDetails.value = null
-    }
-
     fun resetCrmFilters() {
         _crmSearchQuery.value = ""
         _crmCurrencyFilter.value = "All Curr"
         _crmStatusFilter.value = "All Status"
-    }
-
-    fun filterCrmByMaster(agent: MasterAgent) {
-        _crmSearchQuery.value = agent.name
-        _crmCurrencyFilter.value = "All Curr"
-        closeMasterDetails()
-        setScreen(ScreenType.ADMIN_USERS_CRM)
     }
 
     fun openProofVerification(tx: TransactionRequest) {
@@ -668,37 +647,6 @@ class BPWalletViewModel : ViewModel() {
         _crmSearchQuery.value = query
     }
 
-    fun openCreateMasterModal() {
-        _showCreateMasterModal.value = true
-    }
-
-    fun closeCreateMasterModal() {
-        _showCreateMasterModal.value = false
-    }
-
-    fun createMasterAgent(
-        name: String,
-        password: String,
-        currency: String,
-        role: String,
-        creditLimit: Double,
-        marginShare: Double
-    ) {
-        if (name.isBlank()) {
-            showSnack("Please enter Master Agent/Agency Name")
-            return
-        }
-        BPWalletRepository.setLoading(true)
-        val result = BPWalletRepository.createMasterAgent(name, password, currency, role, creditLimit, marginShare)
-        BPWalletRepository.setLoading(false)
-        result.onSuccess { agent ->
-            showSnack("Master Agent '${agent.name}' created in ${agent.currency}!")
-            closeCreateMasterModal()
-        }.onFailure {
-            showSnack("Could not create master agent")
-        }
-    }
-
     fun broadcastPushAlert(title: String, message: String) {
         if (title.isBlank() || message.isBlank()) {
             showSnack("Please enter announcement title and message")
@@ -706,6 +654,39 @@ class BPWalletViewModel : ViewModel() {
         }
         BPWalletRepository.broadcastPushAlert(title, message)
         showSnack("Push alert broadcasted to all active wallets!")
+    }
+
+    fun sendAdminNotification(title: String, message: String, type: String) {
+        if (title.isBlank() || message.isBlank()) {
+            showSnack("Please enter title and message")
+            return
+        }
+        val notification = com.bp.uunwlm.model.AdminNotification(
+            title = title,
+            message = message,
+            type = type
+        )
+        BPWalletRepository.sendAdminNotification(notification)
+        showSnack("Notification sent successfully!")
+    }
+
+    fun saveAppSettings(settings: com.bp.uunwlm.model.AppSettings) {
+        BPWalletRepository.saveAppSettings(settings)
+        showSnack("App settings updated successfully!")
+    }
+
+    fun deleteUser(userId: String) {
+        val res = BPWalletRepository.deleteUser(userId)
+        handleResult(res, onSuccess = {
+            showSnack("User account deleted permanently.")
+        })
+    }
+
+    fun updateUserStatus(userId: String, status: String) {
+        val res = BPWalletRepository.updateUserStatus(userId, status)
+        handleResult(res, onSuccess = {
+            showSnack("User status updated to $status.")
+        })
     }
 
     fun setBetProExchangeModalVisible(visible: Boolean) {

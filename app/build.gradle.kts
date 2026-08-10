@@ -1,19 +1,17 @@
-import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
-
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.roborazzi)
   alias(libs.plugins.secrets)
-  alias(libs.plugins.google.services)
+  alias(libs.plugins.kotlin.serialization)
 }
 
 base.archivesName.set("app")
 
 android {
   namespace = "com.bp.uunwlm"
-  compileSdk = 35
+  compileSdk = 36
 
   defaultConfig {
     applicationId = "com.bp.uunwlm"
@@ -82,13 +80,8 @@ secrets {
   defaultPropertiesFileName = ".env.example"
 }
 
-googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
-
-// Some unused dependencies are commented out below instead of being removed.
-// This makes it easy to add them back in the future if needed.
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
-  implementation(platform(libs.firebase.bom))
   implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.compose.ui)
   implementation(libs.androidx.compose.ui.graphics)
@@ -108,14 +101,6 @@ dependencies {
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
   implementation(libs.coil.compose)
-  implementation(libs.firebase.firestore)
-  implementation(libs.firebase.auth)
-  // implementation(libs.firebase.analytics)
-  implementation(libs.androidx.credentials)
-  implementation(libs.androidx.credentials.play.services)
-  implementation(libs.googleid)
-  implementation(libs.play.services.auth)
-  implementation(libs.play.services.base)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.androidx.work.runtime.ktx)
@@ -124,6 +109,14 @@ dependencies {
   implementation(libs.androidx.fragment.ktx)
   implementation(libs.lottie.compose)
   implementation(libs.okhttp)
+  implementation(libs.jbcrypt)
+  implementation(platform(libs.supabase.bom))
+  implementation(libs.supabase.postgrest)
+  implementation(libs.supabase.auth)
+  implementation(libs.supabase.realtime)
+  implementation(libs.supabase.storage)
+  implementation(libs.ktor.client.okhttp)
+  implementation(libs.kotlinx.serialization.json)
   implementation("com.google.code.gson:gson:2.11.0")
   
   testImplementation(libs.androidx.compose.ui.test.junit4)

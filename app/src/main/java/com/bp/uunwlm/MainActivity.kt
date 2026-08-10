@@ -59,13 +59,6 @@ class MainActivity : FragmentActivity() {
             // Clear secure prefs if any (using same name as in Repo if possible, or just targeting common names)
             getSharedPreferences("bp_secure_prefs", android.content.Context.MODE_PRIVATE).edit().clear().apply()
             
-            // Attempt to clear Firestore cache
-            try {
-                com.google.firebase.firestore.FirebaseFirestore.getInstance().clearPersistence()
-            } catch (e: Exception) {
-                android.util.Log.e("MainActivity", "Firestore cache clear failed", e)
-            }
-            
             auditPrefs.edit().putBoolean("v2_reset_done", true).apply()
             android.util.Log.i("MainActivity", "Completed One-Time Factory Reset for Audit")
         }
@@ -264,14 +257,22 @@ fun BPWalletApp(
                 ScreenType.SPLASH -> Unit // Handled exclusively by SplashActivity
                 ScreenType.LOGIN -> LoginScreen(viewModel = viewModel)
                 ScreenType.REGISTER -> RegisterScreen(viewModel = viewModel)
+                ScreenType.FORGOT_PASSWORD -> ForgotPasswordScreen(viewModel = viewModel)
+                ScreenType.RESET_PASSWORD -> ResetPasswordScreen(viewModel = viewModel)
+                ScreenType.VERIFY_EMAIL -> VerifyEmailScreen(viewModel = viewModel)
                 ScreenType.USER_HOME -> UserHomeScreen(viewModel = viewModel)
                 ScreenType.USER_DEPOSIT -> UserDepositScreen(viewModel = viewModel)
                 ScreenType.USER_WITHDRAW -> UserWithdrawScreen(viewModel = viewModel)
                 ScreenType.USER_HISTORY -> UserHistoryScreen(viewModel = viewModel)
                 ScreenType.USER_PROFILE -> UserProfileScreen(viewModel = viewModel)
                 ScreenType.ADMIN_DASHBOARD, ScreenType.ADMIN_LIVE_CONTROL -> AdminDashboardScreen(viewModel = viewModel)
-                ScreenType.ADMIN_USERS_CRM, ScreenType.ADMIN_MASTER_AGENTS -> AdminUsersCrmScreen(viewModel = viewModel)
-                ScreenType.ADMIN_TRANSACTIONS -> AdminTransactionsScreen(viewModel = viewModel)
+                ScreenType.ADMIN_USERS_CRM -> AdminUserManagementScreen(viewModel = viewModel)
+                ScreenType.ADMIN_DEPOSITS -> AdminDepositsScreen(viewModel = viewModel)
+                ScreenType.ADMIN_WITHDRAWALS -> AdminWithdrawalsScreen(viewModel = viewModel)
+                ScreenType.ADMIN_BANK_MANAGEMENT -> AdminBankManagementScreen(viewModel = viewModel)
+                ScreenType.ADMIN_NOTIFICATIONS -> AdminNotificationsScreen(viewModel = viewModel)
+                ScreenType.ADMIN_AUDIT_LOGS -> AdminAuditLogsScreen(viewModel = viewModel)
+                ScreenType.ADMIN_TRANSACTIONS -> AdminDepositsScreen(viewModel = viewModel) // Unified or split? I split them.
                 ScreenType.ADMIN_SETTINGS -> AdminSettingsScreen(viewModel = viewModel)
             }
 

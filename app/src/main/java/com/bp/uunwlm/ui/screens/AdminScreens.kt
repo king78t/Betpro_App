@@ -28,7 +28,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bp.uunwlm.R
-import com.bp.uunwlm.model.MasterAgent
 import com.bp.uunwlm.model.PaymentGateway
 import com.bp.uunwlm.model.TransactionRequest
 import com.bp.uunwlm.model.UserAccount
@@ -51,42 +50,26 @@ fun AdminDashboardScreen(
 ) {
     val users by viewModel.allUsers.collectAsState()
     val transactions by viewModel.allTransactions.collectAsState()
-    val masters by viewModel.masterAgents.collectAsState()
+    val auditLogs by viewModel.auditLogs.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-    val normalUsers = users.filter { !it.isSuperAdmin && !it.isCountrySuperMaster && !it.isSupportStaff && !it.isReadOnlyUser && it.role != "admin" }
-    val countryUsers = if (currentUser?.isSuperAdmin == true || currentUser == null) {
-        normalUsers
-    } else {
-        normalUsers.filter { u -> u.country.equals(currentUser?.country, true) || u.currency.equals(currentUser?.currency, true) }
-    }
-    val countryTxs = if (currentUser?.isSuperAdmin == true || currentUser == null) {
-        transactions
-    } else {
-        transactions.filter { tx -> tx.country.equals(currentUser?.country, true) || tx.currency.equals(currentUser?.currency, true) }
-    }
-    val pendingDeposits = countryTxs.count { it.type == "DEPOSIT" && it.status == "Pending" }
-    val pendingPayouts = countryTxs.count { it.type == "WITHDRAW" && it.status == "Pending" }
-    val totalBalanceSum = countryUsers.sumOf { it.walletBalance }
-
-    var broadcastTitle by remember { mutableStateOf("") }
-    var broadcastMessage by remember { mutableStateOf("") }
+    val normalUsers = users.filter { !it.isSuperAdmin && it.role != "admin" }
+    val totalDeposits = transactions.filter { it.type == "DEPOSIT" && it.status == "Approved" }.sumOf { it.amount }
+    val totalWithdrawals = transactions.filter { it.type == "WITHDRAW" && it.status == "Approved" }.sumOf { it.amount }
+    val totalWalletBalance = normalUsers.sumOf { it.walletBalance }
 
     var showDrawer by remember { mutableStateOf(false) }
-    var showNotifications by remember { mutableStateOf(false) }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize().background(Color(0xFFF8FAFC))) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
+            containerColor = Color.Transparent,
             topBar = {
-                AdminTopBar(
-                    title = "ADMIN / DASHBOARD",
-                    subtitle = "Executive Overview",
-                    currentUser = currentUser,
+                AdminTopBarRedesigned(
+                    title = "Dashboard",
+                    subtitle = "Financial Overview",
                     onOpenDrawer = { showDrawer = true },
-                    onNotificationClick = { showNotifications = true },
-                    unreadNotificationsCount = if (pendingDeposits + pendingPayouts > 0) pendingDeposits + pendingPayouts else 1,
                     onLogout = { viewModel.logout() }
                 )
             }
@@ -94,173 +77,145 @@ fun AdminDashboardScreen(
             if (isLoading) {
                 ShimmerDashboardSkeleton(modifier = Modifier.padding(innerPadding))
             } else {
-                Column(
+                LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding)
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                        .padding(innerPadding),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
-                // 1. USERS (Full width card)
-                AdminStatCard(
-                    title = "USERS",
-                    value = "${countryUsers.size}",
-                    subtitle = "Real-time Registered Users",
-                    icon = Icons.Default.Group,
-                    iconTint = Color(0xFF2563EB),
-                    iconBg = Color(0xFFDBEAFE),
-                    subtitleColor = BPGreenDark
-                )
-
-                // 2. USER CIRCULATION (Full width card)
-                AdminStatCard(
-                    title = "USER CIRCULATION",
-                    value = "${currentUser?.currency ?: "PKR"} ${totalBalanceSum.toInt()}",
-                    subtitle = "Across ${countryUsers.size} Active Wallets",
-                    icon = Icons.Default.AccountBalanceWallet,
-                    iconTint = BPGreenPrimary,
-                    iconBg = BPGreenLight,
-                    subtitleColor = Slate500
-                )
-
-                // 3. NET PLATFORM P&L (Full width card)
-                AdminStatCard(
-                    title = "NET PLATFORM P&L",
-                    value = "${currentUser?.currency ?: "PKR"} ${totalBalanceSum.toInt()}",
-                    subtitle = "Current Net Reserve",
-                    icon = Icons.Default.AttachMoney,
-                    iconTint = BPGreenPrimary,
-                    iconBg = BPGreenLight,
-                    subtitleColor = BPGreenDark
-                )
-
-                // 4. PENDING DEPOSITS (Full width card)
-                AdminStatCard(
-                    title = "PENDING DEPOSITS",
-                    value = "$pendingDeposits",
-                    subtitle = "Awaiting Verification",
-                    icon = Icons.Default.ArrowDownward,
-                    iconTint = BPGreenPrimary,
-                    iconBg = BPGreenLight,
-                    subtitleColor = Slate500
-                )
-
-                // 6. PENDING PAYOUTS (Full width card)
-                AdminStatCard(
-                    title = "PENDING PAYOUTS",
-                    value = "$pendingPayouts",
-                    subtitle = "Payout Approvals",
-                    icon = Icons.Default.ArrowUpward,
-                    iconTint = Color(0xFFEF4444),
-                    iconBg = Color(0xFFFEE2E2),
-                    subtitleColor = Slate500
-                )
-
-                // 7. REAL-TIME PUSH BROADCAST TOOL
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(18.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Campaign,
-                                    contentDescription = "Broadcast",
-                                    tint = BPGreenDark,
-                                    modifier = Modifier.size(20.dp)
+                    // 1. STATS GRID (4 cards)
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                AdminStatCardModern(
+                                    title = "Total Users",
+                                    value = "${normalUsers.size}",
+                                    icon = Icons.Default.Group,
+                                    modifier = Modifier.weight(1f)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Real-Time Push Broadcast",
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 15.sp,
-                                    color = Slate900
+                                AdminStatCardModern(
+                                    title = "Total Deposits",
+                                    value = "${currentUser?.displayCurrencySymbol ?: "PKR"} ${totalDeposits.toInt()}",
+                                    icon = Icons.Default.ArrowDownward,
+                                    modifier = Modifier.weight(1f)
                                 )
                             }
-                            StatusBadge(status = "WebSocket Engine")
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                AdminStatCardModern(
+                                    title = "Total Withdrawals",
+                                    value = "${currentUser?.displayCurrencySymbol ?: "PKR"} ${totalWithdrawals.toInt()}",
+                                    icon = Icons.Default.ArrowUpward,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                AdminStatCardModern(
+                                    title = "Wallet Balance",
+                                    value = "${currentUser?.displayCurrencySymbol ?: "PKR"} ${totalWalletBalance.toInt()}",
+                                    icon = Icons.Default.AccountBalanceWallet,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                         }
+                    }
 
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        OutlinedTextField(
-                            value = broadcastTitle,
-                            onValueChange = { broadcastTitle = it },
-                            label = { Text("Announcement Title") },
-                            placeholder = { Text("e.g. 🚀 BetPro Exchange PSL Match Live!") },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = BPGreenPrimary,
-                                unfocusedBorderColor = Slate500
-                            )
+                    // 2. QUICK ACTIONS
+                    item {
+                        Text(
+                            text = "Quick Actions",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate900,
+                            modifier = Modifier.padding(bottom = 8.dp)
                         )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        OutlinedTextField(
-                            value = broadcastMessage,
-                            onValueChange = { broadcastMessage = it },
-                            label = { Text("Notification Message") },
-                            placeholder = { Text("Message will trigger an instant push alert on all user devices...") },
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            maxLines = 3,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = BPGreenPrimary,
-                                unfocusedBorderColor = Slate500
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Button(
-                            onClick = {
-                                viewModel.broadcastPushAlert(broadcastTitle, broadcastMessage)
-                                broadcastTitle = ""
-                                broadcastMessage = ""
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = BPGreenPrimary,
-                                contentColor = Color.White
-                            )
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Icon(imageVector = Icons.AutoMirrored.Filled.Send, contentDescription = "Send", modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "BROADCAST PUSH ALERT",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
+                            QuickActionItem(
+                                label = "Add User",
+                                icon = Icons.Default.PersonAdd,
+                                color = Color(0xFF3B82F6),
+                                onClick = { viewModel.setScreen(ScreenType.ADMIN_USERS_CRM) }
+                            )
+                            QuickActionItem(
+                                label = "Deposits",
+                                icon = Icons.Default.FileUpload,
+                                color = BPGreenPrimary,
+                                onClick = { viewModel.setScreen(ScreenType.ADMIN_DEPOSITS) }
+                            )
+                            QuickActionItem(
+                                label = "Withdraws",
+                                icon = Icons.Default.FileDownload,
+                                color = Color(0xFFEF4444),
+                                onClick = { viewModel.setScreen(ScreenType.ADMIN_WITHDRAWALS) }
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            QuickActionItem(
+                                label = "Bank Accounts",
+                                icon = Icons.Default.AccountBalance,
+                                color = Color(0xFF8B5CF6),
+                                onClick = { viewModel.setScreen(ScreenType.ADMIN_BANK_MANAGEMENT) }
+                            )
+                            QuickActionItem(
+                                label = "Notifications",
+                                icon = Icons.Default.Campaign,
+                                color = Color(0xFFF59E0B),
+                                onClick = { viewModel.setScreen(ScreenType.ADMIN_NOTIFICATIONS) }
+                            )
+                            QuickActionItem(
+                                label = "Settings",
+                                icon = Icons.Default.Settings,
+                                color = Slate700,
+                                onClick = { viewModel.setScreen(ScreenType.ADMIN_SETTINGS) }
                             )
                         }
                     }
+
+                    // 3. RECENT ACTIVITY
+                    item {
+                        Text(
+                            text = "Recent Activity",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate900,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.9f)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.5f)),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                if (auditLogs.isEmpty()) {
+                                    Text(
+                                        text = "No recent activity found.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Slate500,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp)
+                                    )
+                                } else {
+                                    auditLogs.take(5).forEach { log ->
+                                        ActivityItem(log)
+                                    }
+                                    TextButton(
+                                        onClick = { viewModel.setScreen(ScreenType.ADMIN_AUDIT_LOGS) },
+                                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                                    ) {
+                                        Text("View All Activity", color = BPGreenPrimary, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-
-                // 9. REAL-TIME PLATFORM ACTIVITY STREAM CARD
-                RealTimeActivityStreamCard()
-
-                // 10. RECENT FINANCIAL LEDGER CARD
-                RecentFinancialLedgerCard(
-                    transactions = countryTxs,
-                    onViewAll = { viewModel.setScreen(ScreenType.ADMIN_TRANSACTIONS) }
-                )
-            }
             }
         }
 
@@ -272,14 +227,195 @@ fun AdminDashboardScreen(
             currentUser = currentUser,
             onLogout = { viewModel.logout() }
         )
+    }
+}
 
-        AdminNotificationRightDrawer(
-            showDrawer = showNotifications,
-            onDismiss = { showNotifications = false },
-            pendingTxCount = if (pendingDeposits + pendingPayouts > 0) pendingDeposits + pendingPayouts else 1,
-            onNavigateToTx = { viewModel.setScreen(ScreenType.ADMIN_TRANSACTIONS) },
-            onNavigateToCrm = { viewModel.setScreen(ScreenType.ADMIN_USERS_CRM) }
+@Composable
+fun AdminStatCardModern(
+    title: String,
+    value: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.height(110.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.8f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.5f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(BPGreenPrimary.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = BPGreenPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            Column {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black,
+                    color = Slate900
+                )
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Slate500,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun RowScope.QuickActionItem(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    color: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .weight(1f)
+            .clickable { onClick() },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(color.copy(alpha = 0.1f))
+                .border(1.dp, color.copy(alpha = 0.2f), RoundedCornerShape(16.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = color,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = Slate700,
+            textAlign = TextAlign.Center
         )
+    }
+}
+
+@Composable
+fun ActivityItem(log: com.bp.uunwlm.model.AuditLog) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        val icon = when (log.action) {
+            "LOGIN" -> Icons.Default.Login
+            "DEPOSIT_APPROVAL" -> Icons.Default.CheckCircle
+            "WITHDRAW_APPROVAL" -> Icons.Default.CheckCircle
+            "USER_CREATION" -> Icons.Default.PersonAdd
+            "UPDATE_CREDENTIALS" -> Icons.Default.VpnKey
+            else -> Icons.Default.Info
+        }
+        val iconColor = when (log.action) {
+            "DEPOSIT_APPROVAL", "WITHDRAW_APPROVAL", "USER_CREATION" -> BPGreenPrimary
+            "LOGIN" -> Color(0xFF3B82F6)
+            else -> Slate500
+        }
+
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(iconColor.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(imageVector = icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = log.details,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = Slate900
+            )
+            Text(
+                text = com.bp.uunwlm.util.DateTimeUtils.getRelativeTime(log.timestamp),
+                style = MaterialTheme.typography.labelSmall,
+                color = Slate400
+            )
+        }
+    }
+}
+
+@Composable
+fun AdminTopBarRedesigned(
+    title: String,
+    subtitle: String,
+    onOpenDrawer: () -> Unit,
+    onLogout: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White.copy(alpha = 0.8f),
+        shadowElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onOpenDrawer) {
+                    Icon(imageVector = Icons.Default.Menu, contentDescription = "Menu", tint = Slate900)
+                }
+                Column(modifier = Modifier.padding(start = 8.dp)) {
+                    Text(text = title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = Slate900)
+                    Text(text = subtitle, style = MaterialTheme.typography.labelSmall, color = Slate500)
+                }
+            }
+            IconButton(onClick = onLogout) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(BPGreenPrimary.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(imageVector = Icons.Default.Logout, contentDescription = "Logout", tint = BPGreenPrimary, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
     }
 }
 
@@ -668,7 +804,7 @@ fun AdminEnterpriseDrawer(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     AdminDrawerItem(
-                        label = "Users CRM",
+                        label = "User Management",
                         icon = Icons.Default.People,
                         selected = currentScreen == ScreenType.ADMIN_USERS_CRM,
                         onClick = {
@@ -678,11 +814,51 @@ fun AdminEnterpriseDrawer(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     AdminDrawerItem(
-                        label = "Transactions",
-                        icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                        selected = currentScreen == ScreenType.ADMIN_TRANSACTIONS,
+                        label = "Deposits",
+                        icon = Icons.Default.ArrowDownward,
+                        selected = currentScreen == ScreenType.ADMIN_DEPOSITS,
                         onClick = {
-                            onNavigate(ScreenType.ADMIN_TRANSACTIONS)
+                            onNavigate(ScreenType.ADMIN_DEPOSITS)
+                            onDismiss()
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    AdminDrawerItem(
+                        label = "Withdrawals",
+                        icon = Icons.Default.ArrowUpward,
+                        selected = currentScreen == ScreenType.ADMIN_WITHDRAWALS,
+                        onClick = {
+                            onNavigate(ScreenType.ADMIN_WITHDRAWALS)
+                            onDismiss()
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    AdminDrawerItem(
+                        label = "Bank Accounts",
+                        icon = Icons.Default.AccountBalance,
+                        selected = currentScreen == ScreenType.ADMIN_BANK_MANAGEMENT,
+                        onClick = {
+                            onNavigate(ScreenType.ADMIN_BANK_MANAGEMENT)
+                            onDismiss()
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    AdminDrawerItem(
+                        label = "Notification Center",
+                        icon = Icons.Default.Campaign,
+                        selected = currentScreen == ScreenType.ADMIN_NOTIFICATIONS,
+                        onClick = {
+                            onNavigate(ScreenType.ADMIN_NOTIFICATIONS)
+                            onDismiss()
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    AdminDrawerItem(
+                        label = "Audit Logs",
+                        icon = Icons.Default.History,
+                        selected = currentScreen == ScreenType.ADMIN_AUDIT_LOGS,
+                        onClick = {
+                            onNavigate(ScreenType.ADMIN_AUDIT_LOGS)
                             onDismiss()
                         }
                     )
@@ -1314,7 +1490,7 @@ fun AdminLiveControlScreen(
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "All BetPro payment gateways, deposit processors, and master agent settlement channels are operational.",
+                            text = "All BetPro payment gateways and deposit processors are fully operational.",
                             fontSize = 13.sp,
                             color = Slate500,
                             lineHeight = 18.sp
@@ -1592,609 +1768,5 @@ fun SupabaseCloudStorageCard(
                 Text("SQL Setup Script", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
-    }
-}
-
-@Composable
-fun AdminSettingsScreen(
-    viewModel: BPWalletViewModel,
-    modifier: Modifier = Modifier
-) {
-    val currentUser by viewModel.currentUser.collectAsState()
-    val paymentGateways by viewModel.paymentGateways.collectAsState()
-    val whatsappHelplineNumber by viewModel.whatsappHelplineNumber.collectAsState()
-    var editedHelplineNumber by remember(whatsappHelplineNumber) { mutableStateOf(whatsappHelplineNumber) }
-    val exchangeWebsiteUrl by viewModel.exchangeWebsiteUrl.collectAsState()
-    var editedExchangeUrl by remember(exchangeWebsiteUrl) { mutableStateOf(exchangeWebsiteUrl) }
-    var showDrawer by remember { mutableStateOf(false) }
-
-    var newPassword by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    var passwordError by remember { mutableStateOf("") }
-    var passwordSuccess by remember { mutableStateOf(false) }
-
-    var broadcastTitle by remember { mutableStateOf("") }
-    var broadcastMessage by remember { mutableStateOf("") }
-
-    var gwName by remember { mutableStateOf("") }
-    var gwCurrency by remember { mutableStateOf("PKR") }
-    var gwCountry by remember { mutableStateOf("Pakistan") }
-    var gwTitle by remember { mutableStateOf("") }
-    var gwAccount by remember { mutableStateOf("") }
-    var gwMinDeposit by remember { mutableStateOf("500") }
-    var showAddGateway by remember { mutableStateOf(false) }
-
-    Box(modifier = modifier.fillMaxSize()) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            topBar = {
-                AdminTopBar(
-                    title = "ADMIN / SETTINGS",
-                    subtitle = "System & Security Configuration",
-                    currentUser = currentUser,
-                    onOpenDrawer = { showDrawer = true },
-                    onLogout = { viewModel.logout() }
-                )
-            }
-        ) { innerPadding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // SuperAdmin / Admin Change Password Card
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = "Security",
-                                tint = BPGreenDark,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Column {
-                                Text(
-                                    text = "Change SuperAdmin / Admin Password",
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 15.sp,
-                                    color = Slate900
-                                )
-                                Text(
-                                    text = "Update your login credentials securely",
-                                    fontSize = 12.sp,
-                                    color = Slate500
-                                )
-                            }
-                        }
-
-                        if (passwordError.isNotEmpty()) {
-                            Text(
-                                text = passwordError,
-                                color = Color(0xFFEF4444),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        if (passwordSuccess) {
-                            Text(
-                                text = "✓ Password updated successfully!",
-                                color = BPGreenDark,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        OutlinedTextField(
-                            value = newPassword,
-                            onValueChange = {
-                                newPassword = it
-                                passwordError = ""
-                                passwordSuccess = false
-                            },
-                            label = { Text("New Password") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp)
-                        )
-
-                        OutlinedTextField(
-                            value = confirmPassword,
-                            onValueChange = {
-                                confirmPassword = it
-                                passwordError = ""
-                                passwordSuccess = false
-                            },
-                            label = { Text("Confirm New Password") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp)
-                        )
-
-                        Button(
-                            onClick = {
-                                if (newPassword.isBlank() || newPassword.length < 4) {
-                                    passwordError = "Password must be at least 4 characters."
-                                    return@Button
-                                }
-                                if (newPassword != confirmPassword) {
-                                    passwordError = "Passwords do not match."
-                                    return@Button
-                                }
-                                viewModel.updateAdminPassword(newPassword)
-                                newPassword = ""
-                                confirmPassword = ""
-                                passwordSuccess = true
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Security,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Update Password",
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-
-                // WhatsApp Helpline Configuration Card
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Phone,
-                                contentDescription = "WhatsApp Helpline",
-                                tint = BPGreenDark,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Column {
-                                Text(
-                                    text = "WhatsApp Helpline Number",
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 15.sp,
-                                    color = Slate900
-                                )
-                                Text(
-                                    text = "Set official support number for users & agents",
-                                    fontSize = 12.sp,
-                                    color = Slate500
-                                )
-                            }
-                        }
-
-                        OutlinedTextField(
-                            value = editedHelplineNumber,
-                            onValueChange = { editedHelplineNumber = it },
-                            label = { Text("WhatsApp Number (e.g. +923001234567)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp)
-                        )
-
-                        Button(
-                            onClick = {
-                                viewModel.updateWhatsAppHelpline(editedHelplineNumber)
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Phone,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Save Helpline Number",
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-
-                // Exchange Website URL Card (BP ID Link)
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = "Exchange Website URL",
-                                tint = BPGreenDark,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Column {
-                                Text(
-                                    text = "BP ID Exchange Link",
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 15.sp,
-                                    color = Slate900
-                                )
-                                Text(
-                                    text = "Configure dynamic URL loaded inside user WebView",
-                                    fontSize = 12.sp,
-                                    color = Slate500
-                                )
-                            }
-                        }
-
-                        OutlinedTextField(
-                            value = editedExchangeUrl,
-                            onValueChange = { editedExchangeUrl = it },
-                            label = { Text("Exchange Website URL") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp)
-                        )
-
-                        Button(
-                            onClick = {
-                                viewModel.updateExchangeWebsiteUrl(editedExchangeUrl)
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Save Exchange URL",
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-
-                // Push Alert Announcement Card
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.NotificationsActive,
-                                contentDescription = "Broadcast",
-                                tint = BPGreenDark,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Column {
-                                Text(
-                                    text = "Push Notification Broadcast",
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 15.sp,
-                                    color = Slate900
-                                )
-                                Text(
-                                    text = "Send alert announcements to all users",
-                                    fontSize = 12.sp,
-                                    color = Slate500
-                                )
-                            }
-                        }
-
-                        OutlinedTextField(
-                            value = broadcastTitle,
-                            onValueChange = { broadcastTitle = it },
-                            label = { Text("Announcement Title") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp)
-                        )
-
-                        OutlinedTextField(
-                            value = broadcastMessage,
-                            onValueChange = { broadcastMessage = it },
-                            label = { Text("Announcement Message") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(90.dp),
-                            shape = RoundedCornerShape(10.dp)
-                        )
-
-                        Button(
-                            onClick = {
-                                viewModel.broadcastPushAlert(broadcastTitle, broadcastMessage)
-                                broadcastTitle = ""
-                                broadcastMessage = ""
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Slate900),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Broadcast Alert",
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-
-                // Payment Gateways Management Card
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.AccountBalanceWallet,
-                                    contentDescription = "Gateways",
-                                    tint = BPGreenDark,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Column {
-                                    Text(
-                                        text = "Payment Gateways & Methods",
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 15.sp,
-                                        color = Slate900
-                                    )
-                                    Text(
-                                        text = "Add or remove deposit methods for users",
-                                        fontSize = 12.sp,
-                                        color = Slate500
-                                    )
-                                }
-                            }
-
-                            TextButton(onClick = { showAddGateway = !showAddGateway }) {
-                                Text(
-                                    text = if (showAddGateway) "Cancel" else "+ Add",
-                                    fontWeight = FontWeight.Bold,
-                                    color = BPGreenDark
-                                )
-                            }
-                        }
-
-                        if (showAddGateway) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(Slate100)
-                                    .padding(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text("New Payment Gateway", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                OutlinedTextField(
-                                    value = gwName,
-                                    onValueChange = { gwName = it },
-                                    label = { Text("Gateway Name (e.g. UPI, bKash, USDT)") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    OutlinedTextField(
-                                        value = gwCurrency,
-                                        onValueChange = { gwCurrency = it },
-                                        label = { Text("Currency") },
-                                        singleLine = true,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    OutlinedTextField(
-                                        value = gwCountry,
-                                        onValueChange = { gwCountry = it },
-                                        label = { Text("Country") },
-                                        singleLine = true,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                                OutlinedTextField(
-                                    value = gwTitle,
-                                    onValueChange = { gwTitle = it },
-                                    label = { Text("Account Title / Receiver Name") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                OutlinedTextField(
-                                    value = gwAccount,
-                                    onValueChange = { gwAccount = it },
-                                    label = { Text("Account Number / IBAN / Wallet Address") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                OutlinedTextField(
-                                    value = gwMinDeposit,
-                                    onValueChange = { gwMinDeposit = it },
-                                    label = { Text("Min Deposit Amount") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                Button(
-                                    onClick = {
-                                        if (gwName.isNotBlank() && gwAccount.isNotBlank()) {
-                                            viewModel.addPaymentGateway(
-                                                name = gwName,
-                                                currency = gwCurrency,
-                                                country = gwCountry,
-                                                title = gwTitle,
-                                                accountNumber = gwAccount,
-                                                minDeposit = gwMinDeposit.toDoubleOrNull() ?: 500.0
-                                            )
-                                            gwName = ""
-                                            gwTitle = ""
-                                            gwAccount = ""
-                                            showAddGateway = false
-                                        }
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("Save Payment Gateway", fontWeight = FontWeight.Bold, color = Color.White)
-                                }
-                            }
-                        }
-
-                        paymentGateways.forEach { gw ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(Slate100)
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "${gw.name} (${gw.currency} - ${gw.country})",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
-                                        color = Slate900
-                                    )
-                                    Text(
-                                        text = "Acc: ${gw.accountNumber} | Title: ${gw.title}",
-                                        fontSize = 11.sp,
-                                        color = Slate700
-                                    )
-                                    Text(
-                                        text = "Min Deposit: ${gw.minDeposit.toInt()} ${gw.currency}",
-                                        fontSize = 11.sp,
-                                        color = Slate500
-                                    )
-                                }
-                                IconButton(
-                                    onClick = { viewModel.deletePaymentGateway(gw.id) },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Delete Gateway",
-                                        tint = Color(0xFFEF4444),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // System Information Card
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Text(
-                            text = "Platform Details & Version",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = Slate900
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("System Environment", fontSize = 13.sp, color = Slate500)
-                            Text("BetPro Multi-Currency Live", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Slate900)
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("App Version", fontSize = 13.sp, color = Slate500)
-                            Text("2.5.0 Enterprise", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Slate900)
-                        }
-                    }
-                }
-            }
-        }
-
-        AdminEnterpriseDrawer(
-            showDrawer = showDrawer,
-            onDismiss = { showDrawer = false },
-            currentScreen = ScreenType.ADMIN_SETTINGS,
-            onNavigate = { viewModel.setScreen(it) },
-            currentUser = currentUser,
-            onLogout = { viewModel.logout() }
-        )
     }
 }

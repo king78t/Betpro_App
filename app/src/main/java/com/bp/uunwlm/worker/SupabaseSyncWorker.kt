@@ -24,7 +24,7 @@ class SupabaseSyncWorker(
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Executing automated WorkManager background Supabase cloud sync...")
-            BPWalletRepository.performSupabaseCloudSync()
+            BPWalletRepository.syncWithSupabaseCloud()
             Log.d(TAG, "Automated WorkManager background Supabase cloud sync completed successfully.")
             Result.success()
         } catch (e: Exception) {

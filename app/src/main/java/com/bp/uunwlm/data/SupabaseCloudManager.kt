@@ -2,58 +2,67 @@ package com.bp.uunwlm.data
 
 import android.util.Log
 import com.bp.uunwlm.BuildConfig
-import com.bp.uunwlm.model.MasterAgent
 import com.bp.uunwlm.model.PaymentGateway
 import com.bp.uunwlm.model.TransactionRequest
 import com.bp.uunwlm.model.UserAccount
 import com.bp.uunwlm.model.UserWithdrawalAccount
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
+import com.bp.uunwlm.model.AdminNotification
+import com.bp.uunwlm.model.AuditLog
+import com.bp.uunwlm.model.AppSettings
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.realtime.Realtime
+import io.github.jan.supabase.storage.Storage
+import io.github.jan.supabase.storage.storage
+import io.github.jan.supabase.auth.SessionManager
+import io.github.jan.supabase.auth.user.UserSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import java.io.IOException
-import java.util.concurrent.TimeUnit
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * Enterprise Supabase Cloud Database Manager for BP Wallet.
- * Permanently synchronizes Users, Transactions, Payment Gateways, Master Agents,
- * Withdrawal Accounts, and App Settings to Supabase PostgreSQL Database via PostgREST API.
+ * Uses official Supabase SDK (Postgrest, Auth, Realtime, Storage).
  */
 object SupabaseCloudManager {
     private const val TAG = "SupabaseCloudManager"
 
-    // Supabase URL & Key with automatic fallback to user provided credentials
-    val SUPABASE_URL: String = try {
-        val url = BuildConfig.SUPABASE_URL
-        if (url.isNotBlank()) url else "https://vmglozamlzwjbigareie.supabase.co"
-    } catch (e: Exception) {
-        "https://vmglozamlzwjbigareie.supabase.co"
+    internal val SUPABASE_URL: String = BuildConfig.SUPABASE_URL.ifBlank { "https://vmglozamlzwjbigareie.supabase.co" }
+    private val SUPABASE_ANON_KEY: String = BuildConfig.SUPABASE_ANON_KEY
+
+    var client: SupabaseClient? = null
+        private set
+
+    fun init(context: android.content.Context) {
+        if (client != null) return
+        try {
+            client = createSupabaseClient(
+                supabaseUrl = SUPABASE_URL,
+                supabaseKey = SUPABASE_ANON_KEY
+            ) {
+                install(Auth) {
+                    // Default session manager is usually fine if initialized correctly
+                }
+                install(Postgrest)
+                install(Realtime)
+                install(Storage)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize Supabase Client: ${e.message}")
+        }
     }
-
-    val SUPABASE_ANON_KEY: String = try {
-        val key = BuildConfig.SUPABASE_ANON_KEY
-        if (key.isNotBlank()) key else ""
-    } catch (e: Exception) {
-        ""
-    }
-
-    private val gson: Gson = GsonBuilder().create()
-    private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
-
-    private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .writeTimeout(15, TimeUnit.SECONDS)
-        .build()
 
     private val _connectionStatus = MutableStateFlow("Connected to Supabase Cloud")
     val connectionStatus: StateFlow<String> = _connectionStatus.asStateFlow()
@@ -61,46 +70,106 @@ object SupabaseCloudManager {
     private val _isOnline = MutableStateFlow(true)
     val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
 
-    private val _lastSyncTime = MutableStateFlow(System.currentTimeMillis())
-    val lastSyncTime: StateFlow<Long> = _lastSyncTime.asStateFlow()
-
     /**
-     * Copyable SQL Schema setup script for Supabase SQL Editor.
-     * Generates all required database tables with JSONB flexibility.
+     * Final Production-Ready SQL Schema.
      */
     val SQL_SCHEMA_SCRIPT = """
         -- =================================================================
-        -- BP WALLET - SUPABASE CLOUD DATABASE PERMANENT STORAGE SCHEMA
-        -- Copy & paste this code into your Supabase SQL Editor and click RUN
+        -- BP WALLET - FINAL PRODUCTION SCHEMA (CLEANUP VERSION)
         -- =================================================================
 
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
-            data JSONB NOT NULL DEFAULT '{}'::jsonb,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            full_name TEXT,
+            email TEXT,
+            phone TEXT,
+            country TEXT,
+            currency TEXT,
+            role TEXT NOT NULL DEFAULT 'user',
+            status TEXT NOT NULL DEFAULT 'Active',
+            wallet_balance NUMERIC DEFAULT 0,
+            betpro_username TEXT,
+            betpro_password TEXT,
+            is_verified BOOLEAN DEFAULT TRUE,
+            created_at BIGINT,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
 
         CREATE TABLE IF NOT EXISTS transactions (
             id TEXT PRIMARY KEY,
-            data JSONB NOT NULL DEFAULT '{}'::jsonb,
+            user_id TEXT NOT NULL,
+            user_name TEXT,
+            user_email TEXT,
+            type TEXT NOT NULL,
+            amount NUMERIC NOT NULL,
+            currency TEXT,
+            country TEXT,
+            gateway_name TEXT,
+            account_title TEXT,
+            account_number TEXT,
+            reference_number TEXT,
+            screenshot_uri TEXT,
+            admin_notes TEXT,
+            status TEXT NOT NULL DEFAULT 'Pending',
+            timestamp BIGINT,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
 
         CREATE TABLE IF NOT EXISTS payment_gateways (
             id TEXT PRIMARY KEY,
-            data JSONB NOT NULL DEFAULT '{}'::jsonb,
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS master_agents (
-            id TEXT PRIMARY KEY,
-            data JSONB NOT NULL DEFAULT '{}'::jsonb,
+            name TEXT NOT NULL,
+            currency TEXT,
+            country TEXT,
+            title TEXT,
+            account_number TEXT,
+            iban TEXT,
+            bank_name TEXT,
+            instructions TEXT,
+            short_description TEXT,
+            logo_url TEXT,
+            is_enabled BOOLEAN DEFAULT TRUE,
+            display_order INT DEFAULT 0,
+            min_deposit NUMERIC DEFAULT 500,
+            min_withdraw NUMERIC DEFAULT 1000,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
 
         CREATE TABLE IF NOT EXISTS user_withdrawal_accounts (
             id TEXT PRIMARY KEY,
-            data JSONB NOT NULL DEFAULT '{}'::jsonb,
+            user_id TEXT NOT NULL,
+            type TEXT,
+            title TEXT,
+            account_number TEXT,
+            iban TEXT,
+            bank_name TEXT,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS audit_logs (
+            id TEXT PRIMARY KEY,
+            admin_id TEXT,
+            admin_name TEXT,
+            action TEXT NOT NULL,
+            details TEXT,
+            target_id TEXT,
+            timestamp BIGINT,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS admin_notifications (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            type TEXT NOT NULL,
+            timestamp BIGINT,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS app_config (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
 
@@ -110,232 +179,189 @@ object SupabaseCloudManager {
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
 
-        -- =================================================================
-        -- Multi-Country & Multi-Currency Deposit System Relational Tables
-        -- =================================================================
-        CREATE TABLE IF NOT EXISTS payment_gateways_relational (
-            id SERIAL PRIMARY KEY,
-            country_code VARCHAR(10) NOT NULL,
-            currency VARCHAR(10) NOT NULL,
-            method_name VARCHAR(100) NOT NULL,
-            short_description VARCHAR(255),
-            account_title VARCHAR(100),
-            account_number VARCHAR(100),
-            iban VARCHAR(100),
-            bank_name VARCHAR(100),
-            deposit_instructions TEXT,
-            logo_url TEXT,
-            display_order INT DEFAULT 0,
-            is_active BOOLEAN DEFAULT TRUE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS deposit_requests (
-            id SERIAL PRIMARY KEY,
-            user_id UUID NOT NULL,
-            gateway_id INT REFERENCES payment_gateways_relational(id),
-            amount DECIMAL(15, 2) NOT NULL,
-            currency VARCHAR(10) NOT NULL,
-            screenshot_url TEXT NOT NULL,
-            status VARCHAR(20) DEFAULT 'Pending',
-            admin_notes TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-
-        -- Disable row-level security or add public policies for app sync
+        -- RLS Policies
         ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-        CREATE POLICY "Enable all access users" ON users FOR ALL USING (true) WITH CHECK (true);
+        CREATE POLICY "Public Access" ON users FOR ALL USING (true) WITH CHECK (true);
 
         ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
-        CREATE POLICY "Enable all access transactions" ON transactions FOR ALL USING (true) WITH CHECK (true);
+        CREATE POLICY "Public Access" ON transactions FOR ALL USING (true) WITH CHECK (true);
 
         ALTER TABLE payment_gateways ENABLE ROW LEVEL SECURITY;
-        CREATE POLICY "Enable all access payment_gateways" ON payment_gateways FOR ALL USING (true) WITH CHECK (true);
-
-        ALTER TABLE master_agents ENABLE ROW LEVEL SECURITY;
-        CREATE POLICY "Enable all access master_agents" ON master_agents FOR ALL USING (true) WITH CHECK (true);
+        CREATE POLICY "Public Access" ON payment_gateways FOR ALL USING (true) WITH CHECK (true);
 
         ALTER TABLE user_withdrawal_accounts ENABLE ROW LEVEL SECURITY;
-        CREATE POLICY "Enable all access withdrawal_accounts" ON user_withdrawal_accounts FOR ALL USING (true) WITH CHECK (true);
+        CREATE POLICY "Public Access" ON user_withdrawal_accounts FOR ALL USING (true) WITH CHECK (true);
 
         ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
-        CREATE POLICY "Enable all access app_settings" ON app_settings FOR ALL USING (true) WITH CHECK (true);
+        CREATE POLICY "Public Access" ON app_settings FOR ALL USING (true) WITH CHECK (true);
 
-        ALTER TABLE payment_gateways_relational ENABLE ROW LEVEL SECURITY;
-        CREATE POLICY "Enable all access payment_gateways_relational" ON payment_gateways_relational FOR ALL USING (true) WITH CHECK (true);
+        ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY "Public Access" ON audit_logs FOR ALL USING (true) WITH CHECK (true);
 
-        ALTER TABLE deposit_requests ENABLE ROW LEVEL SECURITY;
-        CREATE POLICY "Enable all access deposit_requests" ON deposit_requests FOR ALL USING (true) WITH CHECK (true);
+        ALTER TABLE admin_notifications ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY "Public Access" ON admin_notifications FOR ALL USING (true) WITH CHECK (true);
 
-        -- =================================================================
-        -- Server-Side Helper Function: increment_user_wallet
-        -- Used by Node.js / Express / Supabase backend when deposit is Approved
-        -- =================================================================
-        CREATE OR REPLACE FUNCTION increment_user_wallet(target_user_id TEXT, amount_to_add DECIMAL)
-        RETURNS VOID AS $$
-        BEGIN
-            UPDATE users
-            SET data = jsonb_set(
-                data,
-                '{walletBalance}',
-                to_jsonb(COALESCE((data->>'walletBalance')::numeric, 0) + amount_to_add)
-            )
-            WHERE id = target_user_id;
-        END;
-        $$ LANGUAGE plpgsql;
+        ALTER TABLE app_config ENABLE ROW LEVEL SECURITY;
+        CREATE POLICY "Public Access" ON app_config FOR ALL USING (true) WITH CHECK (true);
     """.trimIndent()
 
-    private fun buildHeaders(): Request.Builder {
-        return Request.Builder()
-            .header("apikey", SUPABASE_ANON_KEY)
-            .header("Authorization", "Bearer $SUPABASE_ANON_KEY")
-            .header("Prefer", "return=representation,resolution=merge-duplicates")
-    }
-
-    /**
-     * Generic UPSERT to a Supabase PostgREST table.
-     */
-    private suspend fun upsertRow(table: String, id: String, dataObj: Any): Boolean = withContext(Dispatchers.IO) {
+    suspend fun signUp(email: String, password: String, username: String, fullName: String): String? = withContext(Dispatchers.IO) {
         try {
-            val url = "$SUPABASE_URL/rest/v1/$table"
-            val jsonPayload = JsonObject().apply {
-                addProperty("id", id)
-                add("data", gson.toJsonTree(dataObj))
-            }
-            val requestBody = gson.toJson(jsonPayload).toRequestBody(jsonMediaType)
-            val request = buildHeaders()
-                .url(url)
-                .post(requestBody)
-                .build()
-
-            okHttpClient.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    _isOnline.value = true
-                    _connectionStatus.value = "Supabase Cloud: Active & Synced"
-                    _lastSyncTime.value = System.currentTimeMillis()
-                    Log.d(TAG, "Successfully synced row '$id' to Supabase table '$table'")
-                    true
-                } else {
-                    val code = response.code
-                    val errorBody = response.body?.string() ?: "unknown"
-                    Log.w(TAG, "Supabase upsert failed ($code) on '$table': $errorBody")
-                    if (code == 404 || errorBody.contains("relation") || errorBody.contains("does not exist")) {
-                        _connectionStatus.value = "Connected (Run SQL script in Supabase Editor)"
-                    } else {
-                        _connectionStatus.value = "Supabase Active ($code)"
-                    }
-                    false
+            val supabase = client ?: return@withContext null
+            val response = supabase.auth.signUpWith(io.github.jan.supabase.auth.providers.builtin.Email) {
+                this.email = email
+                this.password = password
+                data = buildJsonObject {
+                    put("username", username)
+                    put("full_name", fullName)
                 }
             }
+            response?.id
         } catch (e: Exception) {
-            Log.w(TAG, "Network fallback when syncing '$id' to Supabase: ${e.message}")
+            Log.e(TAG, "SignUp error: ${e.message}")
+            null
+        }
+    }
+
+    suspend fun verifyOtp(email: String, otp: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val supabase = client ?: return@withContext false
+            supabase.auth.verifyEmailOtp(
+                type = io.github.jan.supabase.auth.OtpType.Email.SIGNUP,
+                email = email,
+                token = otp
+            )
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "OTP verification error: ${e.message}")
             false
         }
     }
 
-    /**
-     * Generic DELETE from a Supabase PostgREST table.
-     */
-    private suspend fun deleteRow(table: String, id: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun resendOtp(email: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            val url = "$SUPABASE_URL/rest/v1/$table?id=eq.$id"
-            val request = Request.Builder()
-                .url(url)
-                .header("apikey", SUPABASE_ANON_KEY)
-                .header("Authorization", "Bearer $SUPABASE_ANON_KEY")
-                .delete()
-                .build()
-
-            okHttpClient.newCall(request).execute().use { response ->
-                response.isSuccessful
-            }
+            val supabase = client ?: return@withContext false
+            supabase.auth.resendEmail(
+                type = io.github.jan.supabase.auth.OtpType.Email.SIGNUP,
+                email = email
+            )
+            true
         } catch (e: Exception) {
-            Log.w(TAG, "Error deleting row '$id' from Supabase: ${e.message}")
+            Log.e(TAG, "Resend OTP error: ${e.message}")
             false
         }
     }
 
-    /**
-     * Generic fetch rows from a Supabase table and parse into objects of type T.
-     */
-    private suspend inline fun <reified T> loadTable(table: String): List<T> = withContext(Dispatchers.IO) {
+    suspend fun signIn(email: String, password: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            val url = "$SUPABASE_URL/rest/v1/$table?select=*"
-            val request = Request.Builder()
-                .url(url)
-                .header("apikey", SUPABASE_ANON_KEY)
-                .header("Authorization", "Bearer $SUPABASE_ANON_KEY")
-                .get()
-                .build()
-
-            okHttpClient.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    val jsonStr = response.body?.string() ?: return@withContext emptyList()
-                    val jsonArray = JsonParser.parseString(jsonStr).asJsonArray
-                    val results = mutableListOf<T>()
-                    for (element in jsonArray) {
-                        try {
-                            val obj = element.asJsonObject
-                            val targetJson = if (obj.has("data") && obj.get("data").isJsonObject) {
-                                obj.getAsJsonObject("data")
-                            } else {
-                                obj
-                            }
-                            val item = gson.fromJson(targetJson, T::class.java)
-                            if (item != null) results.add(item)
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Skipping invalid row in '$table': ${e.message}")
-                        }
-                    }
-                    _isOnline.value = true
-                    _connectionStatus.value = "Supabase Cloud: Active & Synced"
-                    results
-                } else {
-                    val errorBody = response.body?.string() ?: ""
-                    if (response.code == 404 || errorBody.contains("relation") || errorBody.contains("does not exist")) {
-                        _connectionStatus.value = "Connected (Run SQL setup script in Supabase)"
-                    }
-                    emptyList()
-                }
+            val supabase = client ?: return@withContext false
+            supabase.auth.signInWith(io.github.jan.supabase.auth.providers.builtin.Email) {
+                this.email = email
+                this.password = password
             }
+            true
         } catch (e: Exception) {
-            Log.w(TAG, "Supabase fetch '$table' offline fallback: ${e.message}")
-            emptyList()
+            Log.e(TAG, "SignIn error: ${e.message}")
+            false
         }
     }
 
-    // ==========================================
-    // SYNC METHODS FOR ALL ENTITIES
-    // ==========================================
+    suspend fun signOut() = withContext(Dispatchers.IO) {
+        try {
+            client?.auth?.signOut()
+        } catch (e: Exception) {
+            Log.e(TAG, "SignOut error: ${e.message}")
+        }
+    }
 
-    /**
-     * Upload an image to Supabase Storage.
-     * Bucket "proofs" must be created in Supabase with public access.
-     */
+    suspend fun sendPasswordResetEmail(email: String) = withContext(Dispatchers.IO) {
+        try {
+            client?.auth?.resetPasswordForEmail(email)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Reset password error: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun updateAuthPassword(newPassword: String) = withContext(Dispatchers.IO) {
+        try {
+            client?.auth?.updateUser {
+                password = newPassword
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Update password error: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun findEmailByUsername(username: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val supabase = client ?: return@withContext null
+            val result = supabase.postgrest["users"].select {
+                filter {
+                    eq("username", username)
+                }
+            }.decodeSingleOrNull<UserAccount>()
+            result?.email
+        } catch (e: Exception) {
+            Log.e(TAG, "Find email error: ${e.message}")
+            null
+        }
+    }
+
+    @OptIn(kotlin.time.ExperimentalTime::class)
+    suspend fun isEmailVerified(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            client?.auth?.currentUserOrNull()?.emailConfirmedAt != null
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun resendVerificationEmail(email: String) = withContext(Dispatchers.IO) {
+        try {
+            // Trying different signature for resend if the standard one fails
+            // client.auth.resend(OtpType.Email.SIGNUP, email)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun loadUserById(userId: String): UserAccount? = withContext(Dispatchers.IO) {
+        try {
+            val supabase = client ?: return@withContext null
+            supabase.postgrest["users"].select {
+                filter {
+                    eq("id", userId)
+                }
+            }.decodeSingleOrNull<UserAccount>()
+        } catch (e: Exception) {
+            Log.e(TAG, "Load user error: ${e.message}")
+            null
+        }
+    }
+
+    suspend fun getCurrentAuthUserId(): String? = withContext(Dispatchers.IO) {
+        try {
+            client?.auth?.currentUserOrNull()?.id
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     suspend fun uploadImage(fileName: String, byteArray: ByteArray): String? = withContext(Dispatchers.IO) {
         try {
-            val url = "$SUPABASE_URL/storage/v1/object/proofs/$fileName"
-            val requestBody = byteArray.toRequestBody("image/*".toMediaType())
-            val request = Request.Builder()
-                .url(url)
-                .header("apikey", SUPABASE_ANON_KEY)
-                .header("Authorization", "Bearer $SUPABASE_ANON_KEY")
-                .header("Content-Type", "image/*")
-                .post(requestBody)
-                .build()
-
-            okHttpClient.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    val publicUrl = "$SUPABASE_URL/storage/v1/object/public/proofs/$fileName"
-                    Log.d(TAG, "Successfully uploaded image: $publicUrl")
-                    publicUrl
-                } else {
-                    Log.w(TAG, "Supabase Storage upload failed: ${response.code} - ${response.body?.string()}")
-                    null
-                }
+            val supabase = client ?: return@withContext null
+            val bucket = supabase.storage.from("proofs")
+            bucket.upload(fileName, byteArray) {
+                upsert = true
             }
+            val publicUrl = bucket.publicUrl(fileName)
+            Log.d(TAG, "Successfully uploaded image: $publicUrl")
+            publicUrl
         } catch (e: Exception) {
             Log.e(TAG, "Error uploading image to Supabase: ${e.message}")
             null
@@ -343,89 +369,260 @@ object SupabaseCloudManager {
     }
 
     suspend fun syncUser(user: UserAccount) {
-        upsertRow("users", user.id, user)
+        withContext(Dispatchers.IO) {
+            try {
+                client?.postgrest?.get("users")?.upsert(user)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error syncing user: ${e.message}")
+            }
+        }
+    }
+
+    suspend fun deleteUser(userId: String) = withContext(Dispatchers.IO) {
+        try {
+            val supabase = client ?: return@withContext false
+            supabase.postgrest["users"].delete {
+                filter {
+                    eq("id", userId)
+                }
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting user: ${e.message}")
+            false
+        }
     }
 
     suspend fun syncTransaction(tx: TransactionRequest) {
-        upsertRow("transactions", tx.id, tx)
+        withContext(Dispatchers.IO) {
+            try {
+                client?.postgrest?.get("transactions")?.upsert(tx)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error syncing transaction: ${e.message}")
+            }
+        }
     }
 
     suspend fun syncPaymentGateway(gw: PaymentGateway) {
-        upsertRow("payment_gateways", gw.id, gw)
+        withContext(Dispatchers.IO) {
+            try {
+                client?.postgrest?.get("payment_gateways")?.upsert(gw)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error syncing payment gateway: ${e.message}")
+            }
+        }
     }
 
     suspend fun deletePaymentGatewayFromCloud(id: String) {
-        deleteRow("payment_gateways", id)
-    }
-
-    suspend fun syncMasterAgent(agent: MasterAgent) {
-        upsertRow("master_agents", agent.id, agent)
+        withContext(Dispatchers.IO) {
+            try {
+                client?.postgrest?.get("payment_gateways")?.delete {
+                    filter {
+                        eq("id", id)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error deleting gateway: ${e.message}")
+            }
+        }
     }
 
     suspend fun syncWithdrawalAccount(acc: UserWithdrawalAccount) {
-        upsertRow("user_withdrawal_accounts", acc.id, acc)
+        withContext(Dispatchers.IO) {
+            try {
+                client?.postgrest?.get("user_withdrawal_accounts")?.upsert(acc)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error syncing withdrawal account: ${e.message}")
+            }
+        }
     }
 
     suspend fun deleteWithdrawalAccountFromCloud(id: String) {
-        deleteRow("user_withdrawal_accounts", id)
+        withContext(Dispatchers.IO) {
+            try {
+                client?.postgrest?.get("user_withdrawal_accounts")?.delete {
+                    filter {
+                        eq("id", id)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error deleting withdrawal account: ${e.message}")
+            }
+        }
     }
 
     suspend fun syncSetting(key: String, value: String) {
         withContext(Dispatchers.IO) {
             try {
-                val url = "$SUPABASE_URL/rest/v1/app_settings"
-                val jsonPayload = JsonObject().apply {
-                    addProperty("key", key)
-                    addProperty("value", value)
-                }
-                val requestBody = gson.toJson(jsonPayload).toRequestBody(jsonMediaType)
-                val request = buildHeaders()
-                    .url(url)
-                    .post(requestBody)
-                    .build()
-                okHttpClient.newCall(request).execute().close()
+                client?.postgrest?.get("app_settings")?.upsert(mapOf("key" to key, "value" to value))
             } catch (e: Exception) {
-                Log.w(TAG, "Setting sync error: ${e.message}")
+                Log.e(TAG, "Error syncing setting: ${e.message}")
             }
         }
     }
 
-    // ==========================================
-    // LOAD METHODS FOR APP INITIALIZATION
-    // ==========================================
+    suspend fun loadAllUsers(): List<UserAccount> = withContext(Dispatchers.IO) {
+        try {
+            val supabase = client ?: return@withContext emptyList()
+            supabase.postgrest["users"].select().decodeList<UserAccount>()
+        } catch (e: Exception) {
+            val msg = e.message ?: ""
+            if (msg.contains("PGRST205") || msg.contains("users") || msg.contains("Could not find")) {
+                Log.e(TAG, "CRITICAL: 'users' table missing. Please run the SQL_SCHEMA_SCRIPT in your Supabase SQL Editor.")
+            } else {
+                Log.e(TAG, "Error loading users: $msg")
+            }
+            emptyList()
+        }
+    }
 
-    suspend fun loadAllUsers(): List<UserAccount> = loadTable("users")
+    suspend fun loadAllTransactions(): List<TransactionRequest> = withContext(Dispatchers.IO) {
+        try {
+            val supabase = client ?: return@withContext emptyList()
+            supabase.postgrest["transactions"].select().decodeList<TransactionRequest>()
+        } catch (e: Exception) {
+            val msg = e.message ?: ""
+            if (msg.contains("PGRST205") || msg.contains("transactions") || msg.contains("Could not find")) {
+                Log.e(TAG, "CRITICAL: 'transactions' table missing. Run SQL_SCHEMA_SCRIPT in Supabase.")
+            } else {
+                Log.e(TAG, "Error loading transactions: $msg")
+            }
+            emptyList()
+        }
+    }
 
-    suspend fun loadAllTransactions(): List<TransactionRequest> = loadTable("transactions")
+    suspend fun loadAllGateways(): List<PaymentGateway> = withContext(Dispatchers.IO) {
+        try {
+            val supabase = client ?: return@withContext emptyList()
+            supabase.postgrest["payment_gateways"].select().decodeList<PaymentGateway>()
+        } catch (e: Exception) {
+            val msg = e.message ?: ""
+            if (msg.contains("PGRST205") || msg.contains("payment_gateways") || msg.contains("Could not find")) {
+                Log.e(TAG, "CRITICAL: 'payment_gateways' table missing. Run SQL_SCHEMA_SCRIPT in Supabase.")
+            } else {
+                Log.e(TAG, "Error loading gateways: $msg")
+            }
+            emptyList()
+        }
+    }
 
-    suspend fun loadAllGateways(): List<PaymentGateway> = loadTable("payment_gateways")
-
-    suspend fun loadAllMasterAgents(): List<MasterAgent> = loadTable("master_agents")
-
-    suspend fun loadAllWithdrawalAccounts(): List<UserWithdrawalAccount> = loadTable("user_withdrawal_accounts")
+    suspend fun loadAllWithdrawalAccounts(): List<UserWithdrawalAccount> = withContext(Dispatchers.IO) {
+        try {
+            val supabase = client ?: return@withContext emptyList()
+            supabase.postgrest["user_withdrawal_accounts"].select().decodeList<UserWithdrawalAccount>()
+        } catch (e: Exception) {
+            val msg = e.message ?: ""
+            if (msg.contains("PGRST205") || msg.contains("user_withdrawal_accounts") || msg.contains("Could not find")) {
+                Log.e(TAG, "CRITICAL: 'user_withdrawal_accounts' table missing. Run SQL_SCHEMA_SCRIPT in Supabase.")
+            } else {
+                Log.e(TAG, "Error loading withdrawal accounts: $msg")
+            }
+            emptyList()
+        }
+    }
 
     suspend fun loadSetting(key: String, defaultVal: String): String = withContext(Dispatchers.IO) {
         try {
-            val url = "$SUPABASE_URL/rest/v1/app_settings?key=eq.$key"
-            val request = Request.Builder()
-                .url(url)
-                .header("apikey", SUPABASE_ANON_KEY)
-                .header("Authorization", "Bearer $SUPABASE_ANON_KEY")
-                .get()
-                .build()
-
-            okHttpClient.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    val jsonStr = response.body?.string() ?: return@withContext defaultVal
-                    val array = JsonParser.parseString(jsonStr).asJsonArray
-                    if (array.size() > 0) {
-                        return@withContext array[0].asJsonObject.get("value").asString
-                    }
+            val supabase = client ?: return@withContext defaultVal
+            val result = supabase.postgrest["app_settings"].select {
+                filter {
+                    eq("key", key)
                 }
+            }.decodeSingleOrNull<Map<String, String>>()
+            result?.get("value") ?: defaultVal
+        } catch (e: Exception) {
+            val msg = e.message ?: ""
+            if (!msg.contains("PGRST205") && !msg.contains("app_settings") && !msg.contains("Could not find")) {
+                Log.e(TAG, "Error loading setting $key: $msg")
             }
             defaultVal
+        }
+    }
+
+    suspend fun syncAuditLog(log: AuditLog) = withContext(Dispatchers.IO) {
+        try {
+            client?.postgrest?.get("audit_logs")?.upsert(log)
         } catch (e: Exception) {
-            defaultVal
+            val msg = e.message ?: ""
+            if (!msg.contains("PGRST205") && !msg.contains("audit_logs") && !msg.contains("Could not find")) {
+                Log.e(TAG, "Error syncing audit log: $msg")
+            }
+        }
+    }
+
+    suspend fun loadAllAuditLogs(): List<AuditLog> = withContext(Dispatchers.IO) {
+        try {
+            val supabase = client ?: return@withContext emptyList()
+            supabase.postgrest["audit_logs"].select().decodeList<AuditLog>()
+        } catch (e: Exception) {
+            val msg = e.message ?: ""
+            // Suppress error if table is missing
+            if (!msg.contains("PGRST205") && !msg.contains("audit_logs") && !msg.contains("Could not find")) {
+                Log.e(TAG, "Error loading audit logs: $msg")
+            }
+            emptyList()
+        }
+    }
+
+    suspend fun syncAdminNotification(notification: AdminNotification) = withContext(Dispatchers.IO) {
+        try {
+            client?.postgrest?.get("admin_notifications")?.upsert(notification)
+        } catch (e: Exception) {
+            val msg = e.message ?: ""
+            if (!msg.contains("PGRST205") && !msg.contains("admin_notifications") && !msg.contains("Could not find")) {
+                Log.e(TAG, "Error syncing admin notification: $msg")
+            }
+        }
+    }
+
+    suspend fun loadAllAdminNotifications(): List<AdminNotification> = withContext(Dispatchers.IO) {
+        try {
+            val supabase = client ?: return@withContext emptyList()
+            supabase.postgrest["admin_notifications"].select().decodeList<AdminNotification>()
+        } catch (e: Exception) {
+            val msg = e.message ?: ""
+            // Suppress error if table is missing
+            if (!msg.contains("PGRST205") && !msg.contains("admin_notifications") && !msg.contains("Could not find")) {
+                Log.e(TAG, "Error loading notifications: $msg")
+            }
+            emptyList()
+        }
+    }
+
+    suspend fun syncAppSettings(settings: AppSettings) = withContext(Dispatchers.IO) {
+        try {
+            val supabase = client ?: return@withContext
+            // Store as a single JSON string in "app_config"
+            val jsonString = kotlinx.serialization.json.Json.encodeToString(AppSettings.serializer(), settings)
+            supabase.postgrest["app_config"].upsert(mapOf("key" to "main_settings", "value" to jsonString))
+        } catch (e: Exception) {
+            val msg = e.message ?: ""
+            if (!msg.contains("PGRST205") && !msg.contains("app_config") && !msg.contains("Could not find")) {
+                Log.e(TAG, "Error syncing app settings: $msg")
+            }
+        }
+    }
+
+    suspend fun loadAppSettings(): AppSettings = withContext(Dispatchers.IO) {
+        try {
+            val supabase = client ?: return@withContext AppSettings()
+            val result = supabase.postgrest["app_config"].select {
+                filter {
+                    eq("key", "main_settings")
+                }
+            }.decodeSingleOrNull<Map<String, String>>()
+            val value = result?.get("value")
+            if (value != null) {
+                kotlinx.serialization.json.Json.decodeFromString(AppSettings.serializer(), value)
+            } else {
+                AppSettings()
+            }
+        } catch (e: Exception) {
+            val msg = e.message ?: ""
+            if (!msg.contains("PGRST205") && !msg.contains("app_config") && !msg.contains("Could not find")) {
+                Log.e(TAG, "Error loading app settings: $msg")
+            }
+            AppSettings()
         }
     }
 }

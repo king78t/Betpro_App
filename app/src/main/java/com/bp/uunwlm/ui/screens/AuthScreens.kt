@@ -79,38 +79,6 @@ fun LoginScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    val showOtpDialog by viewModel.showOtpDialog.collectAsState()
-
-    if (showOtpDialog) {
-        AlertDialog(
-            onDismissRequest = { viewModel.closeOtpDialog() },
-            title = { Text("Verify Phone Number") },
-            text = {
-                var code by remember { mutableStateOf("") }
-                Column {
-                    Text("Enter the 6-digit code sent to your mobile number")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedTextField(
-                        value = code,
-                        onValueChange = { if (it.length <= 6) code = it },
-                        label = { Text("Verification Code") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = { viewModel.verifyOtp(code) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
-                    ) {
-                        Text("Verify & Login")
-                    }
-                }
-            },
-            confirmButton = {}
-        )
-    }
-
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -192,9 +160,10 @@ fun LoginScreen(
                     GlassInputField(
                         value = emailOrPhone,
                         onValueChange = { emailOrPhone = it },
-                        placeholder = "Mobile Number or Email",
+                        placeholder = "Username",
                         leadingIcon = Icons.Default.Person,
-                        testTag = "login_email_input"
+                        testTag = "login_username_input",
+                        errorShakeTrigger = errorShakeTrigger
                     )
 
                     Spacer(modifier = Modifier.height(20.dp))
@@ -215,43 +184,25 @@ fun LoginScreen(
                         isPassword = true,
                         passwordVisible = passwordVisible,
                         onPasswordToggle = { passwordVisible = !passwordVisible },
-                        testTag = "login_password_input"
+                        testTag = "login_password_input",
+                        errorShakeTrigger = errorShakeTrigger
                     )
 
                     Spacer(modifier = Modifier.height(18.dp))
 
-                    // Remember Me & Forgot Password
+                    // Forgot Password
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { rememberMe = !rememberMe }
-                        ) {
-                            Checkbox(
-                                checked = rememberMe,
-                                onCheckedChange = { rememberMe = it },
-                                colors = CheckboxDefaults.colors(checkedColor = Color(0xFF2196F3)),
-                                modifier = Modifier.size(24.dp).testTag("remember_me_checkbox")
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Remember Me",
-                                fontSize = 14.sp,
-                                color = Color(0xFF616161),
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-
                         Text(
                             text = "Forgot Password?",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF00C853),
+                            color = BPGreenPrimary,
                             modifier = Modifier.clickable {
-                                viewModel.showSnack("Please contact WhatsApp Helpline for password recovery.")
+                                viewModel.setScreen(ScreenType.FORGOT_PASSWORD)
                             }
                         )
                     }
@@ -264,7 +215,7 @@ fun LoginScreen(
                         modifier = Modifier
                             .width(160.dp)
                             .height(52.dp)
-                            .shadow(8.dp, RoundedCornerShape(26.dp), spotColor = Color(0xFF00C853).copy(alpha = 0.5f))
+                            .shadow(8.dp, RoundedCornerShape(26.dp), spotColor = BPGreenPrimary.copy(alpha = 0.5f))
                             .testTag("login_button"),
                         shape = RoundedCornerShape(26.dp),
                         contentPadding = PaddingValues(0.dp),
@@ -354,7 +305,8 @@ fun LoginScreen(
                         onValueChange = { adminUsername = it },
                         placeholder = "Admin Username",
                         leadingIcon = Icons.Default.AdminPanelSettings,
-                        testTag = "admin_username_input"
+                        testTag = "admin_username_input",
+                        errorShakeTrigger = errorShakeTrigger
                     )
                     Spacer(modifier = Modifier.height(20.dp))
                     GlassInputField(
@@ -365,7 +317,8 @@ fun LoginScreen(
                         isPassword = true,
                         passwordVisible = passwordVisible,
                         onPasswordToggle = { passwordVisible = !passwordVisible },
-                        testTag = "admin_password_input"
+                        testTag = "admin_password_input",
+                        errorShakeTrigger = errorShakeTrigger
                     )
                     Spacer(modifier = Modifier.height(34.dp))
                     Button(
@@ -413,8 +366,21 @@ fun GlassInputField(
     isPassword: Boolean = false,
     passwordVisible: Boolean = false,
     onPasswordToggle: () -> Unit = {},
-    testTag: String = ""
+    testTag: String = "",
+    errorShakeTrigger: Int = 0
 ) {
+    val shakeOffsetX = remember { Animatable(0f) }
+
+    LaunchedEffect(errorShakeTrigger) {
+        if (errorShakeTrigger > 0) {
+            for (i in 0..2) {
+                shakeOffsetX.animateTo(24f, animationSpec = tween(50, easing = LinearEasing))
+                shakeOffsetX.animateTo(-24f, animationSpec = tween(50, easing = LinearEasing))
+            }
+            shakeOffsetX.animateTo(0f, animationSpec = tween(50, easing = LinearEasing))
+        }
+    }
+
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -446,7 +412,10 @@ fun GlassInputField(
             }
         } else null,
         visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
-        modifier = modifier.fillMaxWidth().testTag(testTag),
+        modifier = modifier
+            .fillMaxWidth()
+            .offset { IntOffset(shakeOffsetX.value.roundToInt(), 0) }
+            .testTag(testTag),
         shape = RoundedCornerShape(16.dp),
         singleLine = true,
         keyboardOptions = if (isPassword) KeyboardOptions(keyboardType = KeyboardType.Password) else KeyboardOptions.Default,
@@ -454,8 +423,8 @@ fun GlassInputField(
             unfocusedContainerColor = Color.White.copy(alpha = 0.5f),
             focusedContainerColor = Color.White,
             unfocusedBorderColor = Slate200,
-            focusedBorderColor = Color(0xFF00C853),
-            cursorColor = Color(0xFF00C853),
+            focusedBorderColor = if (errorShakeTrigger > 0 && shakeOffsetX.value != 0f) Color.Red else BPGreenPrimary,
+            cursorColor = BPGreenPrimary,
             focusedTextColor = Slate900,
             unfocusedTextColor = Slate900
         )
@@ -507,45 +476,249 @@ fun GlassLoginButton(
 }
 
 @Composable
-fun GlassCreateAccountButton(
-    text: String,
-    onClick: () -> Unit,
+fun VerifyEmailScreen(
+    viewModel: BPWalletViewModel,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        onClick = onClick,
+    val pendingEmail by viewModel.pendingVerificationEmail.collectAsState()
+    val errorShakeTrigger by viewModel.errorShakeTrigger.collectAsState()
+    var otpCode by remember { mutableStateOf("") }
+    
+    Box(
         modifier = modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .shadow(
-                elevation = 2.dp,
-                shape = RoundedCornerShape(24.dp),
-                spotColor = Color(0xFFBAE6DA).copy(alpha = 0.2f)
-            ),
-        shape = RoundedCornerShape(24.dp),
-        color = Color.White,
-        border = BorderStroke(1.5.dp, Color(0xFFBAE6DA))
+            .fillMaxSize()
+            .background(Color(0xFFF1FDF7))
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.White,
-                            Color(0xFFF1F8F6)
-                        )
-                    )
-                ),
-            contentAlignment = Alignment.Center
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = text,
-                color = Color(0xFF065F46),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.6.sp
+            Icon(
+                imageVector = Icons.Default.MarkEmailRead,
+                contentDescription = null,
+                modifier = Modifier.size(80.dp),
+                tint = BPGreenPrimary
             )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Text(
+                text = "Verify OTP",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Slate900
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Text(
+                text = "We've sent a 6-digit verification code to your email: ${pendingEmail.ifBlank { "your email" }}. Please enter it below to activate your account.",
+                textAlign = TextAlign.Center,
+                color = Slate600,
+                fontSize = 16.sp
+            )
+            
+            Spacer(modifier = Modifier.height(32.dp))
+
+            GlassInputField(
+                value = otpCode,
+                onValueChange = { if (it.length <= 6) otpCode = it },
+                placeholder = "6-Digit Code",
+                leadingIcon = Icons.Default.VpnKey,
+                errorShakeTrigger = errorShakeTrigger
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Button(
+                onClick = { 
+                    if (pendingEmail.isNotBlank()) {
+                        viewModel.verifyOtp(pendingEmail, otpCode)
+                    } else {
+                        viewModel.showSnack("Email information missing. Please try logging in again.")
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
+            ) {
+                Text("Verify Account", fontWeight = FontWeight.Bold)
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+
+            TextButton(
+                onClick = { 
+                    if (pendingEmail.isNotBlank()) {
+                        viewModel.resendVerification(pendingEmail)
+                    }
+                }
+            ) {
+                Text("Resend Verification Code", color = BPGreenDark, fontWeight = FontWeight.Bold)
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            TextButton(
+                onClick = { viewModel.logout() }
+            ) {
+                Text("Back to Login", color = Slate500, fontWeight = FontWeight.Medium)
+            }
+        }
+    }
+}
+
+@Composable
+fun ForgotPasswordScreen(
+    viewModel: BPWalletViewModel,
+    modifier: Modifier = Modifier
+) {
+    var email by remember { mutableStateOf("") }
+    
+    val errorShakeTrigger by viewModel.errorShakeTrigger.collectAsState()
+    
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFFF1FDF7))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.LockReset,
+                contentDescription = null,
+                modifier = Modifier.size(80.dp),
+                tint = BPGreenPrimary
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Text(
+                text = "Forgot Password?",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Slate900
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Text(
+                text = "Enter your registered email address to receive a password reset link.",
+                textAlign = TextAlign.Center,
+                color = Slate600,
+                fontSize = 16.sp
+            )
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            GlassInputField(
+                value = email,
+                onValueChange = { email = it },
+                placeholder = "Email Address",
+                leadingIcon = Icons.Default.Email,
+                errorShakeTrigger = errorShakeTrigger
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Button(
+                onClick = { viewModel.forgotPassword(email) },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
+            ) {
+                Text("Send Reset Link", fontWeight = FontWeight.Bold)
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            TextButton(
+                onClick = { viewModel.setScreen(ScreenType.LOGIN) }
+            ) {
+                Text("Back to Login", color = BPGreenDark, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+fun ResetPasswordScreen(
+    viewModel: BPWalletViewModel,
+    modifier: Modifier = Modifier
+) {
+    var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    
+    val errorShakeTrigger by viewModel.errorShakeTrigger.collectAsState()
+    
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFFF1FDF7))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.VpnKey,
+                contentDescription = null,
+                modifier = Modifier.size(80.dp),
+                tint = BPGreenPrimary
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Text(
+                text = "Reset Password",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Slate900
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Text(
+                text = "Please enter your new password below.",
+                textAlign = TextAlign.Center,
+                color = Slate600,
+                fontSize = 16.sp
+            )
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            GlassInputField(
+                value = password,
+                onValueChange = { password = it },
+                placeholder = "New Password",
+                leadingIcon = Icons.Default.Lock,
+                isPassword = true,
+                passwordVisible = passwordVisible,
+                onPasswordToggle = { passwordVisible = !passwordVisible },
+                errorShakeTrigger = errorShakeTrigger
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Button(
+                onClick = { viewModel.resetPassword(password) },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
+            ) {
+                Text("Update Password", fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -555,6 +728,7 @@ fun RegisterScreen(
     viewModel: BPWalletViewModel,
     modifier: Modifier = Modifier
 ) {
+    var username by remember { mutableStateOf("") }
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var selectedCurrency by remember { mutableStateOf("SAR") }
@@ -562,7 +736,9 @@ fun RegisterScreen(
     var mobileNumber by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-
+    
+    val errorShakeTrigger by viewModel.errorShakeTrigger.collectAsState()
+    
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -630,6 +806,24 @@ fun RegisterScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
+                // Username
+                Text(
+                    text = "Username",
+                    modifier = Modifier.align(Alignment.Start).padding(bottom = 6.dp, start = 4.dp),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF424242)
+                )
+                GlassInputField(
+                    value = username,
+                    onValueChange = { username = it },
+                    placeholder = "e.g. hamza_malik",
+                    leadingIcon = Icons.Default.Person,
+                    errorShakeTrigger = errorShakeTrigger
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
                 // Full Name
                 Text(
                     text = "Full Name",
@@ -642,7 +836,8 @@ fun RegisterScreen(
                     value = fullName,
                     onValueChange = { fullName = it },
                     placeholder = "e.g. Hamza Malik",
-                    leadingIcon = Icons.Default.Person
+                    leadingIcon = Icons.Default.Badge,
+                    errorShakeTrigger = errorShakeTrigger
                 )
 
                 Spacer(modifier = Modifier.height(18.dp))
@@ -659,7 +854,8 @@ fun RegisterScreen(
                     value = email,
                     onValueChange = { email = it },
                     placeholder = "hamza@bpexch.com",
-                    leadingIcon = Icons.Default.Email
+                    leadingIcon = Icons.Default.Email,
+                    errorShakeTrigger = errorShakeTrigger
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -783,7 +979,8 @@ fun RegisterScreen(
                         onValueChange = { mobileNumber = it },
                         placeholder = "501234567",
                         leadingIcon = Icons.Default.Phone,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        errorShakeTrigger = errorShakeTrigger
                     )
                 }
 
@@ -792,6 +989,27 @@ fun RegisterScreen(
                     fontSize = 11.sp,
                     color = Color(0xFF9E9E9E),
                     modifier = Modifier.align(Alignment.Start).padding(top = 8.dp, start = 4.dp)
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Password Section
+                Text(
+                    text = "Password",
+                    modifier = Modifier.align(Alignment.Start).padding(bottom = 6.dp, start = 4.dp),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF424242)
+                )
+                GlassInputField(
+                    value = password,
+                    onValueChange = { password = it },
+                    placeholder = "••••••••",
+                    leadingIcon = Icons.Default.Lock,
+                    isPassword = true,
+                    passwordVisible = passwordVisible,
+                    onPasswordToggle = { passwordVisible = !passwordVisible },
+                    errorShakeTrigger = errorShakeTrigger
                 )
 
                 Spacer(modifier = Modifier.height(32.dp))
@@ -804,7 +1022,8 @@ fun RegisterScreen(
                             email = email,
                             currency = selectedCurrency,
                             mobileNumber = "$selectedPrefix $mobileNumber",
-                            pass = password
+                            pass = password,
+                            username = username
                         )
                     },
                     modifier = Modifier
