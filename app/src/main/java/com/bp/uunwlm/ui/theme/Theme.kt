@@ -8,24 +8,12 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val DarkColorScheme =
-  darkColorScheme(
-    primary = BPGreenPrimary,
-    secondary = BPGreenAccent,
-    tertiary = BPGold,
-    background = Slate900,
-    surface = Slate900,
-    onPrimary = Color.White,
-    onBackground = Color.White,
-    onSurface = Color.White
-  )
-
 private val LightColorScheme =
   lightColorScheme(
     primary = BPGreenPrimary,
     secondary = BPGreenDark,
     tertiary = BPGold,
-    background = Color.White,
+    background = Slate50,
     surface = Color.White,
     onPrimary = Color.White,
     onSecondary = Color.White,
@@ -40,7 +28,8 @@ fun MyApplicationTheme(
   dynamicColor: Boolean = false,
   content: @Composable () -> Unit,
 ) {
-  val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+  // Enforce Light Theme exclusively for modern luxury fintech experience
+  val colorScheme = LightColorScheme
 
   MaterialTheme(
     colorScheme = colorScheme,

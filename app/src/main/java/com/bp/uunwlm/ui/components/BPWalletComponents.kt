@@ -167,8 +167,39 @@ fun BPWalletLogo(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Main Logo Image (Mint Green Squircle with Black Italic 'b')
-        BPLogoIcon(sizeDp = sizeDp)
+        // Large Floating Circular Glass Container with Glow Effect
+        Box(
+            modifier = Modifier
+                .size((sizeDp + 24).dp)
+                .shadow(
+                    elevation = 20.dp,
+                    shape = CircleShape,
+                    spotColor = Color(0xFF22C55E).copy(alpha = 0.35f),
+                    ambientColor = Color(0xFF10B981).copy(alpha = 0.15f)
+                )
+                .clip(CircleShape)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.95f),
+                            Color(0xFFECFDF5).copy(alpha = 0.85f)
+                        )
+                    )
+                )
+                .border(
+                    width = 1.5.dp,
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White,
+                            Color(0xFFDCFCE7)
+                        )
+                    ),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            BPLogoIcon(sizeDp = sizeDp)
+        }
         
         Spacer(modifier = Modifier.height(16.dp))
         
@@ -176,7 +207,7 @@ fun BPWalletLogo(
             text = "BP WALLET",
             fontWeight = FontWeight.ExtraBold,
             fontSize = 26.sp,
-            color = BPGreenPrimary,
+            color = Slate900,
             letterSpacing = (-0.5).sp
         )
         
@@ -619,6 +650,16 @@ fun TransactionCelebrationDialog(
     val composition by rememberLottieComposition(
         LottieCompositionSpec.RawRes(R.raw.celebration_confetti)
     )
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations = LottieConstants.IterateForever,
+        speed = 1.0f
+    )
+
+    val isDeposit = event.transactionType.contains("DEPOSIT", ignoreCase = true)
+    val badgeBg = if (isDeposit) BPGreenLight else Color(0xFFFEF3C7)
+    val badgeText = if (isDeposit) BPGreenDark else Color(0xFFD97706)
+    val badgeLabel = if (isDeposit) "DEPOSIT SUCCESS" else "PAYOUT SUCCESS"
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -630,72 +671,118 @@ fun TransactionCelebrationDialog(
     ) {
         Surface(
             modifier = modifier
-                .fillMaxWidth(0.9f)
+                .fillMaxWidth(0.88f)
                 .padding(16.dp)
-                .shadow(24.dp, RoundedCornerShape(28.dp)),
+                .shadow(28.dp, RoundedCornerShape(28.dp), spotColor = if (isDeposit) BPGreenPrimary.copy(alpha = 0.35f) else BPGold.copy(alpha = 0.35f)),
             shape = RoundedCornerShape(28.dp),
-            color = Color.White
+            color = Color.White,
+            border = BorderStroke(1.5.dp, if (isDeposit) BPGreenLight else BPGoldSoft)
         ) {
             Box(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.TopCenter
             ) {
+                // Background subtle radial glow
+                Canvas(modifier = Modifier.matchParentSize()) {
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                if (isDeposit) BPGreenLight.copy(alpha = 0.6f) else Color(0xFFFEF3C7).copy(alpha = 0.6f),
+                                Color.Transparent
+                            ),
+                            center = Offset(size.width / 2f, size.height * 0.25f),
+                            radius = size.width * 0.7f
+                        )
+                    )
+                }
+
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 28.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Lottie Animation Container
+                    // Type Badge Pill
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = badgeBg,
+                        border = BorderStroke(1.dp, badgeText.copy(alpha = 0.3f))
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isDeposit) Icons.Default.CheckCircle else Icons.Default.Paid,
+                                contentDescription = null,
+                                tint = badgeText,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = badgeLabel,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = badgeText,
+                                letterSpacing = 0.8.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Lottie Animation Container with Glow Ring
                     Box(
                         modifier = Modifier
-                            .size(180.dp)
+                            .size(190.dp)
                             .clip(CircleShape)
                             .background(
                                 brush = Brush.radialGradient(
                                     colors = listOf(
-                                        BPGreenLight,
+                                        if (isDeposit) Color(0xFFDCFCE7) else Color(0xFFFEF3C7),
                                         Color.White
                                     )
                                 )
-                            ),
+                            )
+                            .border(2.dp, if (isDeposit) BPGreenLight else BPGoldSoft, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         LottieAnimation(
                             composition = composition,
-                            iterations = LottieConstants.IterateForever,
+                            progress = { progress },
                             modifier = Modifier.size(180.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
 
                     Text(
                         text = event.title,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Slate900,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        letterSpacing = (-0.3).sp
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // Amount Pill
                     Surface(
                         shape = RoundedCornerShape(20.dp),
-                        color = BPGreenLight,
-                        border = BorderStroke(1.dp, BPGreenPrimary.copy(alpha = 0.4f))
+                        color = if (isDeposit) BPGreenLight else Color(0xFFFEF3C7),
+                        border = BorderStroke(1.dp, if (isDeposit) BPGreenPrimary.copy(alpha = 0.4f) else BPGold.copy(alpha = 0.5f))
                     ) {
                         Text(
                             text = "${event.currency} ${event.amount.toInt()}",
-                            fontSize = 20.sp,
+                            fontSize = 22.sp,
                             fontWeight = FontWeight.Black,
-                            color = BPGreenDark,
-                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp)
+                            color = if (isDeposit) BPGreenDark else BPGoldDark,
+                            modifier = Modifier.padding(horizontal = 22.dp, vertical = 7.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     Text(
                         text = event.subtitle,
@@ -703,47 +790,38 @@ fun TransactionCelebrationDialog(
                         fontWeight = FontWeight.Medium,
                         color = Slate500,
                         textAlign = TextAlign.Center,
-                        lineHeight = 18.sp
+                        lineHeight = 19.sp
                     )
 
                     if (event.referenceOrDetails.isNotBlank()) {
                         Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = event.referenceOrDetails,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Slate500,
-                            textAlign = TextAlign.Center
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFFF1F5F9)
+                        ) {
+                            Text(
+                                text = event.referenceOrDetails,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Slate700,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(26.dp))
 
-                    Button(
+                    // Green / Gold Action Button
+                    GlassButton(
                         onClick = onDismiss,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = BPGreenPrimary,
-                            contentColor = Color.White
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "CONTINUE",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 0.5.sp
-                        )
-                    }
+                            .height(52.dp),
+                        text = "DONE",
+                        gradientColors = if (isDeposit) listOf(BPGreenPrimary, BPGreenDark) else listOf(BPGold, BPGoldDark),
+                        glowColor = if (isDeposit) BPGreenPrimary.copy(alpha = 0.4f) else BPGold.copy(alpha = 0.4f)
+                    )
                 }
             }
         }

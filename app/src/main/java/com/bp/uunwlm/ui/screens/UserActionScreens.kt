@@ -52,7 +52,7 @@ fun UserDepositScreen(
     val isLoading by viewModel.isLoading.collectAsState()
 
     val u = user ?: return
-    val currencyGateways = gateways.filter { it.currency.equals(u.currency, true) }.ifEmpty { gateways }
+    val currencyGateways = gateways.filter { it.currency.equals(u.currency, true) }
 
     var amountText by remember { mutableStateOf("") }
     var senderAccount by remember { mutableStateOf(u.mobileNumber) }

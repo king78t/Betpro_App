@@ -175,6 +175,11 @@ object BPWalletRepository {
         try {
             ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().clear().apply()
             getEncryptedPrefs()?.edit()?.clear()?.apply()
+            
+            // Explicitly clear Supabase session if possible using signOut
+            scope.launch {
+                SupabaseCloudManager.signOut()
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing session", e)
         }

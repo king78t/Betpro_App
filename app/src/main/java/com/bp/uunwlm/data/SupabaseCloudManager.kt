@@ -32,10 +32,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/**
- * Enterprise Supabase Cloud Database Manager for BP Wallet.
- * Uses official Supabase SDK (Postgrest, Auth, Realtime, Storage).
- */
 object SupabaseCloudManager {
     private const val TAG = "SupabaseCloudManager"
 
@@ -48,6 +44,12 @@ object SupabaseCloudManager {
     fun init(context: android.content.Context) {
         if (client != null) return
         try {
+            // Pre-initialize the prefs and dummy session to avoid "No entry" crash
+            val prefs = context.getSharedPreferences("supabase", android.content.Context.MODE_PRIVATE)
+            if (!prefs.contains("sb-vmglozamlzwjbigareie-supabase-co-session")) {
+                prefs.edit().putString("sb-vmglozamlzwjbigareie-supabase-co-session", "{}").apply()
+            }
+
             client = createSupabaseClient(
                 supabaseUrl = SUPABASE_URL,
                 supabaseKey = SUPABASE_ANON_KEY

@@ -74,19 +74,18 @@ class MainActivity : FragmentActivity() {
                 val biometricAuthenticator = remember { com.bp.uunwlm.util.BiometricAuthenticator(this) }
                 
                 // Session Timeout Check (25 Minutes)
-                LaunchedEffect(lastActivityTime, isBiometricAuthenticated, currentUser, isBiometricEnabled) {
+                LaunchedEffect(currentUser, isBiometricEnabled) {
                     if (currentUser != null) {
                         while (true) {
-                            val elapsed = System.currentTimeMillis() - lastActivityTime
+                            kotlinx.coroutines.delay(30000) // Check every 30 seconds
+                            val elapsed = System.currentTimeMillis() - viewModel.lastActivityTime.value
                             if (elapsed >= 25 * 60 * 1000) { // 25 Minutes
                                 if (isBiometricEnabled) {
                                     viewModel.setBiometricAuthenticated(false)
                                 } else {
                                     viewModel.logout()
                                 }
-                                break
                             }
-                            kotlinx.coroutines.delay(30000) // Check every 30 seconds
                         }
                     }
                 }

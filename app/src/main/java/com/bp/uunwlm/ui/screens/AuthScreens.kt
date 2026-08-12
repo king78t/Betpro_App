@@ -5,6 +5,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -23,6 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -39,10 +42,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 import com.bp.uunwlm.ui.components.BPTabSwitcher
 import com.bp.uunwlm.ui.components.BPWalletLogo
 import com.bp.uunwlm.ui.components.CurrencyCard
+import com.bp.uunwlm.ui.components.GlassCard
+import com.bp.uunwlm.ui.components.GlassButton
+import com.bp.uunwlm.ui.components.GlassTextField
+import com.bp.uunwlm.ui.components.FloatingBackground
 import com.bp.uunwlm.ui.theme.*
 import com.bp.uunwlm.ui.viewmodel.BPWalletViewModel
 import com.bp.uunwlm.ui.viewmodel.ScreenType
@@ -54,59 +61,17 @@ fun LoginScreen(
     viewModel: BPWalletViewModel,
     modifier: Modifier = Modifier
 ) {
-    // Note: All OTP / Security Verification popup dialogs are 100% removed.
-    // User login directly navigates to UserHomeScreen (dashboard) without any verification step.
     val isUserTab by viewModel.isUserLoginTab.collectAsState()
-    val errorShakeTrigger by viewModel.errorShakeTrigger.collectAsState()
-    val shakeOffsetX = remember { Animatable(0f) }
-
-    LaunchedEffect(errorShakeTrigger) {
-        if (errorShakeTrigger > 0) {
-            for (i in 0..2) {
-                shakeOffsetX.animateTo(24f, animationSpec = tween(50, easing = LinearEasing))
-                shakeOffsetX.animateTo(-24f, animationSpec = tween(50, easing = LinearEasing))
-            }
-            shakeOffsetX.animateTo(0f, animationSpec = tween(50, easing = LinearEasing))
-        }
-    }
-
+    
     var emailOrPhone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var adminUsername by remember { mutableStateOf("Admin") }
     var adminPassword by remember { mutableStateOf("") }
-    var rememberMe by remember { mutableStateOf(true) }
-    var passwordVisible by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
 
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFFE0F2F1), // Light mint top
-                        Color(0xFFF1FDF7)  // Very light green bottom
-                    )
-                )
-            )
+        modifier = modifier.fillMaxSize()
     ) {
-        // Decorative soft circles
-        Box(
-            modifier = Modifier
-                .size(380.dp)
-                .align(Alignment.TopStart)
-                .offset(x = (-100).dp, y = (-60).dp)
-                .background(Color(0xFFD1F2EB).copy(alpha = 0.4f), CircleShape)
-        )
-        Box(
-            modifier = Modifier
-                .size(300.dp)
-                .align(Alignment.TopEnd)
-                .offset(x = 80.dp, y = 40.dp)
-                .background(Color(0xFFE8F8F5).copy(alpha = 0.5f), CircleShape)
-        )
-
+        FloatingBackground()
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -125,80 +90,69 @@ fun LoginScreen(
                     .height(46.dp)
             )
 
-            Spacer(modifier = Modifier.height(36.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
-            // BP WALLET SHIELD LOGO
-            BPWalletLogo(sizeDp = 90, showSubtitle = true)
+            // BP WALLET SHIELD LOGO WITH CIRCULAR FLOATING GLASS CONTAINER
+            BPWalletLogo(sizeDp = 80, showSubtitle = true)
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
-            // Main Content Area
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = if (isUserTab) "Welcome Back" else "Admin Portal",
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF1A1A1A),
-                    letterSpacing = (-1).sp
-                )
-                Text(
-                    text = "Please login to continue",
-                    fontSize = 15.sp,
-                    color = Color(0xFF757575),
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+            // Main Content Area (88% Width Floating Glass Card)
+            if (isUserTab) {
+                GlassCard(
+                    modifier = Modifier
+                        .fillMaxWidth(0.88f)
+                        .padding(bottom = 32.dp),
+                    elevation = 20.dp,
+                    spotColor = Color(0xFF22C55E).copy(alpha = 0.22f)
+                ) {
+                    Text(
+                        text = "Welcome Back",
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Slate900,
+                        letterSpacing = (-0.5).sp,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                    Text(
+                        text = "Login to access your BP Wallet account",
+                        fontSize = 14.sp,
+                        color = Slate500,
+                        modifier = Modifier
+                            .padding(top = 4.dp)
+                            .align(Alignment.CenterHorizontally)
+                    )
 
-                Spacer(modifier = Modifier.height(22.dp))
+                    Spacer(modifier = Modifier.height(28.dp))
 
-                if (isUserTab) {
                     // USER LOGIN FIELDS
-                    GlassInputField(
+                    GlassTextField(
                         value = emailOrPhone,
                         onValueChange = { emailOrPhone = it },
-                        placeholder = "Username",
-                        leadingIcon = Icons.Default.Person,
-                        testTag = "login_username_input",
-                        errorShakeTrigger = errorShakeTrigger
-                    )
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    Text(
-                        text = "Password",
-                        modifier = Modifier.align(Alignment.Start).padding(bottom = 6.dp, start = 4.dp),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF424242)
-                    )
-
-                    GlassInputField(
-                        value = password,
-                        onValueChange = { password = it },
-                        placeholder = "••••••••",
-                        leadingIcon = Icons.Default.Lock,
-                        isPassword = true,
-                        passwordVisible = passwordVisible,
-                        onPasswordToggle = { passwordVisible = !passwordVisible },
-                        testTag = "login_password_input",
-                        errorShakeTrigger = errorShakeTrigger
+                        label = "Username or Email",
+                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = Slate400) }
                     )
 
                     Spacer(modifier = Modifier.height(18.dp))
+
+                    GlassTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = "Password",
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = Slate400) },
+                        visualTransformation = PasswordVisualTransformation()
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     // Forgot Password
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = "Forgot Password?",
-                            fontSize = 14.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = BPGreenPrimary,
                             modifier = Modifier.clickable {
@@ -207,270 +161,129 @@ fun LoginScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(28.dp))
 
-                    // Login Button (Gradient)
-                    Button(
+                    // Login Button (65% width, centered, green gradient)
+                    GlassButton(
                         onClick = { viewModel.loginUser(emailOrPhone, password) },
                         modifier = Modifier
-                            .width(160.dp)
-                            .height(52.dp)
-                            .shadow(8.dp, RoundedCornerShape(26.dp), spotColor = BPGreenPrimary.copy(alpha = 0.5f))
-                            .testTag("login_button"),
-                        shape = RoundedCornerShape(26.dp),
-                        contentPadding = PaddingValues(0.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    Brush.verticalGradient(
-                                        colors = listOf(Color(0xFF00E676), Color(0xFF00A344))
-                                    )
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = "Login",
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                    }
+                            .fillMaxWidth(0.65f)
+                            .align(Alignment.CenterHorizontally),
+                        text = "Login"
+                    )
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
-                    // OR Divider
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                    // CREATE NEW ACCOUNT Link
+                    TextButton(
+                        onClick = { viewModel.setScreen(ScreenType.REGISTER) },
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        HorizontalDivider(modifier = Modifier.weight(1f), thickness = 0.5.dp, color = Color(0xFFE0E0E0))
-                        Surface(
-                            modifier = Modifier.padding(horizontal = 12.dp),
-                            shape = CircleShape,
-                            color = Color(0xFFF5F5F5),
-                            border = BorderStroke(0.5.dp, Color(0xFFE0E0E0))
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "OR",
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                color = Color(0xFF9E9E9E),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
+                                text = "Don't have an account? ",
+                                fontSize = 14.sp,
+                                color = Slate500
+                            )
+                            Text(
+                                text = "Create account",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = BPGreenPrimary
                             )
                         }
-                        HorizontalDivider(modifier = Modifier.weight(1f), thickness = 0.5.dp, color = Color(0xFFE0E0E0))
                     }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // CREATE NEW ACCOUNT Button
-                    OutlinedButton(
-                        onClick = { viewModel.setScreen(ScreenType.REGISTER) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp)
-                            .testTag("create_account_button"),
-                        shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
-                        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White)
+                }
+            } else {
+                // ADMIN LOGIN FIELDS WITH GOLD ACCENT HIGHLIGHTS
+                GlassCard(
+                    modifier = Modifier
+                        .fillMaxWidth(0.88f)
+                        .padding(bottom = 32.dp),
+                    elevation = 22.dp,
+                    spotColor = BPGold.copy(alpha = 0.35f),
+                    borderColor = BPGoldSoft,
+                    containerColor = Color.White.copy(alpha = 0.96f)
+                ) {
+                    // Gold Admin Badge
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = BPGoldSoft,
+                        border = BorderStroke(1.dp, BPGold.copy(alpha = 0.5f)),
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
                     ) {
-                        Text(
-                            text = "CREATE NEW ACCOUNT",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF212121),
-                            letterSpacing = 0.5.sp
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Security,
+                                contentDescription = null,
+                                tint = BPGoldDark,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "ENTERPRISE ADMIN PORTAL",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = BPGoldDark,
+                                letterSpacing = 0.8.sp
+                            )
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(40.dp))
-                } else {
-                    // ADMIN LOGIN
-                    GlassInputField(
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "Admin Access",
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Slate900,
+                        letterSpacing = (-0.5).sp,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
+                    Text(
+                        text = "Secure management console",
+                        fontSize = 14.sp,
+                        color = Slate500,
+                        modifier = Modifier
+                            .padding(top = 4.dp)
+                            .align(Alignment.CenterHorizontally)
+                    )
+
+                    Spacer(modifier = Modifier.height(28.dp))
+
+                    GlassTextField(
                         value = adminUsername,
                         onValueChange = { adminUsername = it },
-                        placeholder = "Admin Username",
-                        leadingIcon = Icons.Default.AdminPanelSettings,
-                        testTag = "admin_username_input",
-                        errorShakeTrigger = errorShakeTrigger
+                        label = "Admin Username",
+                        leadingIcon = { Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = BPGoldDark) }
                     )
-                    Spacer(modifier = Modifier.height(20.dp))
-                    GlassInputField(
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    GlassTextField(
                         value = adminPassword,
                         onValueChange = { adminPassword = it },
-                        placeholder = "Admin Password",
-                        leadingIcon = Icons.Default.Lock,
-                        isPassword = true,
-                        passwordVisible = passwordVisible,
-                        onPasswordToggle = { passwordVisible = !passwordVisible },
-                        testTag = "admin_password_input",
-                        errorShakeTrigger = errorShakeTrigger
+                        label = "Admin Password",
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = BPGoldDark) },
+                        visualTransformation = PasswordVisualTransformation()
                     )
-                    Spacer(modifier = Modifier.height(34.dp))
-                    Button(
+
+                    Spacer(modifier = Modifier.height(30.dp))
+
+                    GlassButton(
                         onClick = { viewModel.loginAdmin(adminUsername, adminPassword) },
                         modifier = Modifier
-                            .width(180.dp)
-                            .height(54.dp)
-                            .shadow(8.dp, RoundedCornerShape(27.dp), spotColor = Color(0xFF00C853).copy(alpha = 0.5f))
-                            .testTag("admin_login_button"),
-                        shape = RoundedCornerShape(27.dp),
-                        contentPadding = PaddingValues(0.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    Brush.verticalGradient(
-                                        colors = listOf(Color(0xFF00E676), Color(0xFF00A344))
-                                    )
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Admin Login",
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun GlassInputField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    leadingIcon: ImageVector,
-    modifier: Modifier = Modifier,
-    isPassword: Boolean = false,
-    passwordVisible: Boolean = false,
-    onPasswordToggle: () -> Unit = {},
-    testTag: String = "",
-    errorShakeTrigger: Int = 0
-) {
-    val shakeOffsetX = remember { Animatable(0f) }
-
-    LaunchedEffect(errorShakeTrigger) {
-        if (errorShakeTrigger > 0) {
-            for (i in 0..2) {
-                shakeOffsetX.animateTo(24f, animationSpec = tween(50, easing = LinearEasing))
-                shakeOffsetX.animateTo(-24f, animationSpec = tween(50, easing = LinearEasing))
-            }
-            shakeOffsetX.animateTo(0f, animationSpec = tween(50, easing = LinearEasing))
-        }
-    }
-
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        placeholder = {
-            Text(
-                text = placeholder,
-                color = Slate400,
-                fontSize = 15.sp
-            )
-        },
-        leadingIcon = {
-            Icon(
-                imageVector = leadingIcon,
-                contentDescription = placeholder,
-                tint = Slate400,
-                modifier = Modifier.size(22.dp)
-            )
-        },
-        trailingIcon = if (isPassword) {
-            {
-                IconButton(onClick = onPasswordToggle) {
-                    Icon(
-                        imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                        contentDescription = "Toggle password",
-                        tint = Slate400,
-                        modifier = Modifier.size(22.dp)
+                            .fillMaxWidth(0.65f)
+                            .align(Alignment.CenterHorizontally),
+                        text = "Admin Login",
+                        gradientColors = listOf(BPGold, BPGoldDark),
+                        glowColor = BPGold.copy(alpha = 0.5f)
                     )
                 }
             }
-        } else null,
-        visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
-        modifier = modifier
-            .fillMaxWidth()
-            .offset { IntOffset(shakeOffsetX.value.roundToInt(), 0) }
-            .testTag(testTag),
-        shape = RoundedCornerShape(16.dp),
-        singleLine = true,
-        keyboardOptions = if (isPassword) KeyboardOptions(keyboardType = KeyboardType.Password) else KeyboardOptions.Default,
-        colors = OutlinedTextFieldDefaults.colors(
-            unfocusedContainerColor = Color.White.copy(alpha = 0.5f),
-            focusedContainerColor = Color.White,
-            unfocusedBorderColor = Slate200,
-            focusedBorderColor = if (errorShakeTrigger > 0 && shakeOffsetX.value != 0f) Color.Red else BPGreenPrimary,
-            cursorColor = BPGreenPrimary,
-            focusedTextColor = Slate900,
-            unfocusedTextColor = Slate900
-        )
-    )
-}
-
-@Composable
-fun GlassLoginButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier
-            .fillMaxWidth()
-            .height(50.dp)
-            .shadow(
-                elevation = 6.dp,
-                shape = RoundedCornerShape(25.dp),
-                spotColor = Color(0xFF10B981).copy(alpha = 0.35f)
-            ),
-        shape = RoundedCornerShape(25.dp),
-        color = Color(0xFF10B981),
-        border = BorderStroke(1.dp, Color(0xFF059669))
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF10B981),
-                            Color(0xFF059669)
-                        )
-                    )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = text,
-                color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 0.4.sp
-            )
         }
     }
 }
@@ -481,91 +294,186 @@ fun VerifyEmailScreen(
     modifier: Modifier = Modifier
 ) {
     val pendingEmail by viewModel.pendingVerificationEmail.collectAsState()
-    val errorShakeTrigger by viewModel.errorShakeTrigger.collectAsState()
-    var otpCode by remember { mutableStateOf("") }
+    var otpDigits by remember { mutableStateOf(List(6) { "" }) }
     
+    // Countdown Timer Logic
+    var timeLeftSec by remember { mutableStateOf(60) }
+    var isTimerActive by remember { mutableStateOf(true) }
+
+    LaunchedEffect(isTimerActive, timeLeftSec) {
+        if (isTimerActive && timeLeftSec > 0) {
+            delay(1000L)
+            timeLeftSec -= 1
+        } else if (timeLeftSec == 0) {
+            isTimerActive = false
+        }
+    }
+
+    val fullOtpCode = otpDigits.joinToString("")
+
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(0xFFF1FDF7))
+        modifier = modifier.fillMaxSize()
     ) {
+        FloatingBackground()
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(32.dp),
+                .statusBarsPadding()
+                .padding(vertical = 24.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.MarkEmailRead,
-                contentDescription = null,
-                modifier = Modifier.size(80.dp),
-                tint = BPGreenPrimary
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            Text(
-                text = "Verify OTP",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Slate900
-            )
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Text(
-                text = "We've sent a 6-digit verification code to your email: ${pendingEmail.ifBlank { "your email" }}. Please enter it below to activate your account.",
-                textAlign = TextAlign.Center,
-                color = Slate600,
-                fontSize = 16.sp
-            )
-            
-            Spacer(modifier = Modifier.height(32.dp))
-
-            GlassInputField(
-                value = otpCode,
-                onValueChange = { if (it.length <= 6) otpCode = it },
-                placeholder = "6-Digit Code",
-                leadingIcon = Icons.Default.VpnKey,
-                errorShakeTrigger = errorShakeTrigger
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            Button(
-                onClick = { 
-                    if (pendingEmail.isNotBlank()) {
-                        viewModel.verifyOtp(pendingEmail, otpCode)
-                    } else {
-                        viewModel.showSnack("Email information missing. Please try logging in again.")
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
+            GlassCard(
+                modifier = Modifier
+                    .fillMaxWidth(0.88f),
+                elevation = 20.dp
             ) {
-                Text("Verify Account", fontWeight = FontWeight.Bold)
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
+                Box(
+                    modifier = Modifier
+                        .size(68.dp)
+                        .clip(CircleShape)
+                        .background(BPGreenLight)
+                        .align(Alignment.CenterHorizontally),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MarkEmailRead,
+                        contentDescription = null,
+                        modifier = Modifier.size(36.dp),
+                        tint = BPGreenPrimary
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                Text(
+                    text = "OTP Verification",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Slate900,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = "We sent a 6-digit verification code to:\n${pendingEmail.ifBlank { "your email" }}",
+                    textAlign = TextAlign.Center,
+                    color = Slate500,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                
+                Spacer(modifier = Modifier.height(28.dp))
 
-            TextButton(
-                onClick = { 
-                    if (pendingEmail.isNotBlank()) {
-                        viewModel.resendVerification(pendingEmail)
+                // 6 OTP Digit Boxes
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+                ) {
+                    repeat(6) { index ->
+                        val digit = otpDigits.getOrElse(index) { "" }
+                        OutlinedTextField(
+                            value = digit,
+                            onValueChange = { input ->
+                                if (input.length <= 1) {
+                                    val newDigits = otpDigits.toMutableList()
+                                    newDigits[index] = input
+                                    otpDigits = newDigits
+                                }
+                            },
+                            modifier = Modifier
+                                .width(46.dp)
+                                .height(56.dp),
+                            textStyle = LocalTextStyle.current.copy(
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                color = Slate900
+                            ),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = BPGreenPrimary,
+                                unfocusedBorderColor = Slate200,
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color(0xFFF8FAFC)
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
                     }
                 }
-            ) {
-                Text("Resend Verification Code", color = BPGreenDark, fontWeight = FontWeight.Bold)
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            TextButton(
-                onClick = { viewModel.logout() }
-            ) {
-                Text("Back to Login", color = Slate500, fontWeight = FontWeight.Medium)
+                
+                Spacer(modifier = Modifier.height(28.dp))
+
+                // Countdown Timer & Resend Option
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isTimerActive) {
+                        Icon(
+                            imageVector = Icons.Default.Timer,
+                            contentDescription = null,
+                            tint = Slate400,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Resend code in ${timeLeftSec}s",
+                            fontSize = 13.sp,
+                            color = Slate500,
+                            fontWeight = FontWeight.Medium
+                        )
+                    } else {
+                        TextButton(
+                            onClick = { 
+                                if (pendingEmail.isNotBlank()) {
+                                    viewModel.resendVerification(pendingEmail)
+                                    timeLeftSec = 60
+                                    isTimerActive = true
+                                }
+                            }
+                        ) {
+                            Text(
+                                text = "Resend Verification Code",
+                                color = BPGreenPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                // Verify Account Button
+                GlassButton(
+                    onClick = { 
+                        if (pendingEmail.isNotBlank()) {
+                            viewModel.verifyOtp(pendingEmail, fullOtpCode)
+                        } else {
+                            viewModel.showSnack("Email information missing. Please login again.")
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth(0.70f)
+                        .align(Alignment.CenterHorizontally),
+                    text = "Verify & Proceed",
+                    enabled = fullOtpCode.length == 6
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                TextButton(
+                    onClick = { viewModel.logout() },
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Text("Back to Login", color = Slate500, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                }
             }
         }
     }
@@ -578,72 +486,87 @@ fun ForgotPasswordScreen(
 ) {
     var email by remember { mutableStateOf("") }
     
-    val errorShakeTrigger by viewModel.errorShakeTrigger.collectAsState()
-    
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(0xFFF1FDF7))
+        modifier = modifier.fillMaxSize()
     ) {
+        FloatingBackground()
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(32.dp),
+                .statusBarsPadding()
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.LockReset,
-                contentDescription = null,
-                modifier = Modifier.size(80.dp),
-                tint = BPGreenPrimary
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            Text(
-                text = "Forgot Password?",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Slate900
-            )
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Text(
-                text = "Enter your registered email address to receive a password reset link.",
-                textAlign = TextAlign.Center,
-                color = Slate600,
-                fontSize = 16.sp
-            )
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            GlassInputField(
-                value = email,
-                onValueChange = { email = it },
-                placeholder = "Email Address",
-                leadingIcon = Icons.Default.Email,
-                errorShakeTrigger = errorShakeTrigger
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            Button(
-                onClick = { viewModel.forgotPassword(email) },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(0.88f),
+                elevation = 20.dp
             ) {
-                Text("Send Reset Link", fontWeight = FontWeight.Bold)
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            TextButton(
-                onClick = { viewModel.setScreen(ScreenType.LOGIN) }
-            ) {
-                Text("Back to Login", color = BPGreenDark, fontWeight = FontWeight.Bold)
+                Box(
+                    modifier = Modifier
+                        .size(68.dp)
+                        .clip(CircleShape)
+                        .background(BPGreenLight)
+                        .align(Alignment.CenterHorizontally),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LockReset,
+                        contentDescription = null,
+                        modifier = Modifier.size(36.dp),
+                        tint = BPGreenPrimary
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                Text(
+                    text = "Forgot Password",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Slate900,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                
+                Spacer(modifier = Modifier.height(10.dp))
+                
+                Text(
+                    text = "Enter your registered email address to receive a secure password reset link.",
+                    textAlign = TextAlign.Center,
+                    color = Slate500,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                
+                Spacer(modifier = Modifier.height(28.dp))
+                
+                GlassTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = "Email Address",
+                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = Slate400) }
+                )
+                
+                Spacer(modifier = Modifier.height(28.dp))
+                
+                GlassButton(
+                    onClick = { viewModel.forgotPassword(email) },
+                    modifier = Modifier
+                        .fillMaxWidth(0.70f)
+                        .align(Alignment.CenterHorizontally),
+                    text = "Send Reset Link"
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                TextButton(
+                    onClick = { viewModel.setScreen(ScreenType.LOGIN) },
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Text("Back to Login", color = Slate500, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
             }
         }
     }
@@ -655,69 +578,78 @@ fun ResetPasswordScreen(
     modifier: Modifier = Modifier
 ) {
     var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
-    
-    val errorShakeTrigger by viewModel.errorShakeTrigger.collectAsState()
     
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(0xFFF1FDF7))
+        modifier = modifier.fillMaxSize()
     ) {
+        FloatingBackground()
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(32.dp),
+                .statusBarsPadding()
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.VpnKey,
-                contentDescription = null,
-                modifier = Modifier.size(80.dp),
-                tint = BPGreenPrimary
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            Text(
-                text = "Reset Password",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Slate900
-            )
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Text(
-                text = "Please enter your new password below.",
-                textAlign = TextAlign.Center,
-                color = Slate600,
-                fontSize = 16.sp
-            )
-            
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            GlassInputField(
-                value = password,
-                onValueChange = { password = it },
-                placeholder = "New Password",
-                leadingIcon = Icons.Default.Lock,
-                isPassword = true,
-                passwordVisible = passwordVisible,
-                onPasswordToggle = { passwordVisible = !passwordVisible },
-                errorShakeTrigger = errorShakeTrigger
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            Button(
-                onClick = { viewModel.resetPassword(password) },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(0.88f),
+                elevation = 20.dp
             ) {
-                Text("Update Password", fontWeight = FontWeight.Bold)
+                Box(
+                    modifier = Modifier
+                        .size(68.dp)
+                        .clip(CircleShape)
+                        .background(BPGreenLight)
+                        .align(Alignment.CenterHorizontally),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.VpnKey,
+                        contentDescription = null,
+                        modifier = Modifier.size(36.dp),
+                        tint = BPGreenPrimary
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                Text(
+                    text = "Reset Password",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Slate900,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                
+                Spacer(modifier = Modifier.height(10.dp))
+                
+                Text(
+                    text = "Please enter your new strong password below.",
+                    textAlign = TextAlign.Center,
+                    color = Slate500,
+                    fontSize = 14.sp
+                )
+                
+                Spacer(modifier = Modifier.height(28.dp))
+                
+                GlassTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = "New Password",
+                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = Slate400) },
+                    visualTransformation = PasswordVisualTransformation()
+                )
+                
+                Spacer(modifier = Modifier.height(28.dp))
+                
+                GlassButton(
+                    onClick = { viewModel.resetPassword(password) },
+                    modifier = Modifier
+                        .fillMaxWidth(0.70f)
+                        .align(Alignment.CenterHorizontally),
+                    text = "Update Password"
+                )
             }
         }
     }
@@ -735,31 +667,11 @@ fun RegisterScreen(
     var selectedPrefix by remember { mutableStateOf("+966") }
     var mobileNumber by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
-    
-    val errorShakeTrigger by viewModel.errorShakeTrigger.collectAsState()
     
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFFE0F2F1),
-                        Color(0xFFF1FDF7)
-                    )
-                )
-            )
+        modifier = modifier.fillMaxSize()
     ) {
-        // Decorative blobs
-        Box(
-            modifier = Modifier
-                .size(350.dp)
-                .align(Alignment.TopEnd)
-                .offset(x = 100.dp, y = (-40).dp)
-                .background(Color(0xFFD1F2EB).copy(alpha = 0.4f), CircleShape)
-        )
-
+        FloatingBackground()
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -778,113 +690,77 @@ fun RegisterScreen(
                     .height(46.dp)
             )
 
-            Spacer(modifier = Modifier.height(30.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            BPWalletLogo(sizeDp = 85, showSubtitle = true)
+            BPWalletLogo(sizeDp = 75, showSubtitle = true)
 
-            Spacer(modifier = Modifier.height(36.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            Column(
+            // 88% Width Floating White Card
+            GlassCard(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .fillMaxWidth(0.88f)
+                    .padding(bottom = 32.dp),
+                elevation = 20.dp
             ) {
                 Text(
                     text = "Create Account",
-                    fontSize = 32.sp,
+                    fontSize = 30.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF1A1A1A),
-                    letterSpacing = (-1).sp
+                    color = Slate900,
+                    letterSpacing = (-0.5).sp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
                 )
                 Text(
-                    text = "Join BP Wallet for instant 24/7 payouts",
-                    fontSize = 15.sp,
-                    color = Color(0xFF757575),
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Username
-                Text(
-                    text = "Username",
-                    modifier = Modifier.align(Alignment.Start).padding(bottom = 6.dp, start = 4.dp),
+                    text = "Join BP Wallet for instant payouts",
                     fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF424242)
+                    color = Slate500,
+                    modifier = Modifier
+                        .padding(top = 4.dp)
+                        .align(Alignment.CenterHorizontally)
                 )
-                GlassInputField(
+
+                Spacer(modifier = Modifier.height(28.dp))
+
+                GlassTextField(
                     value = username,
                     onValueChange = { username = it },
-                    placeholder = "e.g. hamza_malik",
-                    leadingIcon = Icons.Default.Person,
-                    errorShakeTrigger = errorShakeTrigger
+                    label = "Username",
+                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = Slate400) }
                 )
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Full Name
-                Text(
-                    text = "Full Name",
-                    modifier = Modifier.align(Alignment.Start).padding(bottom = 6.dp, start = 4.dp),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF424242)
-                )
-                GlassInputField(
+                GlassTextField(
                     value = fullName,
                     onValueChange = { fullName = it },
-                    placeholder = "e.g. Hamza Malik",
-                    leadingIcon = Icons.Default.Badge,
-                    errorShakeTrigger = errorShakeTrigger
+                    label = "Full Name",
+                    leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null, tint = Slate400) }
                 )
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Email Address
-                Text(
-                    text = "Email Address",
-                    modifier = Modifier.align(Alignment.Start).padding(bottom = 6.dp, start = 4.dp),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF424242)
-                )
-                GlassInputField(
+                GlassTextField(
                     value = email,
                     onValueChange = { email = it },
-                    placeholder = "hamza@bpexch.com",
-                    leadingIcon = Icons.Default.Email,
-                    errorShakeTrigger = errorShakeTrigger
+                    label = "Email Address",
+                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = Slate400) }
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                // Country & Currency Section
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Public,
-                        contentDescription = null,
-                        tint = Color(0xFF00C853),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Select Country & Currency",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = Color(0xFF424242)
-                    )
-                }
+                Text(
+                    text = "Select Currency",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    color = Slate600
+                )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     listOf(
                         Triple("PKR", "+92", "Pakistan"),
@@ -905,37 +781,15 @@ fun RegisterScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                // Mobile Number Section
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "WhatsApp / Mobile Number",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF424242)
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Flag, // Use a generic flag icon or image if available
-                            contentDescription = null,
-                            tint = Color(0xFF388E3C),
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (selectedCurrency == "SAR") "Saudi Arabia (+966)" else if (selectedCurrency == "PKR") "Pakistan (+92)" else "UAE (+971)",
-                            fontSize = 11.sp,
-                            color = Color(0xFF388E3C),
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
+                Text(
+                    text = "WhatsApp / Mobile Number",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Slate600
+                )
+                
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Row(
@@ -943,79 +797,49 @@ fun RegisterScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Prefix Card
+                    // Prefix Display
                     Surface(
                         modifier = Modifier
                             .width(85.dp)
-                            .height(54.dp),
+                            .height(60.dp),
                         shape = RoundedCornerShape(16.dp),
-                        color = Color.White.copy(alpha = 0.5f),
-                        border = BorderStroke(1.dp, Color(0xFFE0E0E0))
+                        color = Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, Slate200)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Chat,
-                                contentDescription = null,
-                                tint = Color(0xFF00C853),
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
+                        Box(contentAlignment = Alignment.Center) {
                             Text(
                                 text = selectedPrefix,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp,
-                                color = Color(0xFF1A1A1A)
+                                color = Slate900
                             )
                         }
                     }
 
                     // Mobile Input
-                    GlassInputField(
+                    GlassTextField(
                         value = mobileNumber,
                         onValueChange = { mobileNumber = it },
-                        placeholder = "501234567",
-                        leadingIcon = Icons.Default.Phone,
+                        label = "Mobile Number",
+                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = Slate400) },
                         modifier = Modifier.weight(1f),
-                        errorShakeTrigger = errorShakeTrigger
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
                     )
                 }
 
-                Text(
-                    text = "Locked to ${if (selectedCurrency == "SAR") "Saudi Arabia" else if (selectedCurrency == "PKR") "Pakistan" else "UAE"}. Enter local number (e.g. 501234567).",
-                    fontSize = 11.sp,
-                    color = Color(0xFF9E9E9E),
-                    modifier = Modifier.align(Alignment.Start).padding(top = 8.dp, start = 4.dp)
-                )
+                Spacer(modifier = Modifier.height(16.dp))
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Password Section
-                Text(
-                    text = "Password",
-                    modifier = Modifier.align(Alignment.Start).padding(bottom = 6.dp, start = 4.dp),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF424242)
-                )
-                GlassInputField(
+                GlassTextField(
                     value = password,
                     onValueChange = { password = it },
-                    placeholder = "••••••••",
-                    leadingIcon = Icons.Default.Lock,
-                    isPassword = true,
-                    passwordVisible = passwordVisible,
-                    onPasswordToggle = { passwordVisible = !passwordVisible },
-                    errorShakeTrigger = errorShakeTrigger
+                    label = "Password",
+                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = Slate400) },
+                    visualTransformation = PasswordVisualTransformation()
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(28.dp))
 
-                // Complete Register Button
-                Button(
+                GlassButton(
                     onClick = {
                         viewModel.registerUser(
                             fullName = fullName,
@@ -1027,112 +851,25 @@ fun RegisterScreen(
                         )
                     },
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .shadow(8.dp, RoundedCornerShape(28.dp), spotColor = Color(0xFF00C853).copy(alpha = 0.4f)),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00C853))
+                        .fillMaxWidth(0.65f)
+                        .align(Alignment.CenterHorizontally),
+                    text = "Complete Register"
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                TextButton(
+                    onClick = { viewModel.setScreen(ScreenType.LOGIN) },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = "Complete Register",
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                TextButton(onClick = { viewModel.setScreen(ScreenType.LOGIN) }) {
                     Text(
                         text = "Already registered? Login here",
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF00C853),
-                        fontSize = 15.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(40.dp))
-            }
-        }
-    }
-}
-
-@Composable
-fun Premium3DButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    backgroundColor: Color = BPGreenPrimary,
-    bottomShadowColor: Color = Color(0xFF0F6E38),
-    textColor: Color = Color.White,
-    icon: ImageVector? = null,
-    isOutlined: Boolean = false
-) {
-    val containerCol = if (isOutlined) Color.White else backgroundColor
-    val borderCol = if (isOutlined) BPGreenPrimary else bottomShadowColor
-    val textCol = if (isOutlined) BPGreenDark else textColor
-
-    Surface(
-        onClick = onClick,
-        modifier = modifier
-            .widthIn(min = 140.dp)
-            .height(50.dp)
-            .shadow(
-                elevation = 6.dp,
-                shape = RoundedCornerShape(25.dp),
-                spotColor = backgroundColor.copy(alpha = 0.3f)
-            ),
-        shape = RoundedCornerShape(25.dp),
-        color = containerCol,
-        border = BorderStroke(if (isOutlined) 1.5.dp else 2.dp, borderCol)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    if (isOutlined) {
-                        Brush.verticalGradient(
-                            colors = listOf(Color.White, Color(0xFFF1F8F3))
-                        )
-                    } else {
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                backgroundColor,
-                                bottomShadowColor
-                            )
-                        )
-                    }
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            ) {
-                Text(
-                    text = text,
-                    color = textCol,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 0.5.sp
-                )
-                if (icon != null) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = text,
-                        tint = textCol,
-                        modifier = Modifier.size(18.dp)
+                        color = Slate500,
+                        fontSize = 14.sp
                     )
                 }
             }
         }
     }
 }
-
-
-
-
-
