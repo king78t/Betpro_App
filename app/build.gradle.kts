@@ -10,11 +10,11 @@ plugins {
 base.archivesName.set("app")
 
 android {
-  namespace = "com.bp.uunwlm"
+  namespace = "com.bp.wallet"
   compileSdk = 36
 
   defaultConfig {
-    applicationId = "com.bp.uunwlm"
+    applicationId = "com.aistudio.bpwallet.app"
     minSdk = 24
     targetSdk = 35
     versionCode = 1
@@ -33,14 +33,23 @@ android {
     }
     create("release") {
       val keystoreFile = rootProject.file("bpwallet.jks")
-      if (keystoreFile.exists()) {
+      val keystorePass = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+      val keyAliasVal = System.getenv("RELEASE_KEY_ALIAS")
+      val keyPass = System.getenv("RELEASE_KEY_PASSWORD")
+
+      if (keystoreFile.exists() && !keystorePass.isNullOrBlank()) {
         storeFile = keystoreFile
-        storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD") ?: ""
-        keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: "bpwallet"
-        keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
+        storePassword = keystorePass
+        keyAlias = if (!keyAliasVal.isNullOrBlank()) keyAliasVal else "bpwallet"
+        keyPassword = if (!keyPass.isNullOrBlank()) keyPass else keystorePass
         println(">>> Using Custom Release Keystore: ${keystoreFile.absolutePath}")
       } else {
-        throw GradleException("Release keystore 'bpwallet.jks' not found in project root. Please upload it to proceed with signed release build.")
+        println(">>> Release keystore or environment variables not found; falling back to debug signing for evaluation.")
+        val debugConfig = signingConfigs.getByName("debug")
+        storeFile = debugConfig.storeFile
+        storePassword = debugConfig.storePassword
+        keyAlias = debugConfig.keyAlias
+        keyPassword = debugConfig.keyPassword
       }
     }
   }
