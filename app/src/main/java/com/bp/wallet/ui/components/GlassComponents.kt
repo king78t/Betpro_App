@@ -20,6 +20,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -199,21 +200,29 @@ fun GlassTextField(
         else -> null
     }
 
+    val labelComposable: (@Composable () -> Unit)? = if (!label.isNullOrBlank()) {
+        { Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium) }
+    } else null
+
+    val placeholderComposable: (@Composable () -> Unit)? = if (!placeholder.isNullOrBlank()) {
+        { Text(placeholder, color = Slate400, fontSize = 14.sp) }
+    } else null
+
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = if (!label.isNullOrBlank()) {
-            { Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium) }
-        } else null,
-        placeholder = if (!placeholder.isNullOrBlank()) {
-            { Text(placeholder, color = Slate400, fontSize = 14.sp) }
-        } else null,
+        label = labelComposable,
+        placeholder = placeholderComposable,
         leadingIcon = leadingIcon,
         trailingIcon = effectiveTrailingIcon,
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 56.dp)
-            .height(56.dp),
+            .heightIn(min = 56.dp),
+        textStyle = TextStyle(
+            fontSize = 15.sp,
+            lineHeight = 20.sp,
+            color = Slate900
+        ),
         colors = OutlinedTextFieldDefaults.colors(
             focusedTextColor = Slate900,
             unfocusedTextColor = Slate900,

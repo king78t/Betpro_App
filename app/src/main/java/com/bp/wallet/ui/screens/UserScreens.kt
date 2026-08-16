@@ -4,7 +4,17 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
+import android.view.ViewGroup
+import android.webkit.CookieManager
+import android.webkit.RenderProcessGoneDetail
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
@@ -32,6 +42,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.bp.wallet.model.*
 import com.bp.wallet.ui.components.*
 import com.bp.wallet.ui.theme.*
@@ -42,12 +53,17 @@ import com.bp.wallet.ui.viewmodel.ScreenType
 @Composable
 fun UserHomeScreen(viewModel: BPWalletViewModel) {
     val currentUser by viewModel.currentUser.collectAsState()
-    val transactions by viewModel.allTransactions.collectAsState()
     val appSettings by viewModel.appSettings.collectAsState()
     val context = LocalContext.current
 
-    val userTxs = remember(transactions, currentUser) {
-        transactions.filter { it.userId == currentUser?.id }.take(5)
+    val initialLetter = remember(currentUser) {
+        val name = currentUser?.fullName?.ifBlank { currentUser?.username } ?: "B"
+        name.take(1).uppercase()
+    }
+
+    val usernameHandle = remember(currentUser) {
+        val u = currentUser?.username?.ifBlank { "bptraders_pkr" } ?: "bptraders_pkr"
+        if (u.startsWith("@")) u else "@$u"
     }
 
     Scaffold(
@@ -58,35 +74,68 @@ fun UserHomeScreen(viewModel: BPWalletViewModel) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        BPWalletLogo(size = 36.dp)
-                        Column {
+                        // Avatar circle with initial letter
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF00C853)),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Text(
-                                text = "BP Wallet",
+                                text = initialLetter,
+                                color = Color.White,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                color = Slate900
+                                fontSize = 18.sp
                             )
+                        }
+                        Column {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = currentUser?.fullName?.ifBlank { "User" } ?: "User",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = Color.Black
+                                )
+                                // PKR FIXED badge
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = Color(0xFFE8F5E9),
+                                    border = BorderStroke(1.dp, Color(0xFFA5D6A7))
+                                ) {
+                                    Text(
+                                        text = "${currentUser?.currency ?: "PKR"} FIXED",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF2E7D32),
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
                             Text(
-                                text = "Welcome, ${currentUser?.fullName ?: "User"}",
+                                text = usernameHandle,
                                 fontSize = 12.sp,
-                                color = Slate500
+                                color = Color.Gray
                             )
                         }
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.openWhatsAppSupport(context) }) {
+                    IconButton(onClick = { viewModel.showSnack("No new notifications") }) {
                         Icon(
-                            imageVector = Icons.Default.SupportAgent,
-                            contentDescription = "Support",
-                            tint = BPGreenPrimary
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "Notifications",
+                            tint = Color.Black
                         )
                     }
-                    IconButton(onClick = { viewModel.setScreen(ScreenType.USER_PROFILE) }) {
+                    IconButton(onClick = { viewModel.logout() }) {
                         Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Profile",
-                            tint = Slate700
+                            imageVector = Icons.Default.PowerSettingsNew,
+                            contentDescription = "Power",
+                            tint = Color(0xFFD32F2F)
                         )
                     }
                 },
@@ -100,260 +149,257 @@ fun UserHomeScreen(viewModel: BPWalletViewModel) {
             )
         }
     ) { padding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF8FAFC))
+                .background(Color.White)
                 .padding(padding)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item { Spacer(modifier = Modifier.height(4.dp)) }
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Balance Card
-            item {
-                Card(
+            // Action Buttons: Side by side → Green DEPOSIT (PKR) (+) and Dark WITHDRAW (PKR) (−)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = { viewModel.setScreen(ScreenType.USER_DEPOSIT) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00C853))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "DEPOSIT (${currentUser?.currency ?: "PKR"})",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = Color.White
+                    )
+                }
+
+                Button(
+                    onClick = { viewModel.setScreen(ScreenType.USER_WITHDRAW) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Remove,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "WITHDRAW (${currentUser?.currency ?: "PKR"})",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = Color.White
+                    )
+                }
+            }
+
+            // Exchange ID Card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(4.dp, RoundedCornerShape(18.dp)),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+            ) {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .shadow(8.dp, RoundedCornerShape(24.dp)),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                        .padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                Brush.horizontalGradient(
-                                    listOf(Slate900, Slate800)
-                                )
-                            )
-                            .padding(24.dp)
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Available Balance",
-                                    color = Slate300,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = BPGreenPrimary.copy(alpha = 0.2f)
-                                ) {
-                                    Text(
-                                        text = currentUser?.currency ?: "PKR",
-                                        color = BPGreenAccent,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
-                                }
-                            }
-
-                            Text(
-                                text = "${CountryUtils.getCurrencySymbol(currentUser?.currency ?: "PKR")} ${String.format("%.2f", currentUser?.walletBalance ?: 0.0)}",
-                                color = Color.White,
-                                fontSize = 32.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-
-                            HorizontalDivider(color = Slate700)
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Button(
-                                    onClick = { viewModel.setScreen(ScreenType.USER_DEPOSIT) },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = BPGreenPrimary)
-                                ) {
-                                    Icon(Icons.Default.ArrowDownward, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Deposit", fontWeight = FontWeight.Bold)
-                                }
-
-                                OutlinedButton(
-                                    onClick = { viewModel.setScreen(ScreenType.USER_WITHDRAW) },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp),
-                                    border = BorderStroke(1.dp, Color.White),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-                                ) {
-                                    Icon(Icons.Default.ArrowUpward, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Withdraw", fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // BetPro Exchange ID Card
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Slate200)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.SportsEsports,
-                                    contentDescription = null,
-                                    tint = BPGreenPrimary
-                                )
-                                Text(
-                                    text = "BetPro Account ID",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp,
-                                    color = Slate900
-                                )
-                            }
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = if (currentUser?.betproIdStatus == "Active") BPGreenPrimary.copy(alpha = 0.15f) else Amber500.copy(alpha = 0.15f)
-                            ) {
-                                Text(
-                                    text = currentUser?.betproIdStatus ?: "Pending",
-                                    color = if (currentUser?.betproIdStatus == "Active") BPGreenDark else Amber500,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                )
-                            }
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text("Username", fontSize = 12.sp, color = Slate500)
-                                Text(
-                                    text = currentUser?.betproUsername ?: "Available Soon",
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Slate800,
-                                    fontSize = 14.sp
-                                )
-                            }
-                            Column {
-                                Text("Password", fontSize = 12.sp, color = Slate500)
-                                Text(
-                                    text = currentUser?.betproPassword ?: "Wait for Admin",
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Slate800,
-                                    fontSize = 14.sp
-                                )
-                            }
-                        }
-
-                        Button(
-                            onClick = {
-                                val url = appSettings.exchangeWebsiteUrl.ifBlank { "https://betproexch.com" }
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                                context.startActivity(intent)
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Slate900)
-                        ) {
-                            Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Open BetPro Exchange", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-
-            // Quick Actions & Announcements
-            if (appSettings.announcementMessage.isNotBlank()) {
-                item {
-                    Card(
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Amber500.copy(alpha = 0.1f)),
-                        border = BorderStroke(1.dp, Amber500.copy(alpha = 0.3f))
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(
-                            modifier = Modifier.padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Default.Campaign, contentDescription = null, tint = Amber500)
+                            Icon(
+                                imageVector = Icons.Default.Sync,
+                                contentDescription = null,
+                                tint = Color(0xFF00C853),
+                                modifier = Modifier.size(24.dp)
+                            )
                             Text(
-                                text = appSettings.announcementMessage,
-                                fontSize = 13.sp,
-                                color = Slate800
+                                text = "BetPro Account ID",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = Color.Black
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFFE8F5E9),
+                            border = BorderStroke(1.dp, Color(0xFF81C784))
+                        ) {
+                            Text(
+                                text = currentUser?.betproIdStatus?.uppercase() ?: "ACTIVE ID",
+                                color = Color(0xFF2E7D32),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
                     }
-                }
-            }
 
-            // Recent Transactions Section Header
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Recent Transactions",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = Slate900
-                    )
-                    TextButton(onClick = { viewModel.setScreen(ScreenType.USER_HISTORY) }) {
-                        Text("See All", color = BPGreenPrimary, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-
-            if (userTxs.isEmpty()) {
-                item {
-                    Card(
+                    // Credentials Box
+                    Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        border = BorderStroke(1.dp, Slate200)
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                     ) {
-                        Box(
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(32.dp),
-                            contentAlignment = Alignment.Center
+                                .padding(14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("No transactions yet", color = Slate500, fontSize = 14.sp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("BetPro Username", fontSize = 11.sp, color = Color.Gray)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = currentUser?.betproUsername?.ifBlank { "Pending Assignment" } ?: "Pending Assignment",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.Black,
+                                    fontSize = 15.sp
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("BetPro Password", fontSize = 11.sp, color = Color.Gray)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = currentUser?.betproPassword?.ifBlank { "••••••••" } ?: "••••••••",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.Black,
+                                    fontSize = 15.sp
+                                )
+                            }
                         }
                     }
-                }
-            } else {
-                items(userTxs) { tx ->
-                    TransactionItemCard(tx = tx)
+
+                    // Yellow Info Tip Box
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFFFFBEB),
+                        border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = Color(0xFFD97706),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Tip: Use the above BetPro credentials to log in on the BetPro Exchange portal.",
+                                fontSize = 12.sp,
+                                color = Color(0xFF92400E),
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+
+
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
+            // Instructions Section: Urdu text box + English translation below
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "📋 Instructions / ہدایات",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = Color.Black
+                    )
+
+                    // Urdu text box
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFF1F5F9)
+                    ) {
+                        Text(
+                            text = "براہ کرم ڈیپوزٹ اور ودڈرا سے پہلے اپنی بیٹ پرو آئی ڈی اور پاسورڈ کی تصدیق کر لیں۔ کسی بھی مسئلے کی صورت میں ہیلپ لائن سے رابطہ کریں۔",
+                            fontSize = 13.sp,
+                            color = Color(0xFF334155),
+                            modifier = Modifier.padding(12.dp),
+                            textAlign = TextAlign.Right,
+                            lineHeight = 20.sp
+                        )
+                    }
+
+                    // English translation below
+                    Text(
+                        text = "Please confirm your BetPro ID and password before making any deposit or withdrawal request. In case of any issue, contact support.",
+                        fontSize = 12.sp,
+                        color = Color(0xFF64748B),
+                        lineHeight = 17.sp
+                    )
+                }
+            }
+
+            // Broadcast announcement banner if available
+            if (appSettings.announcementMessage.isNotBlank()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                    border = BorderStroke(1.dp, Color(0xFFBFDBFE))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.Campaign, contentDescription = null, tint = Color(0xFF2563EB))
+                        Text(
+                            text = appSettings.announcementMessage,
+                            fontSize = 12.sp,
+                            color = Color(0xFF1E40AF)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -1024,39 +1070,214 @@ fun UserBottomNav(
     currentScreen: ScreenType,
     onNavigate: (ScreenType) -> Unit
 ) {
+    val navItemColors = NavigationBarItemDefaults.colors(
+        selectedIconColor = Color(0xFF00C853),
+        unselectedIconColor = Color(0xFF666666),
+        selectedTextColor = Color(0xFF00C853),
+        unselectedTextColor = Color(0xFF666666),
+        indicatorColor = Color(0xFF00C853).copy(alpha = 0.12f)
+    )
+
     NavigationBar(
         containerColor = Color.White,
-        tonalElevation = 8.dp
+        tonalElevation = 10.dp
     ) {
         NavigationBarItem(
             selected = currentScreen == ScreenType.USER_HOME,
             onClick = { onNavigate(ScreenType.USER_HOME) },
             icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-            label = { Text("Home") }
+            label = { Text("Home", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+            colors = navItemColors
         )
         NavigationBarItem(
             selected = currentScreen == ScreenType.USER_DEPOSIT,
             onClick = { onNavigate(ScreenType.USER_DEPOSIT) },
-            icon = { Icon(Icons.Default.ArrowDownward, contentDescription = "Deposit") },
-            label = { Text("Deposit") }
+            icon = { Icon(Icons.Default.AddCircleOutline, contentDescription = "Deposit") },
+            label = { Text("Deposit", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+            colors = navItemColors
         )
+
+        // BetPro icon: Globe inside SOLID GREEN circular button (elevated/center)
+        NavigationBarItem(
+            selected = currentScreen == ScreenType.USER_BETPRO,
+            onClick = { onNavigate(ScreenType.USER_BETPRO) },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .shadow(4.dp, CircleShape, spotColor = Color(0xFF00C853))
+                        .clip(CircleShape)
+                        .background(Color(0xFF00C853)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Language,
+                        contentDescription = "BetPro",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            },
+            label = {
+                Text(
+                    text = "BetPro",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    color = Color(0xFF00C853)
+                )
+            },
+            colors = navItemColors
+        )
+
         NavigationBarItem(
             selected = currentScreen == ScreenType.USER_WITHDRAW,
             onClick = { onNavigate(ScreenType.USER_WITHDRAW) },
-            icon = { Icon(Icons.Default.ArrowUpward, contentDescription = "Withdraw") },
-            label = { Text("Withdraw") }
+            icon = { Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Withdraw") },
+            label = { Text("Withdraw", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+            colors = navItemColors
         )
         NavigationBarItem(
             selected = currentScreen == ScreenType.USER_HISTORY,
             onClick = { onNavigate(ScreenType.USER_HISTORY) },
             icon = { Icon(Icons.Default.History, contentDescription = "History") },
-            label = { Text("History") }
+            label = { Text("History", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
+            colors = navItemColors
         )
-        NavigationBarItem(
-            selected = currentScreen == ScreenType.USER_PROFILE,
-            onClick = { onNavigate(ScreenType.USER_PROFILE) },
-            icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-            label = { Text("Profile") }
-        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun UserBetProScreen(viewModel: BPWalletViewModel) {
+    val appSettings by viewModel.appSettings.collectAsState()
+    val exchangeUrl = remember(appSettings) {
+        appSettings.exchangeWebsiteUrl.ifBlank { "https://betproexch.com" }
+    }
+    var webViewRef by remember { mutableStateOf<WebView?>(null) }
+    var isLoadingWeb by remember { mutableStateOf(true) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SportsEsports,
+                            contentDescription = null,
+                            tint = BPGreenDark
+                        )
+                        Text(
+                            text = "BetPro Exchange",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = Slate900
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = { viewModel.setScreen(ScreenType.USER_HOME) }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { webViewRef?.reload() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Reload")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+            )
+        },
+        bottomBar = {
+            UserBottomNav(
+                currentScreen = ScreenType.USER_BETPRO,
+                onNavigate = { viewModel.setScreen(it) }
+            )
+        }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            AndroidView(
+                factory = { ctx ->
+                    WebView(ctx).apply {
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+
+                        // Enable cookies and session persistence
+                        val cookieManager = CookieManager.getInstance()
+                        cookieManager.setAcceptCookie(true)
+                        cookieManager.setAcceptThirdPartyCookies(this, true)
+
+                        settings.apply {
+                            javaScriptEnabled = true
+                            domStorageEnabled = true
+                            databaseEnabled = true
+                            useWideViewPort = true
+                            loadWithOverviewMode = true
+                            allowFileAccess = true
+                            allowContentAccess = true
+                            setSupportZoom(true)
+                            builtInZoomControls = true
+                            displayZoomControls = false
+                            javaScriptCanOpenWindowsAutomatically = true
+                            mediaPlaybackRequiresUserGesture = false
+                            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                        }
+
+                        webViewClient = object : WebViewClient() {
+                            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                                super.onPageStarted(view, url, favicon)
+                                isLoadingWeb = true
+                            }
+
+                            override fun onPageFinished(view: WebView?, url: String?) {
+                                super.onPageFinished(view, url)
+                                isLoadingWeb = false
+                            }
+
+                            override fun shouldOverrideUrlLoading(
+                                view: WebView?,
+                                request: WebResourceRequest?
+                            ): Boolean {
+                                // Keep all navigation within the in-app WebView, never launch external browser
+                                return false
+                            }
+
+                            override fun onRenderProcessGone(
+                                view: WebView?,
+                                detail: RenderProcessGoneDetail?
+                            ): Boolean {
+                                // Gracefully handle renderer process crashes in headless/virtual environments
+                                return true
+                            }
+                        }
+
+                        webChromeClient = WebChromeClient()
+                        loadUrl(exchangeUrl)
+                        webViewRef = this
+                    }
+                },
+                update = { webView ->
+                    webViewRef = webView
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+
+            if (isLoadingWeb) {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter),
+                    color = BPGreenPrimary
+                )
+            }
+        }
     }
 }

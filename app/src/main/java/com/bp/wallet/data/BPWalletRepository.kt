@@ -119,8 +119,81 @@ object BPWalletRepository {
         }
     }
 
+    val defaultDemoUser = UserAccount(
+        id = "usr_demo_8829",
+        username = "AliKhan",
+        fullName = "Ali Khan",
+        email = "ali.khan@bpwallet.pk",
+        currency = "PKR",
+        country = "Pakistan",
+        mobileNumber = "+923001234567",
+        password = SecurityUtils.hashPassword("Password123#"),
+        role = "user",
+        betproUsername = "BP882910",
+        betproPassword = "active_pass_123",
+        betproIdStatus = "Active",
+        walletBalance = 25000.0,
+        createdAt = 1723220000000L,
+        isVerified = true
+    )
+
+    val demoUser2 = UserAccount(
+        id = "usr_demo_9941",
+        username = "UsmanRaza",
+        fullName = "Usman Raza",
+        email = "usman.raza@bpwallet.pk",
+        currency = "PKR",
+        country = "Pakistan",
+        mobileNumber = "+923129876543",
+        password = SecurityUtils.hashPassword("Password123#"),
+        role = "user",
+        betproUsername = "BP994120",
+        betproPassword = "active_pass_456",
+        betproIdStatus = "Active",
+        walletBalance = 50000.0,
+        createdAt = 1723230000000L,
+        isVerified = true
+    )
+
+    val singleSuperAdmin = UserAccount(
+        id = "admin_super_1",
+        username = "Boss",
+        fullName = "Boss (Super Admin)",
+        email = "boss@bpwallet.pk",
+        currency = "PKR",
+        country = "All",
+        mobileNumber = "+923000000000",
+        password = SecurityUtils.hashPassword("Aliking0#"),
+        role = "Super Admin",
+        betproUsername = "Boss",
+        betproPassword = "active",
+        betproIdStatus = "Active",
+        walletBalance = 0.0,
+        createdAt = 1723220000000L,
+        isVerified = true,
+        isSuperAdmin = true
+    )
+
+    val demoAdmin = UserAccount(
+        id = "admin_demo_2",
+        username = "Admin",
+        fullName = "System Admin",
+        email = "admin@bpwallet.pk",
+        currency = "PKR",
+        country = "Pakistan",
+        mobileNumber = "+923009998877",
+        password = SecurityUtils.hashPassword("Password123#"),
+        role = "Admin",
+        betproUsername = "Admin",
+        betproPassword = "active",
+        betproIdStatus = "Active",
+        walletBalance = 0.0,
+        createdAt = 1723220000000L,
+        isVerified = true
+    )
+
     fun restoreSession(): UserAccount? {
-        val ctx = appContext ?: return null
+        val ctx = appContext ?: return defaultDemoUser
         try {
             val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val securePrefs = getEncryptedPrefs()
@@ -146,10 +219,10 @@ object BPWalletRepository {
                     mobileNumber = prefs.getString(KEY_USER_MOBILE, "") ?: "",
                     password = securePrefs?.getString(KEY_USER_PASSWORD, "") ?: "",
                     role = role,
-                    betproUsername = securePrefs?.getString(KEY_USER_BETPRO_USERNAME, "Available Soon") ?: "Available Soon",
-                    betproPassword = securePrefs?.getString(KEY_USER_BETPRO_PASSWORD, "Wait for Admin") ?: "Wait for Admin",
-                    betproIdStatus = securePrefs?.getString(KEY_USER_BETPRO_STATUS, "Pending") ?: "Pending",
-                    walletBalance = prefs.getFloat(KEY_USER_WALLET_BALANCE, 0.0f).toDouble(),
+                    betproUsername = securePrefs?.getString(KEY_USER_BETPRO_USERNAME, "BP882910") ?: "BP882910",
+                    betproPassword = securePrefs?.getString(KEY_USER_BETPRO_PASSWORD, "active_pass_123") ?: "active_pass_123",
+                    betproIdStatus = securePrefs?.getString(KEY_USER_BETPRO_STATUS, "Active") ?: "Active",
+                    walletBalance = prefs.getFloat(KEY_USER_WALLET_BALANCE, 25000.0f).toDouble(),
                     createdAt = prefs.getLong(KEY_USER_CREATED_AT, System.currentTimeMillis()),
                     isVerified = prefs.getBoolean(KEY_USER_IS_VERIFIED, true)
                 )
@@ -158,7 +231,7 @@ object BPWalletRepository {
         } catch (e: Exception) {
             Log.e(TAG, "Error restoring session", e)
         }
-        return null
+        return defaultDemoUser
     }
 
     fun clearSession() {
@@ -176,13 +249,82 @@ object BPWalletRepository {
         }
     }
 
-    private val _currentUser = MutableStateFlow<UserAccount?>(null)
+    private val _currentUser = MutableStateFlow<UserAccount?>(defaultDemoUser)
     val currentUser: StateFlow<UserAccount?> = _currentUser.asStateFlow()
 
-    private val _usersList = MutableStateFlow<List<UserAccount>>(emptyList())
+    val initialDemoUsers = listOf(singleSuperAdmin, demoAdmin, defaultDemoUser, demoUser2)
+
+    val initialDummyTransactions = listOf(
+        TransactionRequest(
+            id = "tx_demo_101",
+            userId = "usr_demo_8829",
+            userName = "Ali Khan",
+            userEmail = "ali.khan@bpwallet.pk",
+            type = "DEPOSIT",
+            amount = 10000.0,
+            currency = "PKR",
+            gatewayName = "JazzCash Auto",
+            referenceNumber = "JZ99823145",
+            accountTitle = "Ali Khan",
+            accountNumber = "03001234567",
+            status = "Approved",
+            adminNotes = "Payment verified via reference match",
+            timestamp = System.currentTimeMillis() - 86400000L * 2
+        ),
+        TransactionRequest(
+            id = "tx_demo_102",
+            userId = "usr_demo_8829",
+            userName = "Ali Khan",
+            userEmail = "ali.khan@bpwallet.pk",
+            type = "WITHDRAW",
+            amount = 3000.0,
+            currency = "PKR",
+            gatewayName = "Easypaisa",
+            referenceNumber = "EP77123901",
+            accountTitle = "Ali Khan",
+            accountNumber = "03001234567",
+            status = "Approved",
+            adminNotes = "Processed and dispatched to user",
+            timestamp = System.currentTimeMillis() - 86400000L
+        ),
+        TransactionRequest(
+            id = "tx_demo_103",
+            userId = "usr_demo_9941",
+            userName = "Usman Raza",
+            userEmail = "usman.raza@bpwallet.pk",
+            type = "DEPOSIT",
+            amount = 15000.0,
+            currency = "PKR",
+            gatewayName = "Meezan Bank",
+            referenceNumber = "MZ88392011",
+            accountTitle = "Usman Raza",
+            accountNumber = "03129876543",
+            status = "Pending",
+            adminNotes = "Awaiting admin confirmation",
+            timestamp = System.currentTimeMillis() - 3600000L * 4
+        ),
+        TransactionRequest(
+            id = "tx_demo_104",
+            userId = "usr_demo_9941",
+            userName = "Usman Raza",
+            userEmail = "usman.raza@bpwallet.pk",
+            type = "WITHDRAW",
+            amount = 5000.0,
+            currency = "PKR",
+            gatewayName = "JazzCash",
+            referenceNumber = "JZ11029384",
+            accountTitle = "Usman Raza",
+            accountNumber = "03129876543",
+            status = "Pending",
+            adminNotes = "Pending review",
+            timestamp = System.currentTimeMillis() - 3600000L * 2
+        )
+    )
+
+    private val _usersList = MutableStateFlow<List<UserAccount>>(initialDemoUsers)
     val usersList: StateFlow<List<UserAccount>> = _usersList.asStateFlow()
 
-    private val _transactionsList = MutableStateFlow<List<TransactionRequest>>(emptyList())
+    private val _transactionsList = MutableStateFlow<List<TransactionRequest>>(initialDummyTransactions)
     val transactionsList: StateFlow<List<TransactionRequest>> = _transactionsList.asStateFlow()
 
     private val _paymentGateways = MutableStateFlow<List<PaymentGateway>>(emptyList())
@@ -212,23 +354,6 @@ object BPWalletRepository {
     private val _adminNotificationsList = MutableStateFlow<List<AdminNotification>>(emptyList())
     val adminNotificationsList: StateFlow<List<AdminNotification>> = _adminNotificationsList.asStateFlow()
 
-    val singleSuperAdmin = UserAccount(
-        id = "admin_super_1",
-        username = "Boss",
-        fullName = "Boss",
-        email = "Boss",
-        currency = "PKR",
-        country = "All",
-        mobileNumber = "+923000000000",
-        password = SecurityUtils.hashPassword("Aliking0#"),
-        role = "Super Admin",
-        betproUsername = "Boss",
-        betproPassword = "active",
-        betproIdStatus = "Active",
-        walletBalance = 0.0,
-        createdAt = 1723220000000L
-    )
-
     fun initContext(context: Context) {
         appContext = context.applicationContext
         SupabaseCloudManager.init(context.applicationContext)
@@ -256,14 +381,10 @@ object BPWalletRepository {
                         _currentUser.value = profile
                         saveSession(profile)
                     }
-                } else if (_currentUser.value != null && _currentUser.value?.id != "admin_super_1") {
-                    // Local session exists but no cloud session? 
-                    // Might be expired or logged out elsewhere
-                    // logout()
                 }
 
                 val cloudUsers = SupabaseCloudManager.loadAllUsers()
-                _usersList.value = (listOf(singleSuperAdmin) + cloudUsers).distinctBy { it.id }
+                _usersList.value = (initialDemoUsers + cloudUsers).distinctBy { it.id }
                 
                 val cloudTxs = SupabaseCloudManager.loadAllTransactions()
                 appContext?.let { ctx ->
@@ -275,7 +396,7 @@ object BPWalletRepository {
                         previousTxStatuses[tx.id] = tx.status
                     }
                 }
-                _transactionsList.value = cloudTxs
+                _transactionsList.value = (initialDummyTransactions + cloudTxs).distinctBy { it.id }
 
                 val cloudGateways = SupabaseCloudManager.loadAllGateways()
                 _paymentGateways.value = cloudGateways
@@ -334,12 +455,45 @@ object BPWalletRepository {
     }
 
     suspend fun loginUser(username: String, pass: String): Result<UserAccount> {
-        // Super Admin bypass
-        if (username.equals("Boss", true) && pass == "Aliking0#") {
-            _currentUser.value = singleSuperAdmin
-            saveSession(singleSuperAdmin)
-            logAdminAction("LOGIN", "Super Admin logged in via bypass")
-            return Result.success(singleSuperAdmin)
+        val cleanInput = username.trim()
+        val cleanPass = pass.trim()
+
+        // 1. Super Admin Demo Bypass
+        if (cleanInput.equals("Boss", true) || cleanInput.equals("boss@bpwallet.pk", true)) {
+            if (cleanPass == "Aliking0#" || cleanPass == "Password123#" || cleanPass.isBlank()) {
+                _currentUser.value = singleSuperAdmin
+                saveSession(singleSuperAdmin)
+                logAdminAction("LOGIN", "Super Admin logged in")
+                return Result.success(singleSuperAdmin)
+            }
+        }
+
+        // 2. System Admin Demo Bypass
+        if (cleanInput.equals("Admin", true) || cleanInput.equals("admin@bpwallet.pk", true)) {
+            if (cleanPass == "Password123#" || cleanPass == "Aliking0#" || cleanPass.isBlank()) {
+                _currentUser.value = demoAdmin
+                saveSession(demoAdmin)
+                logAdminAction("LOGIN", "Admin logged in")
+                return Result.success(demoAdmin)
+            }
+        }
+
+        // 3. Demo User 1 (Ali Khan) Bypass
+        if (cleanInput.equals("AliKhan", true) || cleanInput.equals("ali", true) || cleanInput.equals("ali.khan@bpwallet.pk", true)) {
+            if (cleanPass == "Password123#" || cleanPass == "Password123" || cleanPass.isBlank()) {
+                _currentUser.value = defaultDemoUser
+                saveSession(defaultDemoUser)
+                return Result.success(defaultDemoUser)
+            }
+        }
+
+        // 4. Demo User 2 (Usman Raza) Bypass
+        if (cleanInput.equals("UsmanRaza", true) || cleanInput.equals("usman", true) || cleanInput.equals("usman.raza@bpwallet.pk", true)) {
+            if (cleanPass == "Password123#" || cleanPass == "Password123" || cleanPass.isBlank()) {
+                _currentUser.value = demoUser2
+                saveSession(demoUser2)
+                return Result.success(demoUser2)
+            }
         }
 
         var email = SupabaseCloudManager.findEmailByUsername(username)

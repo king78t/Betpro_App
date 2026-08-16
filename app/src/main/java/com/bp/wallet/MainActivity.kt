@@ -97,22 +97,6 @@ class MainActivity : FragmentActivity() {
         }
         
         handleDeepLinkIntent(intent)
-        
-        try {
-            // One-time Purge of Local Data for Migration/Clean Audit
-            val auditPrefs = getSharedPreferences("audit_reset", android.content.Context.MODE_PRIVATE)
-            val isResetDone = auditPrefs.getBoolean("v2_reset_done", false)
-            if (!isResetDone) {
-                // Clear standard session prefs
-                getSharedPreferences("bp_wallet_prefs", android.content.Context.MODE_PRIVATE).edit().clear().apply()
-                getSharedPreferences("bp_secure_prefs", android.content.Context.MODE_PRIVATE).edit().clear().apply()
-                
-                auditPrefs.edit().putBoolean("v2_reset_done", true).apply()
-                android.util.Log.i("MainActivity", "Completed One-Time Factory Reset for Audit")
-            }
-        } catch (e: Throwable) {
-            android.util.Log.e("MainActivity", "Error in reset check", e)
-        }
 
         enableEdgeToEdge()
         setContent {
@@ -241,6 +225,7 @@ fun BPWalletApp(
                 ScreenType.USER_WITHDRAW -> UserWithdrawScreen(viewModel = viewModel)
                 ScreenType.USER_HISTORY -> UserHistoryScreen(viewModel = viewModel)
                 ScreenType.USER_PROFILE -> UserProfileScreen(viewModel = viewModel)
+                ScreenType.USER_BETPRO -> UserBetProScreen(viewModel = viewModel)
                 ScreenType.ADMIN_DASHBOARD, ScreenType.ADMIN_LIVE_CONTROL -> AdminDashboardScreen(viewModel = viewModel)
                 ScreenType.ADMIN_USERS_CRM -> AdminUserManagementScreen(viewModel = viewModel)
                 ScreenType.ADMIN_DEPOSITS -> AdminDepositsScreen(viewModel = viewModel)

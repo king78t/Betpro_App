@@ -1,7 +1,6 @@
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
-  alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.roborazzi)
   alias(libs.plugins.secrets)
   alias(libs.plugins.kotlin.serialization)
@@ -107,13 +106,9 @@ dependencies {
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.lifecycle.viewmodel.ktx)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
-  implementation(libs.androidx.room.ktx)
-  implementation(libs.androidx.room.runtime)
   implementation(libs.coil.compose)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
-  implementation(libs.androidx.work.runtime.ktx)
-  implementation(libs.androidx.biometric)
   implementation(libs.androidx.security.crypto)
   implementation(libs.androidx.fragment.ktx)
   implementation(libs.lottie.compose)
@@ -126,7 +121,6 @@ dependencies {
   implementation(libs.supabase.storage)
   implementation(libs.ktor.client.okhttp)
   implementation(libs.kotlinx.serialization.json)
-  implementation("com.google.code.gson:gson:2.11.0")
   
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
@@ -140,5 +134,4 @@ dependencies {
   
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
-  "ksp"(libs.androidx.room.compiler)
 }

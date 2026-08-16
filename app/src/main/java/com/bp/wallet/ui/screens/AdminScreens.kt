@@ -863,36 +863,49 @@ fun AdminBottomNav(
     currentScreen: ScreenType,
     onNavigate: (ScreenType) -> Unit
 ) {
+    val navItemColors = NavigationBarItemDefaults.colors(
+        selectedIconColor = Color(0xFF00C853),
+        unselectedIconColor = Color(0xFF666666),
+        selectedTextColor = Color(0xFF00C853),
+        unselectedTextColor = Color(0xFF666666),
+        indicatorColor = Color(0xFF00C853).copy(alpha = 0.12f)
+    )
+
     NavigationBar(containerColor = Color.White, tonalElevation = 8.dp) {
         NavigationBarItem(
             selected = currentScreen == ScreenType.ADMIN_DASHBOARD,
             onClick = { onNavigate(ScreenType.ADMIN_DASHBOARD) },
             icon = { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") },
-            label = { Text("Dashboard") }
+            label = { Text("Dashboard") },
+            colors = navItemColors
         )
         NavigationBarItem(
             selected = currentScreen == ScreenType.ADMIN_USERS_CRM,
             onClick = { onNavigate(ScreenType.ADMIN_USERS_CRM) },
             icon = { Icon(Icons.Default.People, contentDescription = "Users") },
-            label = { Text("Users") }
+            label = { Text("Users") },
+            colors = navItemColors
         )
         NavigationBarItem(
             selected = currentScreen == ScreenType.ADMIN_DEPOSITS,
             onClick = { onNavigate(ScreenType.ADMIN_DEPOSITS) },
             icon = { Icon(Icons.Default.ArrowDownward, contentDescription = "Deposits") },
-            label = { Text("Deposits") }
+            label = { Text("Deposits") },
+            colors = navItemColors
         )
         NavigationBarItem(
             selected = currentScreen == ScreenType.ADMIN_WITHDRAWALS,
             onClick = { onNavigate(ScreenType.ADMIN_WITHDRAWALS) },
             icon = { Icon(Icons.Default.ArrowUpward, contentDescription = "Withdrawals") },
-            label = { Text("Withdrawals") }
+            label = { Text("Withdrawals") },
+            colors = navItemColors
         )
         NavigationBarItem(
             selected = currentScreen == ScreenType.ADMIN_SETTINGS,
             onClick = { onNavigate(ScreenType.ADMIN_SETTINGS) },
             icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-            label = { Text("Settings") }
+            label = { Text("Settings") },
+            colors = navItemColors
         )
     }
 }
